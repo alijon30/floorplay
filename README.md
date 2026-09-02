@@ -36,7 +36,9 @@ All coordinates are integer centimeters from the room's top-left corner, items a
 
 Read-only tools: `get_room`, `get_catalog`, `evaluate_layout`, `get_daylight`, `get_ledger`.
 
-Mutating tools: `set_room_shell`, `add_opening`, `remove_opening`, `set_brief`, `place_item`, `move_item`, `rotate_item`, `remove_item`, `swap_item`, `set_item_locked`, `add_catalog_item`, `propose_layout`, `apply_proposal`, `withdraw_proposal`, `apply_all_proposals`, `set_daylight_hour`, `set_camera`, `undo_last_action`.
+Mutating tools: `set_room_shell`, `add_opening`, `remove_opening`, `set_brief`, `place_item`, `move_item`, `rotate_item`, `remove_item`, `swap_item`, `set_item_locked`, `add_catalog_item`, `propose_layout`, `apply_proposal`, `withdraw_proposal`, `apply_all_proposals`, `set_daylight_hour`, `set_camera`, `undo_last_action`, `run_layout_script`.
+
+`run_layout_script` runs a small algorithm the agent writes, in a sandboxed Web Worker with no DOM access, and turns the returned placements into a proposal.
 
 Tools that appear only while the page is in a matching state:
 
