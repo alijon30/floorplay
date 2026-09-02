@@ -14,6 +14,8 @@ export interface UiState {
   selectedItemId: string | null;
   hoveredProposalId: string | null;
   proposeFirst: boolean;
+  /** Set once the human closes the first-run card; persisted so it stays closed. */
+  onboardingDismissed: boolean;
   catalogOpen: boolean;
   catalogFilter: { category?: Category; fitsItemId?: string } | null;
   camera: CameraPose;
@@ -42,6 +44,7 @@ export interface RoomState {
   select(id: string | null): void;
   hoverProposal(id: string | null): void;
   setProposeFirst(v: boolean): void;
+  dismissOnboarding(): void;
   setCatalogOpen(open: boolean, filter?: UiState['catalogFilter']): void;
   setCamera(pose: Partial<CameraPose>): void;
   setDaylightHour(hour: number): void;
@@ -65,6 +68,7 @@ const defaultUi = (): UiState => ({
   selectedItemId: null,
   hoveredProposalId: null,
   proposeFirst: false,
+  onboardingDismissed: false,
   catalogOpen: false,
   catalogFilter: null,
   camera: { mode: 'orbit', x: 180, y: 260, z: 160, yaw: 0, pitch: 0 },
@@ -166,6 +170,7 @@ export function createRoomStore(opts: { storage?: StateStorage; debounceMs?: num
       select(id) { set((s) => ({ ui: { ...s.ui, selectedItemId: id } })); },
       hoverProposal(id) { set((s) => ({ ui: { ...s.ui, hoveredProposalId: id } })); },
       setProposeFirst(v) { set((s) => ({ ui: { ...s.ui, proposeFirst: v } })); },
+      dismissOnboarding() { set((s) => ({ ui: { ...s.ui, onboardingDismissed: true } })); },
       setCatalogOpen(open, filter = null) { set((s) => ({ ui: { ...s.ui, catalogOpen: open, catalogFilter: filter } })); },
       setCamera(pose) { set((s) => ({ ui: { ...s.ui, camera: { ...s.ui.camera, ...pose } } })); },
 
@@ -232,7 +237,7 @@ export function createRoomStore(opts: { storage?: StateStorage; debounceMs?: num
     persist(initializer, {
       name: STORAGE_KEY,
       storage: storage as unknown as PersistStorage<RoomState>,
-      partialize: (s) => ({ rooms: s.rooms, currentId: s.currentId, ui: { proposeFirst: s.ui.proposeFirst } }) as unknown as RoomState,
+      partialize: (s) => ({ rooms: s.rooms, currentId: s.currentId, ui: { proposeFirst: s.ui.proposeFirst, onboardingDismissed: s.ui.onboardingDismissed } }) as unknown as RoomState,
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<RoomState> & { ui?: Partial<UiState> };
         const rooms = p.rooms && Object.keys(p.rooms).length ? p.rooms : current.rooms;

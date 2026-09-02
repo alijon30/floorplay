@@ -155,6 +155,21 @@ describe('roomStore', () => {
     }
   });
 
+  it('persists the onboarding dismissal', () => {
+    vi.useFakeTimers();
+    try {
+      const storage = memoryStorage();
+      const a = createRoomStore({ storage });
+      expect(a.getState().ui.onboardingDismissed).toBe(false);
+      a.getState().dismissOnboarding();
+      vi.advanceTimersByTime(300);
+      const b = createRoomStore({ storage });
+      expect(b.getState().ui.onboardingDismissed).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('survives corrupt persisted JSON', () => {
     const storage = memoryStorage();
     storage.setItem(STORAGE_KEY, '{not json');

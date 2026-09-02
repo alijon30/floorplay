@@ -50,10 +50,19 @@ async function main() {
   try {
     await page.goto(url, { waitUntil: 'load' });
 
-    // 1. initial paint
+    // Start from a fresh profile so the first screenshot shows what a first-time visitor sees.
+    await page.evaluate(() => localStorage.clear());
+    await page.reload({ waitUntil: 'load' });
+
+    // 1. initial paint, with the onboarding card
     await page.getByText('Floorplay', { exact: true }).first().waitFor({ timeout: 20_000 });
+    await page.getByRole('heading', { name: 'Design a room with ChatGPT on the same plan' }).waitFor({ timeout: 20_000 });
     await settle(1200); // let the WebGL canvas draw its first frames
     await shot('initial');
+
+    // dismiss the card into the demo studio
+    await page.getByRole('button', { name: 'Load the demo studio' }).click();
+    await settle(600);
 
     // 2. two competing layout proposals from the agent
     await tool('propose_layout', {
@@ -123,6 +132,13 @@ async function main() {
     await settle();
     await shot('dev-panel');
     await page.keyboard.press('Control+Shift+D');
+    await settle();
+
+    // 11. help popover
+    await page.getByRole('button', { name: 'Help', exact: true }).click();
+    await settle();
+    await shot('help');
+    await page.keyboard.press('Escape');
     await settle();
 
     const toolCount = await page.evaluate(() => globalThis.__floorplayFakeMC.getTools().length);
