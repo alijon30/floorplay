@@ -3,8 +3,9 @@ import { createRoomStore } from '../../store/roomStore';
 import { buildReadTools } from '../tools/readTools';
 import { placementsToOps } from '../tools/placements';
 import { parseResult } from '../results';
-import { placeTest } from '../../engine/validate';
-import type { CatalogItem } from '../../engine/types';
+import { itemViolations, placeTest } from '../../engine/validate';
+import { BLOCKING_KINDS } from '../../engine/nearest';
+import type { CatalogItem, Rotation } from '../../engine/types';
 
 function setup() {
   const store = createRoomStore();
@@ -75,6 +76,33 @@ describe('read tools', () => {
     expect(r.hour).toBe(9);
     expect(r.items[0]!.id).toBe('desk');
     expect(r.bestSpots.morning.length).toBeGreaterThan(0);
+  });
+
+  it('suggest_positions returns valid, ranked placements', async () => {
+    const { store, tools } = setup();
+    const tool = tools['suggest_positions']!;
+    expect(tool.annotations).toMatchObject({ readOnlyHint: true });
+    expect(tool.description).toContain('before place_item');
+
+    const r = parseResult(await tool.execute({ catalogId: 'bed-queen-160' })) as {
+      catalogId: string;
+      suggestions: { x: number; y: number; rotation: Rotation; reason: string; light: number; score: number }[];
+    };
+    expect(r.catalogId).toBe('bed-queen-160');
+    expect(r.suggestions).toHaveLength(5);
+    const room = store.getState().current();
+    for (const s of r.suggestions) {
+      expect(s.reason.length).toBeGreaterThan(0);
+      const probe = placeTest(room, 'bed-queen-160', s.x, s.y, s.rotation, '__suggestion');
+      expect(itemViolations(room, probe).filter((v) => BLOCKING_KINDS.has(v.kind))).toEqual([]);
+    }
+    const scores = r.suggestions.map((s) => s.score);
+    expect(scores).toEqual([...scores].sort((a, b) => b - a));
+
+    const few = parseResult(await tool.execute({ catalogId: 'bed-queen-160', near: 'window', count: 2, hour: 16 })) as { suggestions: unknown[] };
+    expect(few.suggestions).toHaveLength(2);
+
+    expect(parseResult(await tool.execute({ catalogId: 'nope' }))).toMatchObject({ ok: false, error: 'invalid_input', hint: 'Unknown catalogId; call get_catalog' });
   });
 
   it('get_ledger lists recent entries', async () => {

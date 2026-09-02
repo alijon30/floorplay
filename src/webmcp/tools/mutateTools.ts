@@ -5,11 +5,12 @@ import { COORDS_NOTE, boolProp, categoryProp, cm, idProp, intProp, numProp, plac
 import type { ToolContext } from './context';
 import { itemsSummary, shortMetrics, shortViolations } from './context';
 import { placementsToOps, type Placement } from './placements';
-import type { Category, Clearance, Op, Rotation, Shape, Wall } from '../../engine/types';
+import type { Category, Clearance, Op, PlacedItem, Room, Rotation, Shape, Wall } from '../../engine/types';
 import { findCatalogItem } from '../../engine/catalog';
 import { newId } from '../../engine/ids';
 import { itemViolations } from '../../engine/validate';
 import { BLOCKING_KINDS, nearestValid } from '../../engine/nearest';
+import { snapToWall } from '../../engine/anchors';
 import { describeOps } from '../../engine/ops';
 import { metricsDelta } from '../../engine/metrics';
 import { CAMERA_PRESETS, cameraPreset, itemsInView, type CameraPreset } from '../../engine/camera';
@@ -22,7 +23,8 @@ import { CAMERA_PRESETS, cameraPreset, itemsInView, type CameraPreset } from '..
  * every result carries `status`, `violations` and `metrics`. Applied results also carry
  * `items` and `ledgerId`; proposed results also carry `proposalId` and `delta`. On a
  * proposed result `violations` and `metrics` describe the room as it *would* be if the
- * user accepted, not the room as it stands.
+ * user accepted, not the room as it stands. Individual tools may add keys on top of that
+ * (`place_item` and `move_item` add `snapped`, and `wall` when it is true).
  */
 export function mutate(ctx: ToolContext, args: { tool: string; ops: Op[]; summary?: string; label?: string; proposable: boolean }): ToolResult {
   const s = ctx.store.getState();
@@ -55,6 +57,30 @@ function withSuggestion(result: ToolResult, ctx: ToolContext, itemId: string): T
   if (blocking.length === 0) return result;
   const near = nearestValid(room, item.catalogId, item.x, item.y, item.rotation, item.id);
   return ok({ ...payload, suggestion: near ? { ...near, note: `Placement has issues: ${blocking.map((b) => b.message).join('; ')}. Nearest clear position is (${near.x}, ${near.y}).` } : { note: 'No clear position within 200 cm; consider a smaller item or a different rotation.' } });
+}
+
+/** Extra keys on a successful mutating result, added the way `withSuggestion` adds its own. */
+function withExtras(result: ToolResult, extra: Record<string, unknown>): ToolResult {
+  const payload = JSON.parse(result.content[0]!.text) as Record<string, unknown>;
+  if (payload['ok'] !== true) return result;
+  return ok({ ...payload, ...extra });
+}
+
+/**
+ * The wall snap that `place_item` and `move_item` apply to the position they were given.
+ *
+ * `snapToWall` only makes the axis facing the nearest wall flush and leaves the other one alone,
+ * so a snap can turn a wall-backed item sideways and push its far end through another wall. The
+ * snap is therefore taken only when the snapped placement stays inside the room; otherwise the
+ * caller's own x, y and rotation stand and the result reports `snapped: false`.
+ */
+function snapPlacement(room: Room, catalogId: string, x: number, y: number, rotation: Rotation): { x: number; y: number; rotation: Rotation; snapped: boolean; wall?: Wall } {
+  const s = snapToWall(room, catalogId, x, y, rotation);
+  if (!s.snapped) return { x, y, rotation, snapped: false };
+  const probe: PlacedItem = { id: '__snap_probe', catalogId, x: s.x, y: s.y, rotation: s.rotation, locked: false };
+  // Only the room bounds decide this, so the probe is checked against no other items.
+  if (itemViolations(room, probe, []).some((v) => v.kind === 'out_of_bounds')) return { x, y, rotation, snapped: false };
+  return s;
 }
 
 const DEFAULT_CLEARANCE: Record<Category, Clearance> = {
@@ -111,24 +137,28 @@ export function buildMutateTools(ctx: ToolContext): ToolDef[] {
     },
     {
       name: 'place_item',
-      description: `Place one catalog item by its center. Applies immediately (unless propose-first mode is on) and reports any violations plus the nearest clear position. ${COORDS_NOTE}`,
+      description: `Place one catalog item by its center. Applies immediately (unless propose-first mode is on) and reports any violations plus the nearest clear position. Prefer suggest_positions for beds, desks, sofas, wardrobes and shelves. Positions within 15 cm of a wall are snapped flush and wall furniture is turned to face the room; the result reports snapped: true. ${COORDS_NOTE}`,
       inputSchema: { type: 'object', properties: { catalogId: idProp('Catalog id from get_catalog'), x: cm('Center x'), y: cm('Center y'), rotation: rotationProp }, required: ['catalogId', 'x', 'y'] },
       execute: (i) => {
         const catalogId = i['catalogId'] as string;
         if (!findCatalogItem(room(), catalogId)) return fail('invalid_input', `Unknown catalogId ${catalogId}; call get_catalog`);
-        const item = { id: newId('item'), catalogId, x: num(i, 'x'), y: num(i, 'y'), rotation: ((i['rotation'] as Rotation | undefined) ?? 0), locked: false };
-        return withSuggestion(mutate(ctx, { tool: 'place_item', proposable: true, ops: [{ type: 'place', item }] }), ctx, item.id);
+        const snap = snapPlacement(room(), catalogId, num(i, 'x'), num(i, 'y'), (i['rotation'] as Rotation | undefined) ?? 0);
+        const item = { id: newId('item'), catalogId, x: snap.x, y: snap.y, rotation: snap.rotation, locked: false };
+        const r = withSuggestion(mutate(ctx, { tool: 'place_item', proposable: true, ops: [{ type: 'place', item }] }), ctx, item.id);
+        return withExtras(r, { snapped: snap.snapped, ...(snap.wall ? { wall: snap.wall } : {}) });
       },
     },
     {
       name: 'move_item',
-      description: `Move an existing item to a new center, optionally rotating it. Locked items cannot be moved. ${COORDS_NOTE}`,
+      description: `Move an existing item to a new center, optionally rotating it. Locked items cannot be moved. Prefer suggest_positions for beds, desks, sofas, wardrobes and shelves. Positions within 15 cm of a wall are snapped flush and wall furniture is turned to face the room; the result reports snapped: true. ${COORDS_NOTE}`,
       inputSchema: { type: 'object', properties: { id: idProp('Item id'), x: cm('Center x'), y: cm('Center y'), rotation: rotationProp }, required: ['id', 'x', 'y'] },
       execute: (i) => {
         const id = i['id'] as string;
         const cur = room().items.find((x) => x.id === id);
         if (!cur) return fail('not_found', 'Call get_room for current ids');
-        return withSuggestion(mutate(ctx, { tool: 'move_item', proposable: true, ops: [{ type: 'move', id, x: num(i, 'x'), y: num(i, 'y'), rotation: (i['rotation'] as Rotation | undefined) ?? cur.rotation }] }), ctx, id);
+        const snap = snapPlacement(room(), cur.catalogId, num(i, 'x'), num(i, 'y'), (i['rotation'] as Rotation | undefined) ?? cur.rotation);
+        const r = withSuggestion(mutate(ctx, { tool: 'move_item', proposable: true, ops: [{ type: 'move', id, x: snap.x, y: snap.y, rotation: snap.rotation }] }), ctx, id);
+        return withExtras(r, { snapped: snap.snapped, ...(snap.wall ? { wall: snap.wall } : {}) });
       },
     },
     {
@@ -140,6 +170,25 @@ export function buildMutateTools(ctx: ToolContext): ToolDef[] {
         const cur = room().items.find((x) => x.id === id);
         if (!cur) return fail('not_found', 'Call get_room for current ids');
         return withSuggestion(mutate(ctx, { tool: 'rotate_item', proposable: true, ops: [{ type: 'move', id, x: cur.x, y: cur.y, rotation: i['rotation'] as Rotation }] }), ctx, id);
+      },
+    },
+    {
+      name: 'fix_item',
+      description: 'Move one item to the nearest position that clears its blocking violations, keeping its rotation. Use it when place_item or move_item reports an overlap, a blocked door or window, or too little clearance.',
+      inputSchema: { type: 'object', properties: { id: idProp('Item id') }, required: ['id'] },
+      execute: (i) => {
+        const id = i['id'] as string;
+        const r = room();
+        const cur = r.items.find((x) => x.id === id);
+        if (!cur) return fail('not_found', 'Call get_room for current ids');
+        const near = nearestValid(r, cur.catalogId, cur.x, cur.y, cur.rotation, cur.id);
+        if (!near) return fail('no_clear_spot', 'No clear position within 200 cm; try a smaller item or another rotation');
+        if (near.x === cur.x && near.y === cur.y) return fail('already_clear', 'Item has no blocking violations');
+        const name = findCatalogItem(r, cur.catalogId)?.name ?? cur.catalogId;
+        return mutate(ctx, {
+          tool: 'fix_item', proposable: true, summary: `Moved ${name} to the nearest clear spot`,
+          ops: [{ type: 'move', id, x: near.x, y: near.y, rotation: cur.rotation }],
+        });
       },
     },
     {

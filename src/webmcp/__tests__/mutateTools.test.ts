@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { createRoomStore } from '../../store/roomStore';
 import { buildMutateTools } from '../tools/mutateTools';
 import { parseResult } from '../results';
-import { placeTest } from '../../engine/validate';
+import { itemViolations, placeTest } from '../../engine/validate';
+import { BLOCKING_KINDS } from '../../engine/nearest';
 
 function setup() {
   const store = createRoomStore();
@@ -13,7 +14,7 @@ function setup() {
 describe('mutating tools', () => {
   it('exposes the documented tool names', () => {
     const { tools } = setup();
-    expect(Object.keys(tools).sort()).toEqual(['add_catalog_item', 'add_opening', 'move_item', 'place_item', 'propose_layout', 'remove_item', 'remove_opening', 'rotate_item', 'set_brief', 'set_camera', 'set_daylight_hour', 'set_item_locked', 'set_room_shell', 'swap_item', 'undo_last_action']);
+    expect(Object.keys(tools).sort()).toEqual(['add_catalog_item', 'add_opening', 'fix_item', 'move_item', 'place_item', 'propose_layout', 'remove_item', 'remove_opening', 'rotate_item', 'set_brief', 'set_camera', 'set_daylight_hour', 'set_item_locked', 'set_room_shell', 'swap_item', 'undo_last_action']);
     expect(tools['place_item']!.annotations).toBeUndefined();
   });
 
@@ -57,6 +58,67 @@ describe('mutating tools', () => {
     expect(await run('set_item_locked', { id: 'd', locked: false })).toMatchObject({ ok: true });
     expect(await run('remove_item', { id: 'd' })).toMatchObject({ ok: true });
     expect(await run('remove_item', { id: 'd' })).toMatchObject({ ok: false, error: 'not_found' });
+  });
+
+  it('fix_item moves a blocked item to the nearest clear spot', async () => {
+    const { store, run, tools } = setup();
+    const room = store.getState().current();
+    store.getState().dispatch({
+      ops: [
+        { type: 'place', item: placeTest(room, 'desk-120', 60, 30, 0, 'a') },
+        { type: 'place', item: placeTest(room, 'desk-120', 100, 30, 0, 'b') },
+      ],
+      actor: 'human',
+    });
+    expect(tools['fix_item']!.annotations).toBeUndefined();
+    const before = store.getState().current().items.find((i) => i.id === 'b')!;
+    const r = await run('fix_item', { id: 'b' });
+    expect(r).toMatchObject({ ok: true, status: 'applied' });
+    const after = store.getState().current().items.find((i) => i.id === 'b')!;
+    expect(after.x !== before.x || after.y !== before.y).toBe(true);
+    expect(after.rotation).toBe(before.rotation);
+    expect(itemViolations(store.getState().current(), after).filter((v) => BLOCKING_KINDS.has(v.kind))).toEqual([]);
+    const ledger = store.getState().current().ledger;
+    expect(ledger[ledger.length - 1]).toMatchObject({ actor: 'agent', tool: 'fix_item', summary: 'Moved Desk 120 to the nearest clear spot' });
+
+    expect(await run('fix_item', { id: 'b' })).toMatchObject({ ok: false, error: 'already_clear', hint: 'Item has no blocking violations' });
+    expect(store.getState().current().ledger).toHaveLength(2);
+    expect(await run('fix_item', { id: 'zz' })).toMatchObject({ ok: false, error: 'not_found' });
+  });
+
+  it('place_item and move_item snap a position within 15 cm of a wall', async () => {
+    const { store, run } = setup();
+    const placed = await run('place_item', { catalogId: 'desk-120', x: 100, y: 42, rotation: 90 });
+    expect(placed).toMatchObject({ ok: true, status: 'applied', snapped: true, wall: 'top' });
+    const desk = store.getState().current().items[0]!;
+    expect(desk).toMatchObject({ x: 100, y: 30, rotation: 0 });
+
+    const moved = await run('move_item', { id: desk.id, x: 200, y: 44, rotation: 90 });
+    expect(moved).toMatchObject({ ok: true, status: 'applied', snapped: true, wall: 'top' });
+    expect(store.getState().current().items[0]).toMatchObject({ x: 200, y: 30, rotation: 0 });
+
+    const away = await run('move_item', { id: desk.id, x: 180, y: 260 });
+    expect(away).toMatchObject({ ok: true, snapped: false });
+    expect(away).not.toHaveProperty('wall');
+    expect(store.getState().current().items[0]).toMatchObject({ x: 180, y: 260 });
+  });
+
+  it('reports snapping in propose-first mode as well', async () => {
+    const { store, run } = setup();
+    store.getState().setProposeFirst(true);
+    const r = await run('place_item', { catalogId: 'desk-120', x: 100, y: 42, rotation: 90 });
+    expect(r).toMatchObject({ ok: true, status: 'proposed', snapped: true, wall: 'top' });
+    expect(typeof r['proposalId']).toBe('string');
+    const op = store.getState().current().proposals[0]!.ops[0]!;
+    expect(op).toMatchObject({ type: 'place', item: { x: 100, y: 30, rotation: 0 } });
+  });
+
+  it('keeps the caller position when the snapped one would leave the room', async () => {
+    const { store, run } = setup();
+    const r = await run('place_item', { catalogId: 'desk-120', x: 30, y: 42 });
+    expect(r).toMatchObject({ ok: true, snapped: false });
+    expect(r).not.toHaveProperty('wall');
+    expect(store.getState().current().items[0]).toMatchObject({ x: 30, y: 42, rotation: 0 });
   });
 
   it('shell, openings, brief and catalog additions', async () => {

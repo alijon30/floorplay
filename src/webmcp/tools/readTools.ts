@@ -1,7 +1,7 @@
 // src/webmcp/tools/readTools.ts
 import type { ToolDef } from '../registry';
 import { ok, fail } from '../results';
-import { COORDS_NOTE, categoryProp, cm, intProp, numProp, placementSchema, strProp } from '../schemas';
+import { COORDS_NOTE, categoryProp, cm, idProp, intProp, numProp, placementSchema, strProp } from '../schemas';
 import type { ToolContext } from './context';
 import { catalogEntry, roomSummary, shortMetrics, shortViolations } from './context';
 import { placementsToOps, type Placement } from './placements';
@@ -9,6 +9,7 @@ import { catalogFor, findCatalogItem } from '../../engine/catalog';
 import { evaluateOps } from '../../engine/evaluate';
 import { metricsDelta } from '../../engine/metrics';
 import { bestSpots, computeDaylight, sunAzimuth } from '../../engine/daylight';
+import { suggestPositions, type Near } from '../../engine/anchors';
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -45,6 +46,32 @@ export function buildReadTools(ctx: ToolContext): ToolDef[] {
           .sort((a, b) => a.price - b.price);
         const items = matches.slice(0, CATALOG_PAGE).map(catalogEntry);
         return ok({ count: matches.length, truncated: matches.length > CATALOG_PAGE, items });
+      },
+    },
+    {
+      name: 'suggest_positions',
+      description: `Best positions for a catalog item given the room, walls, door, window and daylight. Call this before place_item for beds, desks, sofas, wardrobes and shelves. Each suggestion is a valid placement with a reason and a score. ${COORDS_NOTE}`,
+      inputSchema: {
+        type: 'object',
+        properties: {
+          catalogId: idProp('Catalog id from get_catalog'),
+          near: { type: 'string', description: 'Prefer positions close to this feature', enum: ['window', 'door', 'corner', 'any'] },
+          count: intProp('How many suggestions to return, default 5', 1, 10),
+          hour: intProp('Hour of day used for the light score, 6 to 20. Defaults to 9', 6, 20),
+        },
+        required: ['catalogId'],
+      },
+      annotations: { readOnlyHint: true },
+      execute: (input) => {
+        const room = state().current();
+        const catalogId = input['catalogId'] as string;
+        if (!findCatalogItem(room, catalogId)) return fail('invalid_input', 'Unknown catalogId; call get_catalog');
+        const suggestions = suggestPositions(room, catalogId, {
+          ...(input['near'] !== undefined ? { near: input['near'] as Near } : {}),
+          ...(input['count'] !== undefined ? { count: input['count'] as number } : {}),
+          ...(input['hour'] !== undefined ? { hour: input['hour'] as number } : {}),
+        });
+        return ok({ catalogId, suggestions });
       },
     },
     {
