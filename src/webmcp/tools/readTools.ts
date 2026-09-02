@@ -1,7 +1,7 @@
 // src/webmcp/tools/readTools.ts
 import type { ToolDef } from '../registry';
 import { ok, fail } from '../results';
-import { COORDS_NOTE, categoryProp, cm, idProp, intProp, numProp, placementSchema, strProp } from '../schemas';
+import { COORDS_NOTE, categoryProp, cm, idProp, intProp, numProp, placementSchema, roomKindProp, strProp } from '../schemas';
 import type { ToolContext } from './context';
 import { catalogEntry, roomSummary, shortMetrics, shortViolations } from './context';
 import { placementsToOps, type Placement } from './placements';
@@ -10,6 +10,9 @@ import { evaluateOps } from '../../engine/evaluate';
 import { metricsDelta } from '../../engine/metrics';
 import { bestSpots, computeDaylight, sunAzimuth } from '../../engine/daylight';
 import { suggestPositions, type Near } from '../../engine/anchors';
+import { TEMPLATES } from '../../engine/templates';
+import { suggestPalettes } from '../../engine/palette';
+import type { RoomKind } from '../../engine/types';
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -28,10 +31,10 @@ export function buildReadTools(ctx: ToolContext): ToolDef[] {
     },
     {
       name: 'get_catalog',
-      description: 'List furniture available to place, with dimensions in cm, price in USD and clearance rules. Filter by category, maximum footprint, maximum price or a name query. Items added with add_catalog_item are included. Returns at most 60 items, cheapest first; narrow the filters if `truncated` is true.',
+      description: 'List furniture available to place, with dimensions in cm, price in USD, clearance rules, the room kinds each item suits, its alternative `colors` and, for wall-mounted things, the `mountHeight` it hangs at. Filter by category, room kind, maximum footprint, maximum price or a name query. Items added with add_catalog_item are included. Returns at most 60 items, cheapest first; narrow the filters if `truncated` is true.',
       inputSchema: {
         type: 'object',
-        properties: { category: categoryProp, maxWidth: cm('Maximum width'), maxDepth: cm('Maximum depth'), maxPrice: numProp('Maximum price in USD'), query: strProp('Case-insensitive substring of the name or category') },
+        properties: { category: categoryProp, room: roomKindProp, maxWidth: cm('Maximum width'), maxDepth: cm('Maximum depth'), maxPrice: numProp('Maximum price in USD'), query: strProp('Case-insensitive substring of the name or category') },
       },
       annotations: { readOnlyHint: true, untrustedContentHint: true },
       execute: (input) => {
@@ -39,6 +42,7 @@ export function buildReadTools(ctx: ToolContext): ToolDef[] {
         const q = typeof input['query'] === 'string' ? (input['query'] as string).toLowerCase() : null;
         const matches = catalogFor(room)
           .filter((c) => !input['category'] || c.category === input['category'])
+          .filter((c) => !input['room'] || c.rooms.includes(input['room'] as RoomKind))
           .filter((c) => input['maxWidth'] === undefined || c.width <= (input['maxWidth'] as number))
           .filter((c) => input['maxDepth'] === undefined || c.depth <= (input['maxDepth'] as number))
           .filter((c) => input['maxPrice'] === undefined || c.price <= (input['maxPrice'] as number))
@@ -101,6 +105,25 @@ export function buildReadTools(ctx: ToolContext): ToolDef[] {
         const items = room.items.map((i) => ({ id: i.id, name: findCatalogItem(room, i.catalogId)?.name ?? i.catalogId, light: round2(d.lightByItem[i.id] ?? 0) }));
         return ok({ hour, sunAzimuth: sunAzimuth(hour), items, bestSpots: { morning: bestSpots(room, 9, 5), afternoon: bestSpots(room, 16, 5) } });
       },
+    },
+    {
+      name: 'list_templates',
+      description: 'Ready-made rooms you can start from, with their key, dimensions, item count and budget. Call this before load_template to learn the keys.',
+      inputSchema: { type: 'object', properties: {} },
+      annotations: { readOnlyHint: true },
+      execute: () => ok({
+        templates: TEMPLATES.map((t) => ({
+          key: t.key, name: t.name, blurb: t.blurb, width: t.width, depth: t.depth, height: t.height,
+          items: t.items.length, budget: t.brief.budget,
+        })),
+      }),
+    },
+    {
+      name: 'suggest_palette',
+      description: 'Three color schemes for the current room, warm, cool and neutral, derived from what is already in it. Each returns a wall color, a floor finish, three accent tones and the exact set_item_color changes that would carry it out. Use it when the user asks how the room could look, then apply one with set_finish and set_item_color.',
+      inputSchema: { type: 'object', properties: {} },
+      annotations: { readOnlyHint: true },
+      execute: () => ok({ palettes: suggestPalettes(state().current()) }),
     },
     {
       name: 'get_ledger',

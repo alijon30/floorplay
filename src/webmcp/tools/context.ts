@@ -30,7 +30,14 @@ export function itemsSummary(room: Room, analysis: Analysis) {
 }
 
 export function catalogEntry(c: CatalogItem) {
-  return { id: c.id, name: c.name, category: c.category, width: c.width, depth: c.depth, height: c.height, price: c.price, clearance: c.clearance, blocksLight: c.blocksLight, source: c.source, ...(c.url ? { url: c.url } : {}) };
+  return {
+    id: c.id, name: c.name, category: c.category, width: c.width, depth: c.depth, height: c.height, price: c.price,
+    clearance: c.clearance, blocksLight: c.blocksLight, source: c.source, rooms: c.rooms,
+    ...(c.colors ? { colors: c.colors } : {}),
+    // Present only on wall-mounted items, where it is also the signal that the item hangs.
+    ...(c.mountHeight !== undefined ? { mountHeight: c.mountHeight } : {}),
+    ...(c.url ? { url: c.url } : {}),
+  };
 }
 
 export function roomSummary(store: RoomStore) {

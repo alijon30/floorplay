@@ -15,6 +15,14 @@ export function parseResult(r: ToolResult): Record<string, unknown> {
 export interface JsonSchemaProp {
   type: 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object';
   description?: string;
+  /**
+   * Allow an explicit `null` alongside `type`.
+   *
+   * Needed by tools where clearing a value is a real choice rather than an omission, such as
+   * `set_item_color` dropping a color override. Hosts that validate the schema themselves ignore
+   * the keyword, and omitting the property entirely stays equivalent to passing null.
+   */
+  nullable?: boolean;
   enum?: (string | number)[];
   items?: JsonSchemaProp;
   properties?: Record<string, JsonSchemaProp>;
@@ -31,6 +39,7 @@ export interface JsonSchema {
 }
 
 function checkValue(path: string, prop: JsonSchemaProp, v: unknown, errors: string[]): void {
+  if (v === null && prop.nullable) return;
   switch (prop.type) {
     case 'string': if (typeof v !== 'string') { errors.push(`${path}: expected string`); return; } break;
     case 'boolean': if (typeof v !== 'boolean') { errors.push(`${path}: expected boolean`); return; } break;

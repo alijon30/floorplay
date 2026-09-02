@@ -1,12 +1,13 @@
 // src/store/roomStore.ts
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import { persist, type PersistStorage, type StateStorage } from 'zustand/middleware';
-import type { Analysis, CameraPose, Category, LedgerEntry, Op, Proposal, Room, Wall } from '../engine/types';
+import type { Analysis, CameraPose, Category, LedgerEntry, Op, Proposal, Room, RoomKind, Wall } from '../engine/types';
 import { DEFAULT_FINISH, ROOM_KINDS } from '../engine/types';
 import { analyze } from '../engine/analyze';
 import { applyOps, describeOps } from '../engine/ops';
 import { evaluateOps } from '../engine/evaluate';
 import { makeDemoRoom, makeEmptyRoom } from '../engine/rooms';
+import { buildTemplateRoom } from '../engine/templates';
 import { newId } from '../engine/ids';
 import { STORAGE_KEY } from '../config';
 import { createDebouncedStorage } from './persistence';
@@ -53,6 +54,8 @@ export interface RoomState {
   renameRoom(name: string): void;
   createRoom(input: { name: string; width: number; depth: number; height: number }): Room;
   loadDemo(): Room;
+  /** Create a room from a ready-made template and switch to it. */
+  loadTemplate(key: RoomKind, name?: string): Room;
   switchRoom(id: string): void;
   deleteRoom(id: string): void;
 }
@@ -206,6 +209,11 @@ export function createRoomStore(opts: { storage?: StateStorage; debounceMs?: num
       },
       loadDemo() {
         const room = makeDemoRoom();
+        set((s) => ({ rooms: { ...s.rooms, [room.id]: room }, currentId: room.id, analysis: analyze(room), ui: { ...s.ui, selectedItemId: null, hoveredProposalId: null } }));
+        return room;
+      },
+      loadTemplate(key, name) {
+        const room = buildTemplateRoom(key, name);
         set((s) => ({ rooms: { ...s.rooms, [room.id]: room }, currentId: room.id, analysis: analyze(room), ui: { ...s.ui, selectedItemId: null, hoveredProposalId: null } }));
         return room;
       },

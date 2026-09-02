@@ -14,7 +14,7 @@ function setup() {
 describe('mutating tools', () => {
   it('exposes the documented tool names', () => {
     const { tools } = setup();
-    expect(Object.keys(tools).sort()).toEqual(['add_catalog_item', 'add_opening', 'fix_item', 'move_item', 'place_item', 'propose_layout', 'remove_item', 'remove_opening', 'rotate_item', 'set_brief', 'set_camera', 'set_daylight_hour', 'set_item_locked', 'set_room_shell', 'swap_item', 'undo_last_action']);
+    expect(Object.keys(tools).sort()).toEqual(['add_catalog_item', 'add_opening', 'fix_item', 'load_template', 'move_item', 'place_item', 'propose_layout', 'remove_item', 'remove_opening', 'rotate_item', 'set_brief', 'set_camera', 'set_daylight_hour', 'set_finish', 'set_item_color', 'set_item_locked', 'set_room_shell', 'swap_item', 'undo_last_action']);
     expect(tools['place_item']!.annotations).toBeUndefined();
   });
 

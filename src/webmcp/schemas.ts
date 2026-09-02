@@ -1,5 +1,5 @@
 import type { JsonSchemaProp } from './results';
-import { CATEGORIES, ROTATIONS, WALLS } from '../engine/types';
+import { CATEGORIES, FLOOR_FINISHES, ROOM_KINDS, ROTATIONS, WALLS } from '../engine/types';
 
 export const COORDS_NOTE =
   'Coordinates are integer centimeters. Origin is the top-left corner of the room; x grows to the right, y grows downward. Items are placed by their center. rotation is 0, 90, 180 or 270 degrees clockwise; at 0 the item front faces +y (the bottom wall). Call get_room first to learn dimensions, openings and current items.';
@@ -13,6 +13,12 @@ export const idProp = (description: string): JsonSchemaProp => ({ type: 'string'
 export const rotationProp: JsonSchemaProp = { type: 'integer', description: 'Rotation in degrees clockwise', enum: [...ROTATIONS] };
 export const wallProp: JsonSchemaProp = { type: 'string', description: 'Which wall', enum: [...WALLS] };
 export const categoryProp: JsonSchemaProp = { type: 'string', description: 'Furniture category', enum: [...CATEGORIES] };
+export const roomKindProp: JsonSchemaProp = { type: 'string', description: 'Kind of room the item suits', enum: [...ROOM_KINDS] };
+export const floorFinishProp: JsonSchemaProp = { type: 'string', description: 'Floor material', enum: [...FLOOR_FINISHES] };
+
+/** A `#rrggbb` or `#rgb` color. Tools still re-check the value so the hint can name the offender. */
+export const HEX_COLOR = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
+export const hexColorProp = (description: string): JsonSchemaProp => ({ type: 'string', description: `${description} as hex, like #aabbcc` });
 
 export const placementSchema: JsonSchemaProp = {
   type: 'array',

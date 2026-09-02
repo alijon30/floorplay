@@ -102,6 +102,23 @@ describe('roomStore', () => {
     expect(store.getState().current().id).toBe(created.id);
   });
 
+  it('loadTemplate adds a furnished room, switches to it and clears the selection', () => {
+    const store = createRoomStore();
+    const first = store.getState().currentId;
+    store.getState().select('x');
+    const room = store.getState().loadTemplate('bedroom', 'Guest room');
+    const s = store.getState();
+    expect(s.currentId).toBe(room.id);
+    expect(s.current().name).toBe('Guest room');
+    expect(s.current().items.length).toBeGreaterThanOrEqual(4);
+    expect(s.ui.selectedItemId).toBeNull();
+    expect(s.analysis.metrics.budgetUsed).toBe(1491);
+    expect(s.analysis.violations).toEqual([]);
+    // The room it was called from is kept alongside the new one.
+    expect(Object.keys(s.rooms)).toEqual(expect.arrayContaining([first, room.id]));
+    expect(store.getState().loadTemplate('bedroom').name).toBe('Bedroom');
+  });
+
   it('persists rooms through storage and recomputes analysis on load', () => {
     vi.useFakeTimers();
     try {

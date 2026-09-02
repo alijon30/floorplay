@@ -1,12 +1,13 @@
 // src/webmcp/tools/mutateTools.ts
 import type { ToolDef } from '../registry';
 import { ok, fail, type ToolResult } from '../results';
-import { COORDS_NOTE, boolProp, categoryProp, cm, idProp, intProp, numProp, placementSchema, rotationProp, strProp, wallProp } from '../schemas';
+import { COORDS_NOTE, HEX_COLOR, boolProp, categoryProp, cm, floorFinishProp, hexColorProp, idProp, intProp, numProp, placementSchema, rotationProp, strProp, wallProp } from '../schemas';
 import type { ToolContext } from './context';
-import { itemsSummary, shortMetrics, shortViolations } from './context';
+import { itemsSummary, roomSummary, shortMetrics, shortViolations } from './context';
 import { placementsToOps, type Placement } from './placements';
-import type { Category, Clearance, Op, PlacedItem, Room, Rotation, Shape, Wall } from '../../engine/types';
+import type { Category, Clearance, FloorFinish, Op, PlacedItem, Room, RoomKind, Rotation, Shape, Wall } from '../../engine/types';
 import { ROOM_KINDS } from '../../engine/types';
+import { TEMPLATES } from '../../engine/templates';
 import { findCatalogItem } from '../../engine/catalog';
 import { newId } from '../../engine/ids';
 import { itemViolations } from '../../engine/validate';
@@ -237,6 +238,56 @@ export function buildMutateTools(ctx: ToolContext): ToolDef[] {
         const r = mutate(ctx, { tool: 'add_catalog_item', proposable: false, ops: [{ type: 'addCatalogItem', item }] });
         const payload = JSON.parse(r.content[0]!.text) as Record<string, unknown>;
         return payload['ok'] ? ok({ ...payload, catalogId: id }) : r;
+      },
+    },
+    {
+      name: 'load_template',
+      description: `Start a new room from a ready-made layout; use list_templates for keys. The room is created, furnished, switched to and returned. It never replaces the current room, and it applies straight away rather than becoming a proposal. ${COORDS_NOTE}`,
+      inputSchema: {
+        type: 'object',
+        properties: { key: { type: 'string', description: 'Template key from list_templates', enum: TEMPLATES.map((t) => t.key) }, name: strProp('Name for the new room, defaults to the template name') },
+        required: ['key'],
+      },
+      execute: (i) => {
+        const key = i['key'] as RoomKind;
+        if (!TEMPLATES.some((t) => t.key === key)) return fail('invalid_input', `Unknown template ${String(i['key'])}; call list_templates`);
+        const name = i['name'] as string | undefined;
+        state().loadTemplate(key, name);
+        return ok({ status: 'applied', template: key, room: roomSummary(ctx.store) });
+      },
+    },
+    {
+      name: 'set_item_color',
+      description: 'Repaint one placed item in one of the alternative finishes get_catalog lists under `colors`, or pass null (or omit color) to put it back to its catalog color. Use it to carry out a scheme from suggest_palette.',
+      inputSchema: {
+        type: 'object',
+        properties: { id: idProp('Item id'), color: { ...hexColorProp('New color'), nullable: true } },
+        required: ['id'],
+      },
+      execute: (i) => {
+        const id = i['id'] as string;
+        const raw = i['color'];
+        // Omitting the field and sending null both mean "back to the catalog color", so an agent
+        // whose host cannot express null is not stuck with the override.
+        if (raw !== undefined && raw !== null && typeof raw !== 'string') return fail('invalid_input', 'color must be a hex string like #aabbcc, or null');
+        const color = raw === undefined || raw === null ? null : raw;
+        if (color !== null && !HEX_COLOR.test(color)) return fail('invalid_input', `${color} is not a hex color like #aabbcc`);
+        if (!room().items.some((x) => x.id === id)) return fail('not_found', 'Call get_room for current ids');
+        return mutate(ctx, { tool: 'set_item_color', proposable: true, ops: [{ type: 'recolor', id, color }] });
+      },
+    },
+    {
+      name: 'set_finish',
+      description: 'Paint the walls and lay the floor: wall takes a hex color, floor one of oak, walnut, ash, grey or tile. Omitted fields keep what the room has. Applies straight away in both views.',
+      inputSchema: { type: 'object', properties: { wall: hexColorProp('Wall color'), floor: floorFinishProp } },
+      execute: (i) => {
+        const cur = room().finish;
+        const wall = (i['wall'] as string | undefined) ?? cur.wall;
+        const floor = (i['floor'] as FloorFinish | undefined) ?? cur.floor;
+        if (i['wall'] === undefined && i['floor'] === undefined) return fail('invalid_input', 'Give wall, floor or both');
+        if (!HEX_COLOR.test(wall)) return fail('invalid_input', `${wall} is not a hex color like #aabbcc`);
+        const r = mutate(ctx, { tool: 'set_finish', proposable: false, ops: [{ type: 'setFinish', finish: { wall, floor } }] });
+        return withExtras(r, { finish: { wall, floor } });
       },
     },
     {
