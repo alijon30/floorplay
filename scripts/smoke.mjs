@@ -199,14 +199,21 @@ async function main() {
     await page.keyboard.press('Escape');
     await settle();
 
-    // 16. the ready-made rooms grid in the new-room wizard
+    // 16. the eight ready-made rooms, as the agent sees them
+    const templates = await toolJson('list_templates', {});
+    findings.templates = (templates.templates ?? []).map((t) => `${t.key}: ${t.items} items, $${t.budget}`);
+    if (findings.templates.length !== 8) {
+      throw new Error(`list_templates returned ${findings.templates.length} templates, expected 8: ${JSON.stringify(templates)}`);
+    }
+
+    // 17. the same eight as cards in the new-room wizard
     await page.getByRole('button', { name: 'My rooms ▾' }).click();
     await page.getByRole('button', { name: 'New room', exact: true }).click();
     await page.getByText('Ready-made rooms').waitFor({ timeout: 10_000 });
     await settle(400);
     await shot('wizard-templates');
 
-    // 17. load the bedroom template: plan and 3D both rebuild from it
+    // 18. load the bedroom template: plan and 3D both rebuild from it
     await page.locator('[aria-label="Ready-made rooms"]').getByRole('button', { name: /^Bedroom/ }).click();
     await settle(1200);
     await shot('template-bedroom');
@@ -221,13 +228,23 @@ async function main() {
       return room ? { name: room.name, items: room.items.length, finish: room.finish } : null;
     }, STORAGE_KEY);
 
-    // 18. the style popover: wall swatches, floor finishes and three suggested palettes
+    // 19. three schemes read off the furniture that is already in the room. Read-only, and the
+    // Style popover derives its list the same way, so the first card below has to match this.
+    const palettes = await toolJson('suggest_palette', {});
+    findings.suggestedPalettes = (palettes.palettes ?? []).map((p) => ({
+      name: p.name, wall: p.wall, floor: p.floor, accents: p.accents, recolors: p.recolor?.length ?? 0,
+    }));
+    if (findings.suggestedPalettes.length !== 3) {
+      throw new Error(`suggest_palette returned ${findings.suggestedPalettes.length} schemes, expected 3: ${JSON.stringify(palettes)}`);
+    }
+
+    // 20. the style popover: wall swatches, floor finishes and those three palettes
     await page.getByRole('button', { name: 'Style', exact: true }).click();
     await page.getByRole('dialog', { name: 'Style' }).waitFor({ timeout: 10_000 });
     await settle(400);
     await shot('style-popover');
 
-    // 19. apply the first suggested palette: one ledger entry repaints the room
+    // 21. apply the first suggested palette: one ledger entry repaints the room
     await page.getByRole('dialog', { name: 'Style' }).getByRole('button', { name: 'Apply' }).first().click();
     await settle(900);
     await page.keyboard.press('Escape');
@@ -243,15 +260,36 @@ async function main() {
     if (!/palette$/.test(findings.palette.summary ?? '')) {
       throw new Error(`Applying a palette did not write one palette ledger entry: ${JSON.stringify(findings.palette)}`);
     }
+    // The button carried out the first scheme `suggest_palette` handed back, so the agent and
+    // the popover really are reading the same list.
+    const first = findings.suggestedPalettes[0];
+    if (findings.palette.finish?.wall !== first.wall || findings.palette.finish?.floor !== first.floor) {
+      throw new Error(`Applied finish ${JSON.stringify(findings.palette.finish)} is not the first suggested scheme ${JSON.stringify(first)}`);
+    }
 
-    // 20. shadows off: the 3D view keeps rendering, just flat
+    // 22. the agent repaints one piece and relays the floor under it
+    const roomNow = await toolJson('get_room', {});
+    const bed = (roomNow.items ?? []).find((i) => i.catalogId === 'bed-queen-160');
+    if (!bed) throw new Error(`No queen bed in the bedroom template to recolor: ${JSON.stringify(roomNow.items)}`);
+    const recolored = await toolJson('set_item_color', { id: bed.id, color: '#8b6f52' });
+    findings.setItemColor = { id: bed.id, color: '#8b6f52', status: recolored.status ?? null, error: recolored.error ?? null };
+    if (recolored.status !== 'applied') throw new Error(`set_item_color did not apply: ${JSON.stringify(recolored)}`);
+    const finished = await toolJson('set_finish', { wall: '#c3cdb9', floor: 'walnut' });
+    findings.setFinish = { status: finished.status ?? null, finish: finished.finish ?? null, error: finished.error ?? null };
+    if (finished.finish?.floor !== 'walnut' || finished.finish?.wall !== '#c3cdb9') {
+      throw new Error(`set_finish did not take: ${JSON.stringify(finished)}`);
+    }
+    await settle(900);
+    await shot('agent-colors');
+
+    // 23. shadows off: the 3D view keeps rendering, just flat
     await page.getByText('Shadows', { exact: true }).click();
     // Park the cursor off the control first: a hovered toggle photographs in its hover style.
     await page.mouse.move(400, 860);
     await settle(900);
     await shot('shadows-off');
 
-    // 21. daylight overlay off: the plan loses its yellow wash
+    // 24. daylight overlay off: the plan loses its yellow wash
     await page.getByRole('button', { name: 'Show daylight overlay on the plan' }).click();
     await page.mouse.move(400, 860);
     await settle(500);
