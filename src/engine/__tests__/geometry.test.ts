@@ -43,6 +43,26 @@ describe('geometry', () => {
     expect(g90[0]!.rects[0]).toEqual({ x: -20, y: 40, w: 90, h: 120 });
   });
 
+  it('puts left clearance on the -x side and back clearance on the -y side', () => {
+    const shelf: CatalogItem = {
+      ...desk, id: 'shelf', name: 'Shelf', category: 'shelf', width: 80, depth: 40,
+      clearance: { left: 30, back: 20 },
+    };
+    // Item spans x 60..140, y 80..120 at rotation 0.
+    const g0 = clearanceGroups(place(shelf, 100, 100), shelf);
+    expect(g0.map((g) => g.label)).toEqual(['back', 'left']);
+    // back hugs the item's -y edge, as wide as the item.
+    expect(g0[0]!).toEqual({ label: 'back', mode: 'all', cm: 20, rects: [{ x: 60, y: 60, w: 80, h: 20 }] });
+    // left hugs the item's -x edge, as deep as the item.
+    expect(g0[1]!).toEqual({ label: 'left', mode: 'all', cm: 30, rects: [{ x: 30, y: 80, w: 30, h: 40 }] });
+
+    // At 90 the item spans x 80..120, y 60..140, and the front (+y) swings to -x,
+    // so back (-y) lands on +x and left (-x) lands on -y.
+    const g90 = clearanceGroups(place(shelf, 100, 100, 90), shelf);
+    expect(g90[0]!.rects[0]).toEqual({ x: 120, y: 60, w: 20, h: 80 });
+    expect(g90[1]!.rects[0]).toEqual({ x: 80, y: 30, w: 40, h: 30 });
+  });
+
   it('builds an any-long-side group for beds', () => {
     const g = clearanceGroups(place(bed, 100, 200), bed);
     expect(g[0]!.mode).toBe('any');

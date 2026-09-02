@@ -25,6 +25,31 @@ export const CATEGORIES: Category[] = ['bed','sofa','armchair','desk','chair','t
 
 export type Shape = 'box' | 'bed' | 'sofa' | 'desk' | 'chair' | 'table' | 'wardrobe' | 'shelf' | 'rug' | 'lamp' | 'plant' | 'tv';
 
+/**
+ * Free space an item needs on each side, in cm, measured outward from its footprint.
+ *
+ * Sides are named in item-local plan coordinates at rotation 0, where x runs right and
+ * y runs down:
+ *
+ * - `front` is the +y side (below the item in plan view)
+ * - `back` is the -y side (above the item)
+ * - `left` is the -x side
+ * - `right` is the +x side
+ *
+ * `left` and `right` are named from the point of view of a person walking up to the item
+ * head-on, not from the item's own point of view. That person stands on the front (+y)
+ * side looking toward -y, and their left hand points toward -x, which is why `left` is
+ * the -x side. The item's own left is therefore `right` in this naming. When authoring a
+ * catalog entry, ask "which side is on my left as I face this thing", not "which side
+ * would the sofa call its left".
+ *
+ * At a non-zero rotation the zones rotate with the item; these names always describe the
+ * rotation-0 frame.
+ *
+ * `anyLongSide` is not a named side. It requires that at least one of the item's two long
+ * sides has that much clearance, so a bed against a wall still passes. See
+ * `clearanceGroups`, which emits it as a group with mode 'any'.
+ */
 export interface Clearance { front?: number; back?: number; left?: number; right?: number; anyLongSide?: number }
 
 export interface CatalogItem {
