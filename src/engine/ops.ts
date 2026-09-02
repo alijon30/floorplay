@@ -1,0 +1,113 @@
+// src/engine/ops.ts
+import type { Op, Room } from './types';
+import { catalogFor, findCatalogItem } from './catalog';
+
+export type ApplyResult =
+  | { ok: true; room: Room; inverse: Op[] }
+  | { ok: false; error: 'locked' | 'not_found' | 'invalid'; message: string; itemId?: string };
+
+type OneResult = { ok: true; room: Room; inverse: Op } | Exclude<ApplyResult, { ok: true }>;
+
+function fail(error: 'locked' | 'not_found' | 'invalid', message: string, itemId?: string): OneResult {
+  return itemId ? { ok: false, error, message, itemId } : { ok: false, error, message };
+}
+
+function applyOne(room: Room, op: Op): OneResult {
+  switch (op.type) {
+    case 'setShell': {
+      if (op.width <= 0 || op.depth <= 0 || op.height <= 0) return fail('invalid', 'Room dimensions must be positive');
+      const inverse: Op = { type: 'setShell', width: room.width, depth: room.depth, height: room.height, northWall: room.northWall };
+      return { ok: true, room: { ...room, width: op.width, depth: op.depth, height: op.height, northWall: op.northWall }, inverse };
+    }
+    case 'addOpening': {
+      if (room.openings.some((o) => o.id === op.opening.id)) return fail('invalid', `Opening ${op.opening.id} already exists`);
+      return { ok: true, room: { ...room, openings: [...room.openings, op.opening] }, inverse: { type: 'removeOpening', id: op.opening.id } };
+    }
+    case 'removeOpening': {
+      const o = room.openings.find((x) => x.id === op.id);
+      if (!o) return fail('not_found', `No opening ${op.id}`);
+      return { ok: true, room: { ...room, openings: room.openings.filter((x) => x.id !== op.id) }, inverse: { type: 'addOpening', opening: o } };
+    }
+    case 'setBrief':
+      return { ok: true, room: { ...room, brief: op.brief }, inverse: { type: 'setBrief', brief: room.brief } };
+    case 'place': {
+      if (!findCatalogItem(room, op.item.catalogId)) return fail('invalid', `Unknown catalog item ${op.item.catalogId}`);
+      if (room.items.some((i) => i.id === op.item.id)) return fail('invalid', `Item ${op.item.id} already exists`);
+      return { ok: true, room: { ...room, items: [...room.items, { ...op.item }] }, inverse: { type: 'remove', id: op.item.id } };
+    }
+    case 'move': {
+      const item = room.items.find((i) => i.id === op.id);
+      if (!item) return fail('not_found', `No item ${op.id}`);
+      if (item.locked) return fail('locked', `${findCatalogItem(room, item.catalogId)?.name ?? op.id} is locked`, op.id);
+      const inverse: Op = { type: 'move', id: op.id, x: item.x, y: item.y, rotation: item.rotation };
+      return { ok: true, room: { ...room, items: room.items.map((i) => (i.id === op.id ? { ...i, x: op.x, y: op.y, rotation: op.rotation } : i)) }, inverse };
+    }
+    case 'remove': {
+      const item = room.items.find((i) => i.id === op.id);
+      if (!item) return fail('not_found', `No item ${op.id}`);
+      if (item.locked) return fail('locked', `${findCatalogItem(room, item.catalogId)?.name ?? op.id} is locked`, op.id);
+      return { ok: true, room: { ...room, items: room.items.filter((i) => i.id !== op.id) }, inverse: { type: 'place', item: { ...item } } };
+    }
+    case 'swap': {
+      const item = room.items.find((i) => i.id === op.id);
+      if (!item) return fail('not_found', `No item ${op.id}`);
+      if (item.locked) return fail('locked', `${findCatalogItem(room, item.catalogId)?.name ?? op.id} is locked`, op.id);
+      if (!findCatalogItem(room, op.catalogId)) return fail('invalid', `Unknown catalog item ${op.catalogId}`);
+      const inverse: Op = { type: 'swap', id: op.id, catalogId: item.catalogId };
+      return { ok: true, room: { ...room, items: room.items.map((i) => (i.id === op.id ? { ...i, catalogId: op.catalogId } : i)) }, inverse };
+    }
+    case 'setLocked': {
+      const item = room.items.find((i) => i.id === op.id);
+      if (!item) return fail('not_found', `No item ${op.id}`);
+      const inverse: Op = { type: 'setLocked', id: op.id, locked: item.locked };
+      return { ok: true, room: { ...room, items: room.items.map((i) => (i.id === op.id ? { ...i, locked: op.locked } : i)) }, inverse };
+    }
+    case 'addCatalogItem': {
+      if (catalogFor(room).some((c) => c.id === op.item.id)) return fail('invalid', `Catalog id ${op.item.id} already exists`);
+      if (op.item.width <= 0 || op.item.depth <= 0 || op.item.height <= 0) return fail('invalid', 'Catalog dimensions must be positive');
+      return { ok: true, room: { ...room, catalogExtras: [...room.catalogExtras, { ...op.item, source: 'agent' }] }, inverse: { type: 'removeCatalogItem', id: op.item.id } };
+    }
+    case 'removeCatalogItem': {
+      const c = room.catalogExtras.find((x) => x.id === op.id);
+      if (!c) return fail('not_found', `No custom catalog item ${op.id}`);
+      if (room.items.some((i) => i.catalogId === op.id)) return fail('invalid', `Catalog item ${op.id} is still placed`);
+      return { ok: true, room: { ...room, catalogExtras: room.catalogExtras.filter((x) => x.id !== op.id) }, inverse: { type: 'addCatalogItem', item: c } };
+    }
+  }
+}
+
+export function applyOps(room: Room, ops: Op[]): ApplyResult {
+  let cur = room;
+  const inverse: Op[] = [];
+  for (const op of ops) {
+    const r = applyOne(cur, op);
+    if (!r.ok) return r;
+    cur = r.room;
+    inverse.unshift(r.inverse);
+  }
+  return { ok: true, room: cur, inverse };
+}
+
+export function describeOps(room: Room, ops: Op[]): string {
+  const name = (catalogId: string) => findCatalogItem(room, catalogId)?.name ?? catalogId;
+  const itemName = (id: string) => {
+    const it = room.items.find((i) => i.id === id);
+    return it ? name(it.catalogId) : id;
+  };
+  const parts = ops.map((op) => {
+    switch (op.type) {
+      case 'setShell': return `Room set to ${op.width}x${op.depth} cm`;
+      case 'addOpening': return `Added ${op.opening.kind} on ${op.opening.wall} wall`;
+      case 'removeOpening': return `Removed opening ${op.id}`;
+      case 'setBrief': return `Brief updated (budget $${op.brief.budget})`;
+      case 'place': return `Placed ${name(op.item.catalogId)} at (${op.item.x}, ${op.item.y})`;
+      case 'move': return `Moved ${itemName(op.id)} to (${op.x}, ${op.y})`;
+      case 'remove': return `Removed ${itemName(op.id)}`;
+      case 'swap': return `Swapped ${itemName(op.id)} for ${name(op.catalogId)}`;
+      case 'setLocked': return `${op.locked ? 'Locked' : 'Unlocked'} ${itemName(op.id)}`;
+      case 'addCatalogItem': return `Added ${op.item.name} to the catalog`;
+      case 'removeCatalogItem': return `Removed catalog item ${op.id}`;
+    }
+  });
+  return parts.length <= 2 ? parts.join('; ') : `${parts[0]} and ${parts.length - 1} more changes`;
+}
