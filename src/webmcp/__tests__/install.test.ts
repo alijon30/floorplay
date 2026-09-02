@@ -12,7 +12,7 @@ describe('installWebMCP', () => {
     const mc = new FakeModelContext();
     const { registry, isNative } = installWebMCP(store, mc);
     expect(isNative).toBe(false);
-    expect(mc.getTools()).toHaveLength(20);
+    expect(mc.getTools()).toHaveLength(23);
 
     const room = store.getState().current();
     store.getState().dispatch({ ops: [{ type: 'place', item: placeTest(room, 'wardrobe-100', 300, 100, 90, 'w') }], actor: 'human' });
@@ -31,22 +31,35 @@ describe('installWebMCP', () => {
 
     store.getState().select(null);
     expect(names()).not.toContain('move_selected');
-    expect(mc.getTools()).toHaveLength(20);
+    expect(mc.getTools()).toHaveLength(23);
   });
 
-  it('registers proposal tools while proposals exist and applies one', async () => {
+  it('proposal tools are always registered and apply atomically', async () => {
     const store = createRoomStore();
     const mc = new FakeModelContext();
     installWebMCP(store, mc);
-    const room = store.getState().current();
-    expect(mc.getTools().map((t) => t.name)).not.toContain('apply_proposal');
-    const p = store.getState().propose({ label: 'Cozy', ops: [{ type: 'place', item: placeTest(room, 'desk-120', 60, 30, 0, 'd') }] });
-    if (!p.ok) throw new Error();
+    const s = () => store.getState();
+
     expect(mc.getTools().map((t) => t.name)).toEqual(expect.arrayContaining(['apply_proposal', 'withdraw_proposal', 'apply_all_proposals']));
-    const r = parseResult(await mc.executeTool('apply_proposal', { proposalId: p.proposal.id }));
-    expect(r).toMatchObject({ ok: true, status: 'applied' });
-    expect(store.getState().current().items).toHaveLength(1);
-    expect(mc.getTools().map((t) => t.name)).not.toContain('apply_proposal');
+    expect(parseResult(await mc.executeTool('apply_proposal', { proposalId: 'nope' }))).toMatchObject({ ok: false, error: 'not_found' });
+
+    const a = s().propose({ label: 'A', ops: [{ type: 'place', item: placeTest(s().current(), 'desk-120', 60, 30, 0, 'a') }] });
+    const b = s().propose({ label: 'B', ops: [{ type: 'place', item: placeTest(s().current(), 'sofa-2', 180, 300, 0, 'b') }] });
+    if (!a.ok || !b.ok) throw new Error();
+
+    const all = parseResult(await mc.executeTool('apply_all_proposals', {}));
+    expect(all).toMatchObject({ ok: true, status: 'applied' });
+    expect(s().current().items).toHaveLength(2);
+    expect(s().current().proposals).toHaveLength(0);
+    const ledger = s().current().ledger;
+    expect(ledger[ledger.length - 1]!.summary).toContain('A');
+    expect(ledger[ledger.length - 1]!.summary).toContain('B');
+
+    const c = s().propose({ label: 'C', ops: [{ type: 'place', item: placeTest(s().current(), 'lamp-floor', 330, 480, 0, 'c') }] });
+    if (!c.ok) throw new Error();
+    const one = parseResult(await mc.executeTool('apply_proposal', { proposalId: c.proposal.id })) as { items: unknown[] };
+    expect(one).toMatchObject({ ok: true, status: 'applied' });
+    expect(one.items).toHaveLength(3);
   });
 });
 

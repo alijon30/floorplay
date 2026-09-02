@@ -3,9 +3,9 @@ import type { ToolDef } from '../registry';
 import { ok, fail } from '../results';
 import { COORDS_NOTE, cm, idProp, numProp, rotationProp } from '../schemas';
 import type { ToolContext } from './context';
-import { shortMetrics, shortViolations } from './context';
+import { itemsSummary, shortMetrics, shortViolations } from './context';
 import { mutate } from './mutateTools';
-import type { CatalogItem, PlacedItem, Rotation } from '../../engine/types';
+import type { Analysis, CatalogItem, PlacedItem, Rotation } from '../../engine/types';
 import { alternativesFor } from '../../engine/alternatives';
 
 export function buildSelectionTools(ctx: ToolContext, item: PlacedItem, cat: CatalogItem): ToolDef[] {
@@ -39,41 +39,55 @@ export function buildSelectionTools(ctx: ToolContext, item: PlacedItem, cat: Cat
   ];
 }
 
+const NO_PROPOSALS = () => fail('not_found', 'No open proposals; call get_room');
+const UNKNOWN_ID = () => fail('not_found', 'Call get_room for proposal ids');
+
+/** Applied results here mirror `mutate`'s applied shape exactly: status, ledgerId, violations, metrics, items. */
+function applied(ctx: ToolContext, entryId: string, analysis: Analysis) {
+  return ok({ status: 'applied', ledgerId: entryId, violations: shortViolations(analysis.violations), metrics: shortMetrics(analysis.metrics), items: itemsSummary(ctx.store.getState().current(), analysis) });
+}
+
 export function buildProposalTools(ctx: ToolContext): ToolDef[] {
-  const list = () => ctx.store.getState().current().proposals.map((p) => `${p.id} "${p.label}"`).join(', ');
+  const proposals = () => ctx.store.getState().current().proposals;
   return [
     {
       name: 'apply_proposal',
-      description: `Apply one open proposal by id. Only call this when the user has explicitly chosen it. Open proposals: ${list()}.`,
+      description: 'Apply one open proposal by id, applying its ghosted changes to the room. Only call this when the user has explicitly chosen that option. Open proposals and their ids are listed by get_room.',
       inputSchema: { type: 'object', properties: { proposalId: idProp('Proposal id') }, required: ['proposalId'] },
       execute: (i) => {
+        if (proposals().length === 0) return NO_PROPOSALS();
         const r = ctx.store.getState().acceptProposal(i['proposalId'] as string, 'agent');
-        if (!r.ok) return fail(r.error, r.message);
-        return ok({ status: 'applied', ledgerId: r.entry.id, violations: shortViolations(r.analysis.violations), metrics: shortMetrics(r.analysis.metrics) });
+        if (!r.ok) return r.error === 'not_found' ? UNKNOWN_ID() : fail(r.error, r.message);
+        return applied(ctx, r.entry.id, r.analysis);
       },
     },
     {
       name: 'withdraw_proposal',
-      description: `Withdraw one of your open proposals by id. Open proposals: ${list()}.`,
+      description: 'Withdraw one of your open proposals by id.',
       inputSchema: { type: 'object', properties: { proposalId: idProp('Proposal id') }, required: ['proposalId'] },
-      execute: (i) => (ctx.store.getState().rejectProposal(i['proposalId'] as string) ? ok({ status: 'withdrawn' }) : fail('not_found', 'No such proposal')),
+      execute: (i) => {
+        if (proposals().length === 0) return NO_PROPOSALS();
+        return ctx.store.getState().rejectProposal(i['proposalId'] as string) ? ok({ status: 'withdrawn' }) : UNKNOWN_ID();
+      },
     },
     {
       name: 'apply_all_proposals',
-      description: 'Apply every open proposal in order. Only when the user asked for all of them.',
+      description: 'Apply every open proposal atomically, in order, as one ledger entry. Only when the user asked for all of them.',
       inputSchema: { type: 'object', properties: {} },
       execute: () => {
-        const s = ctx.store.getState();
-        const ids = s.current().proposals.map((p) => p.id);
-        let last;
-        for (const id of ids) {
-          const p = ctx.store.getState().current().proposals.find((x) => x.id === id);
-          if (!p) continue;
-          last = mutate(ctx, { tool: 'apply_all_proposals', proposable: false, ops: p.ops, summary: `Accepted proposal: ${p.label}` });
-        }
+        // Atomic on purpose: one dispatch of every proposal's ops concatenated in order, so a
+        // failure part-way leaves the room and the whole proposal set untouched rather than
+        // half-applying and then discarding what never ran.
+        const open = proposals();
+        if (open.length === 0) return NO_PROPOSALS();
+        const r = ctx.store.getState().dispatch({
+          ops: open.flatMap((p) => p.ops), actor: 'agent', tool: 'apply_all_proposals',
+          summary: `Accepted all proposals: ${open.map((p) => p.label).join(', ')}`,
+        });
+        if (!r.ok) return fail(r.error, r.message);
         const room = ctx.store.getState().current();
         ctx.store.setState({ rooms: { ...ctx.store.getState().rooms, [room.id]: { ...room, proposals: [] } } });
-        return last ?? fail('not_found', 'No open proposals');
+        return applied(ctx, r.entry.id, r.analysis);
       },
     },
   ];

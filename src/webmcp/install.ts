@@ -11,10 +11,12 @@ export function installWebMCP(store: RoomStore, mcOverride?: ModelContextLike): 
   const { mc, isNative } = mcOverride ? { mc: mcOverride, isNative: false } : getModelContext();
   const registry = new ToolRegistry(mc);
   const ctx = { store };
-  registry.setGroup('static', [...buildReadTools(ctx), ...buildMutateTools(ctx)]);
+  // Proposal tools are static, not selection-scoped: spec 8.3 requires everything reachable
+  // through a dynamic tool to also be reachable statically by id, and applying or withdrawing
+  // a proposal has no other static route.
+  registry.setGroup('static', [...buildReadTools(ctx), ...buildMutateTools(ctx), ...buildProposalTools(ctx)]);
 
   let selKey: string | null = null;
-  let propKey = '';
   const sync = () => {
     const s = store.getState();
     const room = s.current();
@@ -25,12 +27,6 @@ export function installWebMCP(store: RoomStore, mcOverride?: ModelContextLike): 
       selKey = nextSel;
       if (item && cat) registry.setGroup('selection', buildSelectionTools(ctx, item, cat));
       else registry.clearGroup('selection');
-    }
-    const nextProp = room.proposals.map((p) => `${p.id}:${p.label}`).join(',');
-    if (nextProp !== propKey) {
-      propKey = nextProp;
-      if (room.proposals.length) registry.setGroup('proposals', buildProposalTools(ctx));
-      else registry.clearGroup('proposals');
     }
   };
   sync();
