@@ -28,7 +28,7 @@ export default function Scene() {
   const cx = w / 2, cz = d / 2, span = Math.max(w, d);
   return (
     <div className="relative h-full w-full bg-neutral-900">
-      <Canvas shadows camera={{ fov: 55, near: 0.05, far: 100, position: [cx + span * 0.9, span * 0.75, cz + span * 1.1] }}>
+      <Canvas shadows camera={{ fov: 55, near: 0.05, far: 100, position: [cx - span * 0.9, span * 0.75, cz - span * 1.1] }}>
         <color attach="background" args={['#dbe4ec']} />
         <Sun hour={room.daylightHour} northWall={room.northWall} width={room.width} depth={room.depth} />
         {/*

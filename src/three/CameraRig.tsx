@@ -27,9 +27,10 @@ export default function CameraRig({ pose, width, depth, onLook }: { pose: Camera
   // whole pose here would teleport the walker back to the stored spot on every look-drag.
   useEffect(() => {
     if (pose.mode === 'walk') { camera.position.set(pose.x * M, pose.z * M, pose.y * M); return; }
-    // A three-quarter view from outside the near corner. Walls turn themselves off once
-    // the camera passes outside them, so this can sit low enough to read as a room.
-    camera.position.set(cx + span * 0.9, span * 0.75, cz + span * 1.1);
+    // A three-quarter view from outside the top-left corner. Walls turn themselves off
+    // once the camera passes outside them, so this can sit low enough to read as a room —
+    // and cutting away the top and left walls leaves the door and window walls on screen.
+    camera.position.set(cx - span * 0.9, span * 0.75, cz - span * 1.1);
   }, [pose.mode, pose.x, pose.y, pose.z, camera, cx, cz, span]);
 
   useEffect(() => {
