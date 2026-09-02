@@ -46,6 +46,35 @@ describe('ToolRegistry', () => {
     expect(parseResult(await reg.invoke('strict', { n: 2 }))).toMatchObject({ ok: true });
     expect(parseResult(await reg.invoke('missing', {}))).toMatchObject({ ok: false, error: 'not_found' });
   });
+
+  it('ignores registration with an already-aborted signal', () => {
+    const mc = new FakeModelContext();
+    const controller = new AbortController();
+    controller.abort();
+    mc.registerTool({
+      name: 'ghost', description: 'ghost', inputSchema: { type: 'object', properties: {} },
+      execute: async () => ok({}),
+    }, { signal: controller.signal });
+    expect(mc.getTools()).toEqual([]);
+  });
+
+  it('lastCall.ok reflects the payload', async () => {
+    const mc = new FakeModelContext();
+    const reg = new ToolRegistry(mc);
+    reg.setGroup('s', [{ ...tool('sad'), execute: async () => fail('nope') }]);
+    await mc.executeTool('sad', {});
+    expect(reg.lastCall).toMatchObject({ name: 'sad', ok: false });
+  });
+
+  it('invoke of an unknown tool records lastCall and notifies', async () => {
+    const mc = new FakeModelContext();
+    const reg = new ToolRegistry(mc);
+    let n = 0;
+    reg.onChange(() => n++);
+    await reg.invoke('missing', {});
+    expect(reg.lastCall).toMatchObject({ name: 'missing', ok: false });
+    expect(n).toBe(1);
+  });
 });
 
 describe('results and validation', () => {

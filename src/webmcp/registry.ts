@@ -1,4 +1,4 @@
-import { fail, validateInput, type JsonSchema, type ToolResult } from './results';
+import { fail, parseResult, validateInput, type JsonSchema, type ToolResult } from './results';
 
 export interface ToolAnnotations { readOnlyHint?: boolean; untrustedContentHint?: boolean }
 
@@ -23,9 +23,19 @@ export interface ModelContextLike {
   registerTool(descriptor: ToolDescriptor, options?: { signal?: AbortSignal }): unknown;
 }
 
+/** Reads the `ok` field out of a result payload. Text we cannot parse counts as a success. */
+function resultOk(r: ToolResult): boolean {
+  try {
+    return parseResult(r)['ok'] !== false;
+  } catch {
+    return true;
+  }
+}
+
 export class ToolRegistry {
   private groups = new Map<string, { controller: AbortController; tools: ToolDef[] }>();
   private listeners = new Set<() => void>();
+  /** The most recent tool call. `ok` mirrors the result payload's `ok` field, not merely whether `execute` avoided throwing. */
   lastCall: { name: string; at: number; ok: boolean } | null = null;
 
   constructor(private mc: ModelContextLike) {}
@@ -65,7 +75,7 @@ export class ToolRegistry {
     }
     try {
       const r = await t.execute(v.value);
-      this.lastCall = { name: t.name, at: Date.now(), ok: true };
+      this.lastCall = { name: t.name, at: Date.now(), ok: resultOk(r) };
       this.emit();
       return r;
     } catch (e) {
@@ -102,7 +112,11 @@ export class ToolRegistry {
 
   invoke(name: string, input: unknown): Promise<ToolResult> {
     const t = this.get(name);
-    if (!t) return Promise.resolve(fail('not_found', `No tool named ${name}`));
+    if (!t) {
+      this.lastCall = { name, at: Date.now(), ok: false };
+      this.emit();
+      return Promise.resolve(fail('not_found', `No tool named ${name}`));
+    }
     return this.run(t, input);
   }
 

@@ -5,6 +5,9 @@ export class FakeModelContext extends EventTarget implements ModelContextLike {
   tools = new Map<string, ToolDescriptor>();
 
   registerTool(descriptor: ToolDescriptor, options?: { signal?: AbortSignal }): void {
+    // An already-aborted signal never fires an `abort` event, so registering here would
+    // leave a tool that can never be removed. Match the platform and drop the registration.
+    if (options?.signal?.aborted) return;
     this.tools.set(descriptor.name, descriptor);
     options?.signal?.addEventListener('abort', () => {
       if (this.tools.get(descriptor.name) === descriptor) {
