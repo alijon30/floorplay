@@ -2,8 +2,9 @@
 import { useMemo, useState } from 'react';
 import { useRoom } from '../store';
 import { catalogFor } from '../engine/catalog';
-import { CATEGORIES, type Category } from '../engine/types';
+import { CATEGORIES, type Category, type Rotation } from '../engine/types';
 import { nearestValid } from '../engine/nearest';
+import { suggestPositions } from '../engine/anchors';
 import { alternativesFor } from '../engine/alternatives';
 
 export default function CatalogDrawer() {
@@ -27,9 +28,18 @@ export default function CatalogDrawer() {
   if (!ui.catalogOpen) return null;
 
   const place = (catalogId: string) => {
-    const pos = nearestValid(room, catalogId, Math.round(room.width / 2), Math.round(room.depth / 2), 0) ?? { x: Math.round(room.width / 2), y: Math.round(room.depth / 2) };
+    // A suggestion knows about walls, light and the door, so it beats dropping the item in the
+    // middle of the room and shuffling outward from there.
+    const cx = Math.round(room.width / 2), cy = Math.round(room.depth / 2);
+    const suggested = suggestPositions(room, catalogId, { count: 1 })[0];
+    const near = suggested ? null : nearestValid(room, catalogId, cx, cy, 0);
+    const pos = suggested
+      ? { x: suggested.x, y: suggested.y, rotation: suggested.rotation }
+      : near
+        ? { x: near.x, y: near.y, rotation: 0 as Rotation }
+        : { x: cx, y: cy, rotation: 0 as Rotation };
     const id = `item_${Date.now().toString(36)}`;
-    dispatch({ actor: 'human', ops: [{ type: 'place', item: { id, catalogId, x: pos.x, y: pos.y, rotation: 0, locked: false } }] });
+    dispatch({ actor: 'human', ops: [{ type: 'place', item: { id, catalogId, x: pos.x, y: pos.y, rotation: pos.rotation, locked: false } }] });
     select(id);
   };
   const replace = (catalogId: string) => {

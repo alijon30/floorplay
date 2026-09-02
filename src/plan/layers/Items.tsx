@@ -3,6 +3,11 @@ import type { PlacedItem, Room } from '../../engine/types';
 import { findCatalogItem } from '../../engine/catalog';
 import { footprint, frontVector, rotatedDims } from '../../engine/geometry';
 
+/** Live verdict on the dragged item's position: emerald when it fits, red when it does not. */
+export type Fit = 'ok' | 'bad' | null;
+
+const FIT_STROKE: Record<'ok' | 'bad', string> = { ok: '#34d399', bad: '#ef4444' };
+
 export function FrontMark({ item, room }: { item: PlacedItem; room: Room }) {
   const cat = findCatalogItem(room, item.catalogId);
   if (!cat || cat.category === 'rug') return null;
@@ -16,9 +21,9 @@ export function FrontMark({ item, room }: { item: PlacedItem; room: Room }) {
 }
 
 export default function Items({
-  room, selectedId, dragPos, onPointerDown,
+  room, selectedId, dragPos, fit = null, onPointerDown,
 }: {
-  room: Room; selectedId: string | null; dragPos: { id: string; x: number; y: number } | null;
+  room: Room; selectedId: string | null; dragPos: { id: string; x: number; y: number } | null; fit?: Fit;
   onPointerDown: (e: React.PointerEvent, item: PlacedItem) => void;
 }) {
   const ordered = [...room.items].sort((a, b) => Number(findCatalogItem(room, a.catalogId)?.category !== 'rug') - Number(findCatalogItem(room, b.catalogId)?.category !== 'rug'));
@@ -27,12 +32,14 @@ export default function Items({
       {ordered.map((raw) => {
         const cat = findCatalogItem(room, raw.catalogId);
         if (!cat) return null;
-        const item = dragPos && dragPos.id === raw.id ? { ...raw, x: dragPos.x, y: dragPos.y } : raw;
+        const dragging = dragPos?.id === raw.id;
+        const item = dragging ? { ...raw, x: dragPos.x, y: dragPos.y } : raw;
         const r = footprint(item, cat);
         const selected = raw.id === selectedId;
+        const fitStroke = dragging && fit ? FIT_STROKE[fit] : null;
         return (
           <g key={raw.id} className="cursor-grab" onPointerDown={(e) => onPointerDown(e, raw)}>
-            <rect x={r.x} y={r.y} width={r.w} height={r.h} rx={cat.category === 'rug' ? 4 : 2} fill={cat.color} opacity={cat.category === 'rug' ? 0.5 : 0.95} stroke={selected ? '#34d399' : '#0a0a0a'} strokeWidth={selected ? 3 : 1} />
+            <rect x={r.x} y={r.y} width={r.w} height={r.h} rx={cat.category === 'rug' ? 4 : 2} fill={cat.color} opacity={cat.category === 'rug' ? 0.5 : 0.95} stroke={fitStroke ?? (selected ? '#34d399' : '#0a0a0a')} strokeWidth={fitStroke || selected ? 3 : 1} />
             <FrontMark item={item} room={room} />
             <text x={item.x} y={item.y + 4} fill="#0a0a0a" fontSize={Math.min(12, Math.max(8, r.w / 8))} textAnchor="middle" pointerEvents="none">{cat.name}</text>
             {raw.locked && <text x={r.x + r.w - 6} y={r.y + 12} fontSize={11} textAnchor="end" pointerEvents="none">🔒</text>}

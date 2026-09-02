@@ -16,7 +16,7 @@ export default function Inspector() {
   const issues = analysis.violations.filter((v) => v.itemIds.includes(item.id));
   const light = Math.round((analysis.metrics.lightByItem[item.id] ?? 0) * 100);
   return (
-    <div className="absolute right-3 top-3 z-20 w-64 rounded-lg border border-neutral-700 bg-neutral-900/95 p-3 text-sm shadow-xl backdrop-blur">
+    <div className="w-64 shrink-0 rounded-lg border border-neutral-700 bg-neutral-900/95 p-3 text-sm shadow-xl backdrop-blur">
       <div className="mb-1 flex items-center justify-between"><strong>{cat.name}</strong><button className="text-neutral-400 hover:text-white" onClick={() => select(null)}>×</button></div>
       <div className="mb-2 text-xs text-neutral-400">{cat.category} · {dims.w}×{dims.h} cm footprint · {cat.height} cm tall · ${cat.price} · light {light}%</div>
       <div className="mb-2 flex gap-1">
