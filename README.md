@@ -10,7 +10,8 @@ Floorplay is a single-room furniture planner where a human and an AI agent edit 
 
 - Build a room: dimensions, doors with swing, windows with a compass direction.
 - Furnish it by hand from a catalog of about fifty items with real dimensions and prices, or let the agent do it.
-- See every problem as it happens: blocked doors, no walkway, an item in the dark, a blown budget.
+- Drop furniture near a wall and watch it snap flush and turn to face the room, or ask the agent where a piece belongs.
+- See every problem as it happens: blocked doors, no walkway, an item in the dark, a blown budget, each with a one-click fix.
 - Get layout options from the agent as ghost furniture and variant cards, then accept, reject, or drag a ghost before accepting.
 - Watch daylight move through the room on a time slider, in 2D and in 3D.
 - Walk through the room in 3D, or ask the agent what it sees from the door.
@@ -21,12 +22,14 @@ Everything is stored in your browser. Nothing leaves your machine.
 ## Use it with an agent
 
 1. Open the live URL in ChatGPT's in-app browser, or in Google Chrome with `chrome://flags/#enable-webmcp-testing` enabled.
-2. Click **My rooms → Load demo studio**.
+2. Click **Load the demo studio** on the first-run card, or **My rooms → Load demo studio** later.
 3. Try prompts such as:
-   - "Furnish this studio for my brief. Give me three options."
+   - "Furnish this studio for my brief using suggest_positions. Give me three options."
    - "I moved the bed. Make it work and keep the desk in morning light."
    - "I'm over budget. Find cheaper storage."
    - "What do I see from the door?"
+
+**First run.** On an untouched room a card sits over the plan with the three steps above, a **Load the demo studio** button, a **Start empty** button, and three example prompts you can copy straight into the agent. It disappears once you place anything or ask the agent for something, and **Don't show again** retires it for good.
 
 The top-right chip shows whether an agent is connected and how many tools are registered. Press **Ctrl+Shift+D** (Cmd+Shift+D on macOS) for a developer panel that lists every tool and lets you call it by hand.
 
@@ -34,9 +37,13 @@ The top-right chip shows whether an agent is connected and how many tools are re
 
 All coordinates are integer centimeters from the room's top-left corner, items are placed by their center, and rotation is 0, 90, 180 or 270 degrees clockwise.
 
-Read-only tools: `get_room`, `get_catalog`, `evaluate_layout`, `get_daylight`, `get_ledger`.
+There are 26 static tools plus 4 that appear only while an item is selected.
 
-Mutating tools: `set_room_shell`, `add_opening`, `remove_opening`, `set_brief`, `place_item`, `move_item`, `rotate_item`, `remove_item`, `swap_item`, `set_item_locked`, `add_catalog_item`, `propose_layout`, `apply_proposal`, `withdraw_proposal`, `apply_all_proposals`, `set_daylight_hour`, `set_camera`, `undo_last_action`, `run_layout_script`.
+Read-only tools: `get_room`, `get_catalog`, `suggest_positions`, `evaluate_layout`, `get_daylight`, `get_ledger`.
+
+Mutating tools: `set_room_shell`, `add_opening`, `remove_opening`, `set_brief`, `place_item`, `move_item`, `rotate_item`, `fix_item`, `remove_item`, `swap_item`, `set_item_locked`, `add_catalog_item`, `propose_layout`, `apply_proposal`, `withdraw_proposal`, `apply_all_proposals`, `set_daylight_hour`, `set_camera`, `undo_last_action`, `run_layout_script`.
+
+`suggest_positions` ranks real positions for a catalog item against the walls, the door swing, the window and the daylight model, and returns each one with a reason and a score, so the agent asks the room where a bed goes instead of guessing coordinates. `place_item` and `move_item` snap a position within 15 cm of a wall flush against it and turn wall furniture to face the room, reporting `snapped: true` and which wall, so a rough coordinate still lands like a designer put it there. `fix_item` moves one item to the nearest position that clears its blocking violations.
 
 `run_layout_script` runs a small algorithm the agent writes, in a sandboxed Web Worker with no DOM access, and turns the returned placements into a proposal.
 
