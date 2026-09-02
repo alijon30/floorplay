@@ -3,6 +3,7 @@ import type { PlacedItem, Rect, Room, Rotation, Violation } from './types';
 import { WINDOW_TOUCH_CM } from './types';
 import { findCatalogItem } from './catalog';
 import { clearanceGroups, containsRect, doorZones, footprint, intersection, intersects, openingSpan } from './geometry';
+import { reachability, type Reach } from './reach';
 
 export function placeTest(room: Room, catalogId: string, x: number, y: number, rotation: Rotation = 0, id = `t_${catalogId}`): PlacedItem {
   if (!findCatalogItem(room, catalogId)) throw new Error(`unknown catalog id ${catalogId}`);
@@ -71,7 +72,7 @@ export function itemViolations(room: Room, item: PlacedItem, others: PlacedItem[
   return out;
 }
 
-export function validateRoom(room: Room): Violation[] {
+export function validateRoom(room: Room, reach: Reach = reachability(room)): Violation[] {
   const out: Violation[] = [];
   const seenPairs = new Set<string>();
   for (const item of room.items) {
@@ -87,6 +88,11 @@ export function validateRoom(room: Room): Violation[] {
   const used = budgetUsed(room);
   if (room.brief.budget > 0 && used > room.brief.budget) {
     out.push({ kind: 'over_budget', itemIds: [], message: `Over budget by $${used - room.brief.budget}` });
+  }
+  for (const id of reach.unreachable) {
+    const item = room.items.find((i) => i.id === id);
+    const name = item ? findCatalogItem(room, item.catalogId)?.name ?? id : id;
+    out.push({ kind: 'unreachable', itemIds: [id], message: `${name} cannot be reached with a 60 cm walkway` });
   }
   return out;
 }
