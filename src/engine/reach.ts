@@ -1,7 +1,7 @@
 // src/engine/reach.ts
 import type { Room } from './types';
 import { CELL } from './types';
-import { findCatalogItem } from './catalog';
+import { findCatalogItem, isFloorSolid } from './catalog';
 import { doorInsidePoint, expandRect, footprint } from './geometry';
 import { cellIndex, dilate, flood, gridDims, occupancy, rectCells } from './grid';
 
@@ -12,7 +12,7 @@ export function reachability(room: Room): Reach {
   const { cols, rows } = gridDims(room);
   const targets = room.items.flatMap((item) => {
     const cat = findCatalogItem(room, item.catalogId);
-    return !cat || cat.category === 'rug' ? [] : [{ id: item.id, fp: footprint(item, cat) }];
+    return !cat || !isFloorSolid(cat) ? [] : [{ id: item.id, fp: footprint(item, cat) }];
   });
   if (!door) return { unreachable: [], minWalkwayCm: 120, hasDoor: false };
 

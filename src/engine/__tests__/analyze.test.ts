@@ -21,6 +21,18 @@ describe('analyze', () => {
     expect(a.metrics.violationCount).toBe(0);
   });
 
+  it('gives up no floor to a mounted mirror', () => {
+    const empty = analyze(makeDemoRoom());
+    const room = makeDemoRoom();
+    room.items = [placeTest(room, 'mirror-rect-80', 180, 2.5, 0, 'm')];
+    const a = analyze(room);
+    expect(a.metrics.freeFloorPct).toBe(100);
+    expect(a.metrics.openAreaCm2).toBe(empty.metrics.openAreaCm2);
+    expect(a.metrics.minWalkwayCm).toBe(120);
+    expect(a.metrics.budgetUsed).toBe(129);
+    expect(a.violations).toEqual([]);
+  });
+
   it('computes a delta only for changed numbers', () => {
     const before = analyze(makeDemoRoom()).metrics;
     const room = makeDemoRoom();

@@ -7,7 +7,7 @@ import {
 
 const desk: CatalogItem = {
   id: 'desk', name: 'Desk', category: 'desk', width: 120, depth: 60, height: 75, price: 100,
-  color: '#ccc', shape: 'desk', clearance: { front: 90 }, blocksLight: false, source: 'seed',
+  color: '#ccc', shape: 'desk', clearance: { front: 90 }, blocksLight: false, source: 'seed', rooms: ['office'],
 };
 const bed: CatalogItem = { ...desk, id: 'bed', name: 'Bed', category: 'bed', width: 160, depth: 200, clearance: { anyLongSide: 60 } };
 const shell: RoomShell = { width: 360, depth: 520, height: 260, northWall: 'top' };

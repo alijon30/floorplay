@@ -51,6 +51,20 @@ describe('reachability', () => {
     expect(r.minWalkwayCm).toBe(40);
   });
 
+  it('never asks for a walkway to a wall-mounted item', () => {
+    const room = makeDemoRoom();
+    room.items = [
+      placeTest(room, 'wardrobe-150', 75, 300, 0, 'a'),
+      placeTest(room, 'wardrobe-150', 285, 300, 0, 'b'),
+      placeTest(room, 'desk-120', 180, 100, 0, 'd'),
+      // On the far wall, behind the barrier that already cuts the desk off.
+      placeTest(room, 'wall-tv-120', 180, 4, 0, 'tv'),
+    ];
+    const r = reachability(room);
+    expect(r.unreachable).toEqual(['d']);
+    expect(validateRoom(room).some((v) => v.itemIds[0] === 'tv')).toBe(false);
+  });
+
   it('treats a room without a door as fully reachable', () => {
     const room = makeDemoRoom();
     room.openings = room.openings.filter((o) => o.kind !== 'door');

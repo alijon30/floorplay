@@ -1,5 +1,6 @@
 // src/engine/ops.ts
-import type { Op, Room } from './types';
+import type { Op, PlacedItem, Room } from './types';
+import { FLOOR_FINISHES } from './types';
 import { catalogFor, findCatalogItem } from './catalog';
 
 export type ApplyResult =
@@ -15,6 +16,22 @@ function fail(error: 'locked' | 'not_found' | 'invalid', message: string, itemId
 /** Insert `x` at index `at`, or append when `at` is absent. Never mutates `arr`. */
 function insertAt<T>(arr: readonly T[], x: T, at?: number): T[] {
   return at === undefined ? [...arr, x] : [...arr.slice(0, at), x, ...arr.slice(at)];
+}
+
+const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
+
+/**
+ * Set or drop an item's color override.
+ *
+ * A `null` color deletes the key rather than storing `undefined`, so undoing a recolor gives
+ * back an item that is deeply equal to the one before it.
+ */
+function withColor(item: PlacedItem, color: string | null): PlacedItem {
+  if (color === null) {
+    const { color: _dropped, ...rest } = item;
+    return rest;
+  }
+  return { ...item, color };
 }
 
 function applyOne(room: Room, op: Op): OneResult {
@@ -85,6 +102,20 @@ function applyOne(room: Room, op: Op): OneResult {
       if (room.items.some((i) => i.catalogId === op.id)) return fail('invalid', `Catalog item ${op.id} is still placed`);
       return { ok: true, room: { ...room, catalogExtras: room.catalogExtras.filter((x) => x.id !== op.id) }, inverse: [{ type: 'addCatalogItem', item: c, at }] };
     }
+    case 'recolor': {
+      const item = room.items.find((i) => i.id === op.id);
+      if (!item) return fail('not_found', `No item ${op.id}`);
+      if (op.color !== null && !HEX.test(op.color)) return fail('invalid', `${op.color} is not a hex color like #aabbcc`);
+      // A lock protects an item's place in the room, not its finish, so recoloring is allowed.
+      const inverse: Op = { type: 'recolor', id: op.id, color: item.color ?? null };
+      return { ok: true, room: { ...room, items: room.items.map((i) => (i.id === op.id ? withColor(i, op.color) : i)) }, inverse: [inverse] };
+    }
+    case 'setFinish': {
+      if (!HEX.test(op.finish.wall)) return fail('invalid', `${op.finish.wall} is not a hex color like #aabbcc`);
+      if (!FLOOR_FINISHES.includes(op.finish.floor)) return fail('invalid', `Unknown floor finish ${op.finish.floor}`);
+      const inverse: Op = { type: 'setFinish', finish: room.finish };
+      return { ok: true, room: { ...room, finish: { ...op.finish } }, inverse: [inverse] };
+    }
   }
 }
 
@@ -119,6 +150,8 @@ export function describeOps(room: Room, ops: Op[]): string {
       case 'setLocked': return `${op.locked ? 'Locked' : 'Unlocked'} ${itemName(op.id)}`;
       case 'addCatalogItem': return `Added ${op.item.name} to the catalog`;
       case 'removeCatalogItem': return `Removed catalog item ${op.id}`;
+      case 'recolor': return op.color === null ? `Reset the color of ${itemName(op.id)}` : `Recolored ${itemName(op.id)} to ${op.color}`;
+      case 'setFinish': return `Finish set to ${op.finish.floor} floor and ${op.finish.wall} walls`;
     }
   });
   return parts.length <= 2 ? parts.join('; ') : `${parts[0]} and ${parts.length - 1} more changes`;

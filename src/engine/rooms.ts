@@ -1,5 +1,6 @@
 // src/engine/rooms.ts
 import type { Room } from './types';
+import { DEFAULT_FINISH } from './types';
 import { newId } from './ids';
 
 export const PRESETS = [
@@ -18,6 +19,7 @@ export function makeEmptyRoom(name: string, width: number, depth: number, height
     openings: [],
     items: [],
     brief: { budget: 1000, currency: 'USD', needs: [], notes: '' },
+    finish: { ...DEFAULT_FINISH },
     daylightHour: 12,
     catalogExtras: [],
     proposals: [],

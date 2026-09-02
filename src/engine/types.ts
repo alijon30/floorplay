@@ -20,10 +20,27 @@ export interface Opening {
 
 export type Category =
   | 'bed' | 'sofa' | 'armchair' | 'desk' | 'chair' | 'table' | 'wardrobe'
-  | 'shelf' | 'dresser' | 'nightstand' | 'rug' | 'lamp' | 'plant' | 'tv' | 'other';
-export const CATEGORIES: Category[] = ['bed','sofa','armchair','desk','chair','table','wardrobe','shelf','dresser','nightstand','rug','lamp','plant','tv','other'];
+  | 'shelf' | 'dresser' | 'nightstand' | 'rug' | 'lamp' | 'plant' | 'tv'
+  | 'kitchen' | 'appliance' | 'storage' | 'decor' | 'wall' | 'other';
+export const CATEGORIES: Category[] = [
+  'bed','sofa','armchair','desk','chair','table','wardrobe','shelf','dresser','nightstand',
+  'rug','lamp','plant','tv','kitchen','appliance','storage','decor','wall','other',
+];
 
-export type Shape = 'box' | 'bed' | 'sofa' | 'desk' | 'chair' | 'table' | 'wardrobe' | 'shelf' | 'rug' | 'lamp' | 'plant' | 'tv';
+export type Shape =
+  | 'box' | 'bed' | 'sofa' | 'desk' | 'chair' | 'table' | 'wardrobe' | 'shelf' | 'rug' | 'lamp' | 'plant' | 'tv'
+  | 'counter' | 'appliance' | 'stool' | 'bench' | 'picture' | 'mirror' | 'curtain' | 'hooks' | 'wallshelf' | 'pouf' | 'crib';
+
+/** The kind of room an item belongs in, used to filter the catalog and to key the templates. */
+export type RoomKind = 'living' | 'kitchen' | 'bedroom' | 'hall' | 'office' | 'dining' | 'kids' | 'studio';
+export const ROOM_KINDS: RoomKind[] = ['living', 'kitchen', 'bedroom', 'hall', 'office', 'dining', 'kids', 'studio'];
+
+export type FloorFinish = 'oak' | 'walnut' | 'ash' | 'grey' | 'tile';
+export const FLOOR_FINISHES: FloorFinish[] = ['oak', 'walnut', 'ash', 'grey', 'tile'];
+
+/** Wall paint (hex) and floor material for a room. */
+export interface RoomFinish { wall: string; floor: FloorFinish }
+export const DEFAULT_FINISH: RoomFinish = { wall: '#efe9df', floor: 'oak' };
 
 /**
  * Free space an item needs on each side, in cm, measured outward from its footprint.
@@ -66,6 +83,18 @@ export interface CatalogItem {
   blocksLight: boolean;
   source: 'seed' | 'agent';
   url?: string;
+  /** Room kinds this item suits. Never empty, so every item survives a room filter. */
+  rooms: RoomKind[];
+  /** Alternative finishes offered in the inspector. The first entry equals `color`. */
+  colors?: string[];
+  /**
+   * Height in cm from the floor to the bottom of the item, for wall-mounted things only.
+   *
+   * Its presence is what makes an item mounted: it then hangs above the floor, so it is
+   * bounds-checked but takes part in no overlap, clearance, reachability, free-floor or
+   * daylight calculation. See `isFloorSolid`.
+   */
+  mountHeight?: number;
 }
 
 export interface PlacedItem {
@@ -75,6 +104,8 @@ export interface PlacedItem {
   y: number;
   rotation: Rotation;
   locked: boolean;
+  /** Overrides the catalog item's `color` for this placement only. */
+  color?: string;
 }
 
 export interface Brief { budget: number; currency: 'USD'; needs: string[]; notes: string }
@@ -95,7 +126,10 @@ export type Op =
   | { type: 'setLocked'; id: string; locked: boolean }
   /** `at` is an insert index; the catalog item is appended when absent. */
   | { type: 'addCatalogItem'; item: CatalogItem; at?: number }
-  | { type: 'removeCatalogItem'; id: string };
+  | { type: 'removeCatalogItem'; id: string }
+  /** `null` drops the override so the item goes back to its catalog color. */
+  | { type: 'recolor'; id: string; color: string | null }
+  | { type: 'setFinish'; finish: RoomFinish };
 
 export type ViolationKind = 'out_of_bounds' | 'overlap' | 'blocks_door' | 'blocks_window' | 'clearance' | 'unreachable' | 'over_budget';
 
@@ -148,6 +182,7 @@ export interface Room extends RoomShell {
   openings: Opening[];
   items: PlacedItem[];
   brief: Brief;
+  finish: RoomFinish;
   daylightHour: number;
   catalogExtras: CatalogItem[];
   proposals: Proposal[];

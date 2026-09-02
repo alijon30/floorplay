@@ -22,11 +22,12 @@ export interface Suggestion {
 /** Categories that want their back against a wall, so they are rotated to face the room. */
 export const WALL_BACKED: ReadonlySet<Category> = new Set<Category>([
   'bed', 'wardrobe', 'desk', 'shelf', 'dresser', 'tv', 'sofa', 'nightstand',
+  'kitchen', 'appliance', 'storage', 'wall',
 ]);
 
 /** Categories that read fine in open floor and keep whatever rotation they are given. */
 export const FREE_STANDING: ReadonlySet<Category> = new Set<Category>([
-  'table', 'rug', 'chair', 'armchair', 'plant', 'lamp', 'other',
+  'table', 'rug', 'chair', 'armchair', 'plant', 'lamp', 'decor', 'other',
 ]);
 
 /** A dragged edge this close to a wall is treated as an attempt to put the item against it. */

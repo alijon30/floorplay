@@ -2,6 +2,7 @@
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import { persist, type PersistStorage, type StateStorage } from 'zustand/middleware';
 import type { Analysis, CameraPose, Category, LedgerEntry, Op, Proposal, Room, Wall } from '../engine/types';
+import { DEFAULT_FINISH, ROOM_KINDS } from '../engine/types';
 import { analyze } from '../engine/analyze';
 import { applyOps, describeOps } from '../engine/ops';
 import { evaluateOps } from '../engine/evaluate';
@@ -63,6 +64,23 @@ export type FlushableRoomStore = RoomStore & { flush?: () => void };
 
 const LEDGER_CAP = 200;
 const DEFAULT_DEBOUNCE_MS = 300;
+
+/**
+ * Fill in fields a room saved by an older version of the app has never heard of.
+ *
+ * Rooms are persisted whole, so a save from before room finishes and catalog room tags existed
+ * would otherwise come back missing both and break rendering and filtering.
+ */
+function upgradeRoom(room: Room): Room {
+  const extras = room.catalogExtras ?? [];
+  const needsExtras = extras.some((c) => !c.rooms || c.rooms.length === 0);
+  if (room.finish && !needsExtras) return room;
+  return {
+    ...room,
+    finish: room.finish ?? { ...DEFAULT_FINISH },
+    catalogExtras: needsExtras ? extras.map((c) => (c.rooms && c.rooms.length ? c : { ...c, rooms: [...ROOM_KINDS] })) : extras,
+  };
+}
 
 const defaultUi = (): UiState => ({
   selectedItemId: null,
@@ -240,7 +258,8 @@ export function createRoomStore(opts: { storage?: StateStorage; debounceMs?: num
       partialize: (s) => ({ rooms: s.rooms, currentId: s.currentId, ui: { proposeFirst: s.ui.proposeFirst, onboardingDismissed: s.ui.onboardingDismissed } }) as unknown as RoomState,
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<RoomState> & { ui?: Partial<UiState> };
-        const rooms = p.rooms && Object.keys(p.rooms).length ? p.rooms : current.rooms;
+        const stored = p.rooms && Object.keys(p.rooms).length ? p.rooms : current.rooms;
+        const rooms = Object.fromEntries(Object.entries(stored).map(([id, r]) => [id, upgradeRoom(r)]));
         const currentId = p.currentId && rooms[p.currentId] ? p.currentId : Object.keys(rooms)[0]!;
         return { ...current, rooms, currentId, analysis: analyze(rooms[currentId]!), ui: { ...current.ui, ...(p.ui ?? {}) } };
       },

@@ -1,7 +1,7 @@
 // src/engine/validate.ts
 import type { PlacedItem, Rect, Room, Rotation, Violation } from './types';
 import { WINDOW_TOUCH_CM } from './types';
-import { findCatalogItem } from './catalog';
+import { findCatalogItem, isFloorSolid } from './catalog';
 import { clearanceGroups, containsRect, doorZones, footprint, intersection, intersects, openingSpan } from './geometry';
 import { reachability, type Reach } from './reach';
 
@@ -22,7 +22,7 @@ function solidFootprints(room: Room, items: PlacedItem[]): { item: PlacedItem; r
   const out: { item: PlacedItem; rect: Rect; name: string }[] = [];
   for (const o of items) {
     const cat = findCatalogItem(room, o.catalogId);
-    if (!cat || cat.category === 'rug') continue;
+    if (!cat || !isFloorSolid(cat)) continue;
     out.push({ item: o, rect: footprint(o, cat), name: cat.name });
   }
   return out;
@@ -38,7 +38,10 @@ export function itemViolations(room: Room, item: PlacedItem, others: PlacedItem[
   if (!containsRect(bounds, fp)) {
     out.push({ kind: 'out_of_bounds', itemIds: [item.id], message: `${cat.name} extends outside the room`, zone: fp });
   }
-  if (cat.category === 'rug') return out;
+  // A rug is walked on and a wall-mounted item hangs above the floor, so neither collides with
+  // anything, blocks a door or a window, or needs clearance. Staying inside the room is all that
+  // is asked of them.
+  if (!isFloorSolid(cat)) return out;
 
   const solids = solidFootprints(room, others);
   for (const s of solids) {

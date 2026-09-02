@@ -33,9 +33,13 @@ describe('read tools', () => {
 
   it('get_catalog filters by category, size and price', async () => {
     const { tools } = setup();
-    const all = parseResult(await tools['get_catalog']!.execute({})) as { count: number; truncated: boolean };
-    expect(all.count).toBeGreaterThanOrEqual(45);
-    expect(all.truncated).toBe(false);
+    const all = parseResult(await tools['get_catalog']!.execute({})) as { count: number; truncated: boolean; items: unknown[] };
+    expect(all.count).toBeGreaterThanOrEqual(110);
+    // The seed catalog is bigger than one page now, so an unfiltered call is truncated by design.
+    expect(all.truncated).toBe(true);
+    expect(all.items).toHaveLength(60);
+    const narrowed = parseResult(await tools['get_catalog']!.execute({ category: 'rug' })) as { truncated: boolean };
+    expect(narrowed.truncated).toBe(false);
     const beds = parseResult(await tools['get_catalog']!.execute({ category: 'bed', maxPrice: 400 })) as { items: { id: string }[] };
     expect(beds.items.map((b) => b.id).sort()).toEqual(['bed-daybed-90', 'bed-double-140', 'bed-single-90']);
     const narrow = parseResult(await tools['get_catalog']!.execute({ category: 'desk', maxWidth: 100 })) as { items: { id: string }[] };
@@ -49,7 +53,7 @@ describe('read tools', () => {
     const extras: CatalogItem[] = Array.from({ length: 70 }, (_, i) => ({
       id: `agent-other-${i}`, name: `Agent find ${i}`, category: 'other',
       width: 40, depth: 40, height: 40, price: 1000 + i, color: '#8c6f5a',
-      shape: 'box', clearance: {}, blocksLight: false, source: 'agent',
+      shape: 'box', clearance: {}, blocksLight: false, source: 'agent', rooms: ['living'],
     }));
     store.getState().current().catalogExtras = extras;
     const r = parseResult(await tools['get_catalog']!.execute({ category: 'other' })) as { count: number; truncated: boolean; items: { id: string }[] };

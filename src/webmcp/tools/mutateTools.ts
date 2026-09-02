@@ -6,6 +6,7 @@ import type { ToolContext } from './context';
 import { itemsSummary, shortMetrics, shortViolations } from './context';
 import { placementsToOps, type Placement } from './placements';
 import type { Category, Clearance, Op, PlacedItem, Room, Rotation, Shape, Wall } from '../../engine/types';
+import { ROOM_KINDS } from '../../engine/types';
 import { findCatalogItem } from '../../engine/catalog';
 import { newId } from '../../engine/ids';
 import { itemViolations } from '../../engine/validate';
@@ -85,12 +86,16 @@ function snapPlacement(room: Room, catalogId: string, x: number, y: number, rota
 
 const DEFAULT_CLEARANCE: Record<Category, Clearance> = {
   bed: { anyLongSide: 60 }, sofa: { front: 60 }, armchair: { front: 50 }, desk: { front: 90 }, chair: {}, table: { front: 60, back: 60 },
-  wardrobe: { front: 60 }, shelf: { front: 40 }, dresser: { front: 60 }, nightstand: {}, rug: {}, lamp: {}, plant: {}, tv: { front: 100 }, other: {},
+  wardrobe: { front: 60 }, shelf: { front: 40 }, dresser: { front: 60 }, nightstand: {}, rug: {}, lamp: {}, plant: {}, tv: { front: 100 },
+  kitchen: { front: 60 }, appliance: { front: 60 }, storage: { front: 60 }, decor: {}, wall: {}, other: {},
 };
 const SHAPE_FOR: Record<Category, Shape> = {
   bed: 'bed', sofa: 'sofa', armchair: 'sofa', desk: 'desk', chair: 'chair', table: 'table', wardrobe: 'wardrobe', shelf: 'shelf',
-  dresser: 'box', nightstand: 'box', rug: 'rug', lamp: 'lamp', plant: 'plant', tv: 'tv', other: 'box',
+  dresser: 'box', nightstand: 'box', rug: 'rug', lamp: 'lamp', plant: 'plant', tv: 'tv',
+  kitchen: 'counter', appliance: 'appliance', storage: 'box', decor: 'pouf', wall: 'picture', other: 'box',
 };
+/** Categories whose items never block a window however tall they are. */
+const SEE_THROUGH: Category[] = ['lamp', 'plant', 'chair', 'decor', 'wall', 'other'];
 
 export function buildMutateTools(ctx: ToolContext): ToolDef[] {
   const state = () => ctx.store.getState();
@@ -224,7 +229,9 @@ export function buildMutateTools(ctx: ToolContext): ToolDef[] {
         const item = {
           id, name: i['name'] as string, category, width: num(i, 'width'), depth: num(i, 'depth'), height, price: num(i, 'price'),
           color: (i['color'] as string | undefined) ?? '#9aa3ad', shape: SHAPE_FOR[category], clearance: DEFAULT_CLEARANCE[category],
-          blocksLight: height > 100 && !['lamp', 'plant', 'chair', 'other'].includes(category), source: 'agent' as const,
+          blocksLight: height > 100 && !SEE_THROUGH.includes(category), source: 'agent' as const,
+          // An agent has no room-kind opinion to offer, so the item stays visible under every filter.
+          rooms: [...ROOM_KINDS],
           ...(i['url'] ? { url: i['url'] as string } : {}),
         };
         const r = mutate(ctx, { tool: 'add_catalog_item', proposable: false, ops: [{ type: 'addCatalogItem', item }] });

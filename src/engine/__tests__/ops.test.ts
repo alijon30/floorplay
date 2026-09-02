@@ -17,7 +17,7 @@ describe('applyOps', () => {
       { type: 'setLocked', id: 'a', locked: true },
       { type: 'setBrief', brief: { budget: 500, currency: 'USD', needs: ['sleep'], notes: '' } },
       { type: 'addOpening', opening: { id: 'w2', kind: 'window', wall: 'top', offset: 100, width: 80, height: 100, sill: 100 } },
-      { type: 'addCatalogItem', item: { id: 'agent-lamp', name: 'Paper lamp', category: 'lamp', width: 30, depth: 30, height: 150, price: 25, color: '#fff', shape: 'lamp', clearance: {}, blocksLight: false, source: 'agent' } },
+      { type: 'addCatalogItem', item: { id: 'agent-lamp', name: 'Paper lamp', category: 'lamp', width: 30, depth: 30, height: 150, price: 25, color: '#fff', shape: 'lamp', clearance: {}, blocksLight: false, source: 'agent', rooms: ['living'] } },
       { type: 'setShell', width: 400, depth: 520, height: 260, northWall: 'left' },
     ];
     const r = applyOps(room, ops);
@@ -95,9 +95,63 @@ describe('applyOps', () => {
     expect(applyOps(room, [{ type: 'setShell', width: 0, depth: 100, height: 100, northWall: 'top' }])).toMatchObject({ ok: false, error: 'invalid' });
   });
 
+  it('recolors an item and repaints the room, both exactly reversible', () => {
+    const start = makeDemoRoom();
+    const placed = applyOps(start, [{ type: 'place', item: placeTest(start, 'sofa-2', 180, 45, 0, 's') }]);
+    expect(placed.ok).toBe(true);
+    if (!placed.ok) return;
+    const base = placed.room;
+    expect(base.finish).toEqual({ wall: '#efe9df', floor: 'oak' });
+
+    const r = applyOps(base, [
+      { type: 'recolor', id: 's', color: '#8c9a7a' },
+      { type: 'recolor', id: 's', color: '#4a4f57' },
+      { type: 'setFinish', finish: { wall: '#d8d2c4', floor: 'walnut' } },
+    ]);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.room.items[0]!.color).toBe('#4a4f57');
+    expect(r.room.finish).toEqual({ wall: '#d8d2c4', floor: 'walnut' });
+    expect(base.items[0]).not.toHaveProperty('color');
+
+    const back = applyOps(r.room, r.inverse);
+    expect(back.ok).toBe(true);
+    if (!back.ok) return;
+    // An undone recolor leaves no leftover key, so the item is the one that was there before.
+    expect(Object.hasOwn(back.room.items[0]!, 'color')).toBe(false);
+    expect(back.room).toEqual(base);
+    const again = applyOps(back.room, back.inverse);
+    expect(again.ok).toBe(true);
+    if (again.ok) expect(again.room).toEqual(r.room);
+
+    const cleared = applyOps(r.room, [{ type: 'recolor', id: 's', color: null }]);
+    expect(cleared.ok).toBe(true);
+    if (!cleared.ok) return;
+    expect(Object.hasOwn(cleared.room.items[0]!, 'color')).toBe(false);
+    const restored = applyOps(cleared.room, cleared.inverse);
+    expect(restored.ok).toBe(true);
+    if (restored.ok) expect(restored.room.items[0]!.color).toBe('#4a4f57');
+  });
+
+  it('rejects a color that is not hex and an unknown item or floor', () => {
+    const room = makeDemoRoom();
+    room.items = [placeTest(room, 'sofa-2', 180, 45, 0, 's')];
+    expect(applyOps(room, [{ type: 'recolor', id: 's', color: 'sage' }])).toMatchObject({ ok: false, error: 'invalid' });
+    expect(applyOps(room, [{ type: 'recolor', id: 'zz', color: null }])).toMatchObject({ ok: false, error: 'not_found' });
+    expect(applyOps(room, [{ type: 'setFinish', finish: { wall: 'white', floor: 'oak' } }])).toMatchObject({ ok: false, error: 'invalid' });
+    expect(applyOps(room, [{ type: 'setFinish', finish: { wall: '#fff', floor: 'lino' as 'oak' } }])).toMatchObject({ ok: false, error: 'invalid' });
+    // A locked item keeps its place, not its finish, so it can still be recolored.
+    room.items = [{ ...room.items[0]!, locked: true }];
+    expect(applyOps(room, [{ type: 'recolor', id: 's', color: '#8c9a7a' }]).ok).toBe(true);
+  });
+
   it('summarises ops', () => {
     const room = makeDemoRoom();
     expect(describeOps(room, [{ type: 'place', item: placeTest(room, 'desk-120', 60, 30, 0, 'a') }])).toBe('Placed Desk 120 at (60, 30)');
+    room.items = [placeTest(room, 'sofa-2', 180, 45, 0, 's')];
+    expect(describeOps(room, [{ type: 'recolor', id: 's', color: '#8c9a7a' }])).toBe('Recolored Two-seat sofa to #8c9a7a');
+    expect(describeOps(room, [{ type: 'recolor', id: 's', color: null }])).toBe('Reset the color of Two-seat sofa');
+    expect(describeOps(room, [{ type: 'setFinish', finish: { wall: '#d8d2c4', floor: 'walnut' } }])).toBe('Finish set to walnut floor and #d8d2c4 walls');
   });
 });
 

@@ -170,6 +170,35 @@ describe('roomStore', () => {
     }
   });
 
+  it('gives a room saved before finishes existed the default one', () => {
+    const storage = memoryStorage();
+    const legacy = {
+      state: {
+        rooms: {
+          r1: {
+            id: 'r1', name: 'Old room', width: 300, depth: 400, height: 250, northWall: 'top',
+            openings: [], items: [], brief: { budget: 1000, currency: 'USD', needs: [], notes: '' },
+            daylightHour: 12,
+            catalogExtras: [{
+              id: 'agent-1', name: 'Found lamp', category: 'lamp', width: 30, depth: 30, height: 150,
+              price: 25, color: '#fff', shape: 'lamp', clearance: {}, blocksLight: false, source: 'agent',
+            }],
+            proposals: [], ledger: [],
+          },
+        },
+        currentId: 'r1',
+        ui: { proposeFirst: false, onboardingDismissed: true },
+      },
+      version: 0,
+    };
+    storage.setItem(STORAGE_KEY, JSON.stringify(legacy));
+    const store = createRoomStore({ storage });
+    const room = store.getState().current();
+    expect(room.name).toBe('Old room');
+    expect(room.finish).toEqual({ wall: '#efe9df', floor: 'oak' });
+    expect(room.catalogExtras[0]!.rooms.length).toBeGreaterThan(0);
+  });
+
   it('survives corrupt persisted JSON', () => {
     const storage = memoryStorage();
     storage.setItem(STORAGE_KEY, '{not json');

@@ -50,6 +50,27 @@ describe('itemViolations', () => {
     const room = withItems(makeDemoRoom(), [['rug-160x230', 180, 260], ['sofa-2', 180, 260]]);
     expect(itemViolations(room, room.items[1]!).map((v) => v.kind)).not.toContain('overlap');
   });
+
+  it('hangs a picture over a sofa without an overlap either way', () => {
+    // Sofa flush to the top wall, picture on that wall right above it.
+    const room = withItems(makeDemoRoom(), [['sofa-2', 180, 42.5], ['picture-60', 180, 2]]);
+    expect(itemViolations(room, room.items[1]!)).toEqual([]);
+    expect(itemViolations(room, room.items[0]!)).toEqual([]);
+  });
+
+  it('flags a picture that hangs past the end of the wall', () => {
+    const room = withItems(makeDemoRoom(), [['picture-60', 10, 2]]);
+    expect(itemViolations(room, room.items[0]!).map((v) => v.kind)).toEqual(['out_of_bounds']);
+  });
+
+  it('lets wall-mounted items hang over the door and the window', () => {
+    // The door is on the bottom wall at offset 20, so this picture is inside its approach zone.
+    const overDoor = withItems(makeDemoRoom(), [['picture-40', 60, 518]]);
+    expect(itemViolations(overDoor, overDoor.items[0]!)).toEqual([]);
+    // Curtains stand in the window strip on the right wall, where a wardrobe would be flagged.
+    const atWindow = withItems(makeDemoRoom(), [['curtain-200', 355, 260, 90]]);
+    expect(itemViolations(atWindow, atWindow.items[0]!)).toEqual([]);
+  });
 });
 
 describe('validateRoom', () => {

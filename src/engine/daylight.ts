@@ -1,7 +1,7 @@
 // src/engine/daylight.ts
 import type { Daylight, Opening, Room, RoomShell } from './types';
 import { CELL } from './types';
-import { findCatalogItem } from './catalog';
+import { findCatalogItem, isFloorSolid } from './catalog';
 import { doorZones, footprint, openingSpan, pointInRect, wallFacing } from './geometry';
 import { gridDims, occupancy, rectCells } from './grid';
 
@@ -50,7 +50,7 @@ export function computeDaylight(room: Room, hour: number = room.daylightHour): D
   const grid = new Float32Array(cols * rows);
   const blockers = room.items.flatMap((item) => {
     const cat = findCatalogItem(room, item.catalogId);
-    return cat && cat.blocksLight ? [footprint(item, cat)] : [];
+    return cat && cat.blocksLight && isFloorSolid(cat) ? [footprint(item, cat)] : [];
   });
   const sky = SKY * dayFactor(hour);
   const windows = room.openings

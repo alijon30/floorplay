@@ -1,7 +1,7 @@
 // src/engine/grid.ts
 import type { Rect, Room, RoomShell } from './types';
 import { CELL } from './types';
-import { findCatalogItem } from './catalog';
+import { findCatalogItem, isFloorSolid } from './catalog';
 import { footprint } from './geometry';
 
 export function gridDims(room: RoomShell): { cols: number; rows: number } {
@@ -31,7 +31,7 @@ export function occupancy(room: Room, opts: { exceptId?: string } = {}): Uint8Ar
   for (const item of room.items) {
     if (item.id === opts.exceptId) continue;
     const cat = findCatalogItem(room, item.catalogId);
-    if (!cat || cat.category === 'rug') continue;
+    if (!cat || !isFloorSolid(cat)) continue;
     for (const i of rectCells(footprint(item, cat), cols, rows)) occ[i] = 1;
   }
   return occ;
