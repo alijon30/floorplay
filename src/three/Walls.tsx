@@ -1,7 +1,7 @@
 // src/three/Walls.tsx
 import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import type * as THREE from 'three';
+import * as THREE from 'three';
 import type { Opening, RoomFinish, RoomShell, Wall } from '../engine/types';
 import { DEFAULT_FINISH, WALLS } from '../engine/types';
 import { M, WALL_T } from './units';
@@ -87,6 +87,29 @@ export function baseboardSegments(room: RoomShell & { openings: Opening[] }, wal
 /** Corner posts, in the order [top-left, top-right, bottom-left, bottom-right]. */
 const CORNER_WALLS: [Wall, Wall][] = [['top', 'left'], ['top', 'right'], ['bottom', 'left'], ['bottom', 'right']];
 
+/** How far outside the wall the daylight panel hangs, in meters. */
+const SKY_GAP = 0.01;
+/** Daylight seen through the glass. Flat and unlit, so the hour of day never dims it. */
+const SKY_COLOR = '#dfe7ee';
+
+/**
+ * Where the panel of daylight goes for one pane: just outside the wall it is set into,
+ * exactly the size of the opening.
+ *
+ * Beyond every window is the void the studio backdrop is made of, which through a pane reads
+ * as a black rectangle punched in the wall. A flat panel of sky behind the glass is what turns
+ * the opening back into a window. Derived from the glass boxes `wallSegments` already returns,
+ * so the geometry the walls are built from is untouched.
+ */
+function skyPanel(room: RoomShell, wall: Wall, b: Box): { position: [number, number, number]; rotation: [number, number, number]; size: [number, number] } {
+  switch (wall) {
+    case 'top': return { position: [b.x, b.y, -WALL_T - SKY_GAP], rotation: [0, 0, 0], size: [b.w, b.h] };
+    case 'bottom': return { position: [b.x, b.y, room.depth * M + WALL_T + SKY_GAP], rotation: [0, 0, 0], size: [b.w, b.h] };
+    case 'left': return { position: [-WALL_T - SKY_GAP, b.y, b.z], rotation: [0, Math.PI / 2, 0], size: [b.d, b.h] };
+    case 'right': return { position: [room.width * M + WALL_T + SKY_GAP, b.y, b.z], rotation: [0, Math.PI / 2, 0], size: [b.d, b.h] };
+  }
+}
+
 export default function Walls({ room }: { room: RoomShell & { openings: Opening[]; finish?: RoomFinish } }) {
   // Painted from the room's own finish. `wallSegments` is exported for tests that pass a bare
   // shell, so the default keeps this component working on one of those too.
@@ -137,12 +160,23 @@ export default function Walls({ room }: { room: RoomShell & { openings: Opening[
       ))}
       {WALLS.map((w) => (
         <group key={w} ref={(g) => { wallRefs.current[w] = g; }}>
+          {/* The daylight behind the glass, drawn first: it is opaque, so it lands in the
+              opaque pass and the panes blend over it in the right order. */}
+          {wallSegments(room, w).filter((b) => b.kind === 'glass').map((b, i) => {
+            const p = skyPanel(room, w, b);
+            return (
+              <mesh key={`sky${i}`} position={p.position} rotation={p.rotation}>
+                <planeGeometry args={p.size} />
+                <meshBasicMaterial color={SKY_COLOR} side={THREE.DoubleSide} toneMapped={false} />
+              </mesh>
+            );
+          })}
           {wallSegments(room, w).map((b, i) => (
             <mesh key={`s${i}`} position={[b.x, b.y, b.z]} castShadow={b.kind === 'wall'} receiveShadow>
               <boxGeometry args={[b.w, b.h, b.d]} />
               {b.kind === 'wall'
                 ? <meshStandardMaterial color={paint} roughness={0.95} metalness={0} />
-                : <meshPhysicalMaterial color="#cfe6f5" transparent opacity={0.18} roughness={0.05} metalness={0} />}
+                : <meshPhysicalMaterial color="#dfe8f0" emissive="#cfdbe6" emissiveIntensity={0.7} transparent opacity={0.55} roughness={0.05} metalness={0} toneMapped={false} />}
             </mesh>
           ))}
           {baseboardSegments(room, w).map((b, i) => (
