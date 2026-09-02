@@ -8,11 +8,14 @@ import Plan from './plan/Plan';
 import Scene from './three/Scene';
 import CatalogDrawer from './ui/CatalogDrawer';
 import Inspector from './ui/Inspector';
+import RoomPanel from './ui/RoomPanel';
 import IssuesPanel from './ui/IssuesPanel';
 import ProposalTray from './ui/ProposalTray';
 import Ledger from './ui/Ledger';
 import Onboarding from './ui/Onboarding';
 import RoomWizard from './ui/RoomWizard';
+import ShellDialog from './ui/ShellDialog';
+import BriefDialog from './ui/BriefDialog';
 import { useRoom } from './store';
 import './webmcp';
 
@@ -22,6 +25,11 @@ export default function App() {
   // the same dialog without reaching across the top bar.
   const wizardOpen = useRoom((s) => s.ui.wizardOpen);
   const setWizardOpen = useRoom((s) => s.setWizardOpen);
+  // The shell and brief dialogs are shared: the top bar and the room panel both open them
+  // through `ui.dialog`, and they render once, here.
+  const dialog = useRoom((s) => s.ui.dialog);
+  const closeDialog = useRoom((s) => s.closeDialog);
+  const selectedItemId = useRoom((s) => s.ui.selectedItemId);
   return (
     <div className="flex h-full flex-col">
       <TopBar />
@@ -32,8 +40,9 @@ export default function App() {
             <Plan />
             <CatalogDrawer />
             <Onboarding />
-            <div className="absolute right-3 top-3 z-20 flex max-h-[calc(100%-1.5rem)] w-64 flex-col gap-2">
-              <Inspector />
+            {/* One card at a time: the room's own numbers, or the selected piece's. */}
+            <div className="absolute right-3 top-3 z-20 flex max-h-[calc(100%-1.5rem)] w-64 flex-col gap-2 overflow-auto">
+              {selectedItemId ? <Inspector /> : <RoomPanel />}
               <IssuesPanel />
             </div>
           </div>
@@ -45,6 +54,8 @@ export default function App() {
         <div className={ledgerOpen ? 'w-1/2' : 'w-full'}><Ledger open={ledgerOpen} onToggle={() => setLedgerOpen((o) => !o)} /></div>
       </div>
       {wizardOpen && <RoomWizard onClose={() => setWizardOpen(false)} />}
+      {dialog === 'shell' && <ShellDialog onClose={closeDialog} />}
+      {dialog === 'brief' && <BriefDialog onClose={closeDialog} />}
       <DevPanel />
     </div>
   );

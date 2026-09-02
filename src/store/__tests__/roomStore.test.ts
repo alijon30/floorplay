@@ -190,6 +190,27 @@ describe('roomStore', () => {
     }
   });
 
+  it('opens and closes the shared dialogs, and never persists which one is open', () => {
+    vi.useFakeTimers();
+    try {
+      const storage = memoryStorage();
+      const a = createRoomStore({ storage });
+      expect(a.getState().ui.dialog).toBeNull();
+      a.getState().openDialog('shell');
+      expect(a.getState().ui.dialog).toBe('shell');
+      a.getState().openDialog('style');
+      expect(a.getState().ui.dialog).toBe('style');
+      a.getState().closeDialog();
+      expect(a.getState().ui.dialog).toBeNull();
+      // An open dialog is this session's business, so a reload starts with the rail clear.
+      a.getState().openDialog('brief');
+      vi.advanceTimersByTime(300);
+      expect(createRoomStore({ storage }).getState().ui.dialog).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('gives a room saved before finishes existed the default one', () => {
     const storage = memoryStorage();
     const legacy = {

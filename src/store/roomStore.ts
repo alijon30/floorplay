@@ -22,12 +22,20 @@ export interface UiState {
   catalogFilter: { category?: Category; fitsItemId?: string } | null;
   /** The new-room dialog. Held here so the onboarding card can open it too. */
   wizardOpen: boolean;
+  /**
+   * Which of the top bar's shared panels is open. Held here rather than in `TopBar`, so the
+   * room panel on the right rail can open the very same dialogs.
+   */
+  dialog: DialogName | null;
   camera: CameraPose;
   /** Draw the daylight tint over the plan. Off is for reading the plan itself. */
   showDaylight: boolean;
   /** Cast and catch shadows in the 3D view. Off buys frames on a slow machine. */
   showShadows: boolean;
 }
+
+/** The panels both the top bar and the room panel can open. */
+export type DialogName = 'shell' | 'brief' | 'style';
 
 export type DispatchInput = { ops: Op[]; actor: 'human' | 'agent'; summary?: string; tool?: string };
 export type DispatchResult =
@@ -57,6 +65,8 @@ export interface RoomState {
   dismissOnboarding(): void;
   setCatalogOpen(open: boolean, filter?: UiState['catalogFilter']): void;
   setWizardOpen(open: boolean): void;
+  openDialog(name: DialogName): void;
+  closeDialog(): void;
   setCamera(pose: Partial<CameraPose>): void;
   setDaylightHour(hour: number): void;
   setNorthWall(wall: Wall): void;
@@ -102,6 +112,7 @@ const defaultUi = (): UiState => ({
   catalogOpen: false,
   catalogFilter: null,
   wizardOpen: false,
+  dialog: null,
   camera: { mode: 'orbit', x: 180, y: 260, z: 160, yaw: 0, pitch: 0 },
   showDaylight: true,
   showShadows: true,
@@ -208,6 +219,8 @@ export function createRoomStore(opts: { storage?: StateStorage; debounceMs?: num
       dismissOnboarding() { set((s) => ({ ui: { ...s.ui, onboardingDismissed: true } })); },
       setCatalogOpen(open, filter = null) { set((s) => ({ ui: { ...s.ui, catalogOpen: open, catalogFilter: filter } })); },
       setWizardOpen(open) { set((s) => ({ ui: { ...s.ui, wizardOpen: open } })); },
+      openDialog(name) { set((s) => ({ ui: { ...s.ui, dialog: name } })); },
+      closeDialog() { set((s) => ({ ui: { ...s.ui, dialog: null } })); },
       setCamera(pose) { set((s) => ({ ui: { ...s.ui, camera: { ...s.ui.camera, ...pose } } })); },
 
       setDaylightHour(hour) {

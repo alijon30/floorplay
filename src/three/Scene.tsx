@@ -1,7 +1,8 @@
 // src/three/Scene.tsx
-import { useCallback, useMemo } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { useCallback, useEffect, useMemo } from 'react';
+import { Canvas, useThree } from '@react-three/fiber';
 import { ContactShadows } from '@react-three/drei';
+import type * as THREE from 'three';
 import { useRoom } from '../store';
 import { findCatalogItem } from '../engine/catalog';
 import { cameraPreset } from '../engine/camera';
@@ -12,6 +13,29 @@ import Furniture from './Furniture';
 import Sun from './Sun';
 import CameraRig from './CameraRig';
 import { M } from './units';
+
+/**
+ * Keep the live renderer's shadow map in step with the toggle.
+ *
+ * The Canvas remounts on the flag (see `key` below), which is what actually rebuilds the
+ * renderer with the new setting. This runs inside the fresh canvas as belt and braces: it
+ * flips the shadow map itself and marks every material for a recompile, so a renderer that
+ * survives the remount cannot keep drawing stale shadows.
+ */
+function ShadowSync({ enabled }: { enabled: boolean }) {
+  const gl = useThree((s) => s.gl);
+  const scene = useThree((s) => s.scene);
+  useEffect(() => {
+    gl.shadowMap.enabled = enabled;
+    gl.shadowMap.needsUpdate = true;
+    scene.traverse((o) => {
+      const mat = (o as { material?: THREE.Material | THREE.Material[] }).material;
+      if (!mat) return;
+      for (const m of Array.isArray(mat) ? mat : [mat]) m.needsUpdate = true;
+    });
+  }, [enabled, gl, scene]);
+  return null;
+}
 
 export default function Scene() {
   const room = useRoom((s) => s.rooms[s.currentId]!);
@@ -30,8 +54,13 @@ export default function Scene() {
   const cx = w / 2, cz = d / 2, span = Math.max(w, d);
   return (
     <div className="relative h-full w-full bg-neutral-900">
-      <Canvas shadows={shadows} camera={{ fov: 55, near: 0.05, far: 100, position: [cx - span * 0.9, span * 0.75, cz - span * 1.1] }}>
+      {/*
+        react-three-fiber reads `shadows` only when it builds the renderer, so the key
+        remounts the canvas on the toggle. Without it the checkbox changed nothing on screen.
+      */}
+      <Canvas key={shadows ? 'shadows-on' : 'shadows-off'} shadows={shadows} camera={{ fov: 55, near: 0.05, far: 100, position: [cx - span * 0.9, span * 0.75, cz - span * 1.1] }}>
         <color attach="background" args={['#dbe4ec']} />
+        <ShadowSync enabled={shadows} />
         <Sun hour={room.daylightHour} northWall={room.northWall} width={room.width} depth={room.depth} castShadow={shadows} />
         {/*
           The room hangs 2 cm below world zero. drei's ContactShadows blurs its render

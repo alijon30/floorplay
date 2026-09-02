@@ -288,6 +288,20 @@ async function main() {
     await page.mouse.move(400, 860);
     await settle(900);
     await shot('shadows-off');
+    findings.shadowsOff = await page.evaluate((key) => {
+      const r = JSON.parse(localStorage.getItem(key) ?? '{}');
+      return r?.state?.ui?.showShadows ?? null;
+    }, STORAGE_KEY);
+    if (findings.shadowsOff !== false) {
+      throw new Error(`The Shadows checkbox did not turn the flag off: ${JSON.stringify(findings.shadowsOff)}`);
+    }
+
+    // 23b. and back on: the cast shadows under the furniture have to return. The pair of
+    // screenshots either side of this is the whole test for the toggle actually applying.
+    await page.getByText('Shadows', { exact: true }).click();
+    await page.mouse.move(400, 860);
+    await settle(1200);
+    await shot('shadows-on');
 
     // 24. daylight overlay off: the plan loses its yellow wash
     await page.getByRole('button', { name: 'Show daylight overlay on the plan' }).click();
@@ -298,6 +312,51 @@ async function main() {
       const r = JSON.parse(localStorage.getItem(key) ?? '{}');
       return { showDaylight: r?.state?.ui?.showDaylight ?? null, showShadows: r?.state?.ui?.showShadows ?? null };
     }, STORAGE_KEY);
+
+    // 25. the room panel: the right rail's card whenever nothing is selected, carrying the two
+    // numbers people hunt for most.
+    await page.getByLabel('Room width in cm').waitFor({ timeout: 10_000 });
+    await page.mouse.move(400, 860);
+    await settle(400);
+    await shot('room-panel');
+
+    // 26. resize from the panel; the top bar's button has to agree
+    await page.getByLabel('Room width in cm').fill('400');
+    await page.getByRole('button', { name: 'Apply size' }).click();
+    await settle(900);
+    findings.roomPanelResize = (await page.getByRole('button', { name: /^Room \d+×\d+$/ }).first().textContent())?.trim() ?? null;
+    if (!/^Room 400×/.test(findings.roomPanelResize ?? '')) {
+      throw new Error(`Applying 400 cm in the room panel left the top bar reading ${JSON.stringify(findings.roomPanelResize)}`);
+    }
+    await page.mouse.move(400, 860);
+    await settle(400);
+    await shot('room-resized');
+
+    // 27. budget from the same card; the budget chip has to agree
+    await page.getByLabel('Budget in dollars').fill('900');
+    await page.getByRole('button', { name: 'Apply brief' }).click();
+    await settle(600);
+    findings.roomPanelBudget = (await page.locator('div[title^="Total price of everything placed"]').first().textContent())?.trim() ?? null;
+    if (!/\/ \$900$/.test(findings.roomPanelBudget ?? '')) {
+      throw new Error(`Applying a $900 budget left the chip reading ${JSON.stringify(findings.roomPanelBudget)}`);
+    }
+    await page.mouse.move(400, 860);
+    await settle(400);
+    await shot('room-brief');
+
+    // 28. the panel's two link buttons open the dialogs the top bar owns, through `ui.dialog`
+    await page.getByRole('button', { name: 'Doors & windows…' }).click();
+    await page.getByRole('heading', { name: 'Room shell' }).waitFor({ timeout: 10_000 });
+    await settle(300);
+    await shot('room-panel-shell');
+    await page.getByRole('button', { name: 'Close' }).first().click();
+    await settle(300);
+    await page.getByRole('button', { name: 'Style…' }).click();
+    await page.getByRole('dialog', { name: 'Style' }).waitFor({ timeout: 10_000 });
+    await settle(300);
+    await shot('room-panel-style');
+    await page.keyboard.press('Escape');
+    await settle(300);
 
     const toolNames = await page.evaluate(() => globalThis.__floorplayFakeMC.getTools().map((t) => t.name));
     const toolCount = toolNames.length;

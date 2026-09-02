@@ -27,7 +27,7 @@ export default function ShellDialog({ onClose }: { onClose: () => void }) {
     <Modal title="Room shell" onClose={onClose}>
       <div className="mb-2 grid grid-cols-3 gap-2 text-sm">
         {(['width', 'depth', 'height'] as const).map((k) => (
-          <label key={k} className="block capitalize">{k} (cm)<input className="mt-1 w-full rounded bg-neutral-800 p-2" type="number" value={dims[k]} onChange={(e) => setDims({ ...dims, [k]: num(e.target.value) })} /></label>
+          <label key={k} className="block"><span className="capitalize">{k}</span> (cm)<input className="mt-1 w-full rounded bg-neutral-800 p-2" type="number" value={dims[k]} onChange={(e) => setDims({ ...dims, [k]: num(e.target.value) })} /></label>
         ))}
       </div>
       <button className="mb-4 rounded bg-emerald-700 px-3 py-1 text-sm hover:bg-emerald-600" onClick={saveDims}>Apply dimensions</button>
