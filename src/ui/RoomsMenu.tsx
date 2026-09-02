@@ -1,7 +1,6 @@
 // src/ui/RoomsMenu.tsx
 import { useState } from 'react';
 import { useRoom } from '../store';
-import RoomWizard from './RoomWizard';
 
 export default function RoomsMenu() {
   const rooms = useRoom((s) => s.rooms);
@@ -9,8 +8,8 @@ export default function RoomsMenu() {
   const switchRoom = useRoom((s) => s.switchRoom);
   const deleteRoom = useRoom((s) => s.deleteRoom);
   const loadDemo = useRoom((s) => s.loadDemo);
+  const setWizardOpen = useRoom((s) => s.setWizardOpen);
   const [open, setOpen] = useState(false);
-  const [wizard, setWizard] = useState(false);
   return (
     <div className="relative">
       <button className="rounded border border-neutral-700 px-2 py-1 text-xs hover:border-emerald-500" onClick={() => setOpen((o) => !o)}>My rooms ▾</button>
@@ -23,12 +22,11 @@ export default function RoomsMenu() {
             </div>
           ))}
           <div className="mt-2 flex gap-2 border-t border-neutral-800 pt-2">
-            <button className="flex-1 rounded bg-neutral-800 px-2 py-1 hover:bg-neutral-700" onClick={() => { setWizard(true); setOpen(false); }}>New room</button>
+            <button className="flex-1 rounded bg-neutral-800 px-2 py-1 hover:bg-neutral-700" onClick={() => { setWizardOpen(true); setOpen(false); }}>New room</button>
             <button className="flex-1 rounded bg-emerald-700 px-2 py-1 hover:bg-emerald-600" onClick={() => { loadDemo(); setOpen(false); }}>Load demo studio</button>
           </div>
         </div>
       )}
-      {wizard && <RoomWizard onClose={() => setWizard(false)} />}
     </div>
   );
 }

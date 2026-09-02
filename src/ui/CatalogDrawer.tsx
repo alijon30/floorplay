@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react';
 import { useRoom } from '../store';
 import { catalogFor } from '../engine/catalog';
-import { CATEGORIES, type Category, type Rotation } from '../engine/types';
+import { CATEGORIES, ROOM_KINDS, type Category, type RoomKind, type Rotation } from '../engine/types';
 import { nearestValid } from '../engine/nearest';
 import { suggestPositions } from '../engine/anchors';
 import { alternativesFor } from '../engine/alternatives';
@@ -13,6 +13,7 @@ export default function CatalogDrawer() {
   const { dispatch, select, setCatalogOpen } = useRoom((s) => s);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<Category | null>(ui.catalogFilter?.category ?? null);
+  const [roomKind, setRoomKind] = useState<RoomKind | null>(null);
 
   const fitsItem = ui.catalogFilter?.fitsItemId ? room.items.find((i) => i.id === ui.catalogFilter?.fitsItemId) : undefined;
   const alternatives = useMemo(() => (fitsItem ? alternativesFor(room, fitsItem.id) : []), [room, fitsItem]);
@@ -21,9 +22,10 @@ export default function CatalogDrawer() {
     const q = query.toLowerCase();
     return catalogFor(room)
       .filter((c) => !category || c.category === category)
+      .filter((c) => !roomKind || c.rooms.includes(roomKind))
       .filter((c) => !q || c.name.toLowerCase().includes(q) || c.category.includes(q))
       .sort((a, b) => a.category.localeCompare(b.category) || a.price - b.price);
-  }, [room, query, category]);
+  }, [room, query, category, roomKind]);
 
   if (!ui.catalogOpen) return null;
 
@@ -68,10 +70,17 @@ export default function CatalogDrawer() {
         <>
           <input className="mx-2 mb-2 rounded bg-neutral-800 p-2" placeholder="Search" value={query} onChange={(e) => setQuery(e.target.value)} />
           <div className="mb-2 flex flex-wrap gap-1 px-2">
+            <button className={`rounded-full px-2 py-0.5 text-xs ${roomKind === null ? 'bg-sky-800 text-sky-100' : 'bg-neutral-800 text-neutral-300'}`} onClick={() => setRoomKind(null)}>All rooms</button>
+            {ROOM_KINDS.map((k) => (
+              <button key={k} className={`rounded-full px-2 py-0.5 text-xs capitalize ${roomKind === k ? 'bg-sky-800 text-sky-100' : 'bg-neutral-800 text-neutral-300'}`} onClick={() => setRoomKind(k)}>{k}</button>
+            ))}
+          </div>
+          <div className="mb-2 flex flex-wrap gap-1 px-2">
             <button className={`rounded px-2 py-0.5 text-xs ${category === null ? 'bg-emerald-700' : 'bg-neutral-800'}`} onClick={() => setCategory(null)}>all</button>
             {CATEGORIES.map((c) => <button key={c} className={`rounded px-2 py-0.5 text-xs ${category === c ? 'bg-emerald-700' : 'bg-neutral-800'}`} onClick={() => setCategory(c)}>{c}</button>)}
           </div>
           <div className="flex-1 overflow-auto px-2 pb-2">
+            {items.length === 0 && <p className="text-neutral-500">Nothing matches that filter.</p>}
             {items.map((c) => (
               <div
                 key={c.id}
@@ -81,7 +90,15 @@ export default function CatalogDrawer() {
               >
                 <div>
                   <div className="flex items-center gap-2"><span className="inline-block h-3 w-3 rounded-sm" style={{ background: c.color }} />{c.name}{c.source === 'agent' && <span className="rounded bg-sky-900 px-1 text-[10px] text-sky-200">from agent</span>}</div>
-                  <div className="text-xs text-neutral-500">{c.width}×{c.depth}×{c.height} cm · ${c.price}</div>
+                  <div className="flex items-center gap-2 text-xs text-neutral-500">
+                    <span>{c.width}×{c.depth}×{c.height} cm · ${c.price}</span>
+                    {/* A few dots are enough to say "this one comes in other finishes". */}
+                    {c.colors && c.colors.length > 0 && (
+                      <span className="flex gap-0.5">
+                        {c.colors.slice(0, 4).map((col) => <span key={col} className="inline-block h-2 w-2 rounded-full ring-1 ring-neutral-700" style={{ background: col }} />)}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <button className="rounded bg-neutral-800 px-2 py-1 text-xs hover:bg-neutral-700" onClick={() => place(c.id)}>Place</button>
               </div>

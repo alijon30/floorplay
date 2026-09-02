@@ -1,6 +1,6 @@
 // src/ui/Inspector.tsx
 import { useRoom } from '../store';
-import { findCatalogItem } from '../engine/catalog';
+import { findCatalogItem, itemColor } from '../engine/catalog';
 import { rotatedDims } from '../engine/geometry';
 import { ROTATIONS } from '../engine/types';
 
@@ -24,6 +24,31 @@ export default function Inspector() {
           <button key={r} disabled={item.locked} className={`flex-1 rounded px-1 py-0.5 text-xs ${item.rotation === r ? 'bg-emerald-700' : 'bg-neutral-800 hover:bg-neutral-700'} disabled:opacity-40`} onClick={() => dispatch({ actor: 'human', ops: [{ type: 'move', id: item.id, x: item.x, y: item.y, rotation: r }] })}>{r}°</button>
         ))}
       </div>
+      {cat.colors && cat.colors.length > 0 && (
+        <div className="mb-2">
+          <div className="mb-1 text-[11px] uppercase tracking-wide text-neutral-500">Finish</div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {cat.colors.map((c) => (
+              <button
+                key={c}
+                title={c}
+                aria-label={`Color ${c}`}
+                aria-pressed={itemColor(cat, item.color) === c}
+                onClick={() => dispatch({ actor: 'human', ops: [{ type: 'recolor', id: item.id, color: c }] })}
+                className={`h-6 w-6 rounded ring-offset-2 ring-offset-neutral-900 ${itemColor(cat, item.color) === c ? 'ring-2 ring-emerald-400' : 'ring-1 ring-neutral-700 hover:ring-neutral-400'}`}
+                style={{ background: c }}
+              />
+            ))}
+            {/* Clearing the override is its own choice, so it gets a chip rather than hiding
+                behind whichever swatch happens to equal the catalog color. */}
+            <button
+              aria-pressed={item.color === undefined}
+              onClick={() => dispatch({ actor: 'human', ops: [{ type: 'recolor', id: item.id, color: null }] })}
+              className={`rounded px-2 py-0.5 text-[11px] ${item.color === undefined ? 'bg-emerald-700 text-white' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'}`}
+            >Default</button>
+          </div>
+        </div>
+      )}
       <div className="mb-2 flex gap-1">
         <button className="flex-1 rounded bg-neutral-800 px-2 py-1 text-xs hover:bg-neutral-700" onClick={() => dispatch({ actor: 'human', ops: [{ type: 'setLocked', id: item.id, locked: !item.locked }] })}>{item.locked ? 'Unlock' : 'Lock'}</button>
         <button className="flex-1 rounded bg-neutral-800 px-2 py-1 text-xs hover:bg-neutral-700" onClick={() => setCatalogOpen(true, { category: cat.category, fitsItemId: item.id })}>Alternatives</button>

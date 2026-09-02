@@ -2,8 +2,8 @@
 import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import type * as THREE from 'three';
-import type { Opening, RoomShell, Wall } from '../engine/types';
-import { WALLS } from '../engine/types';
+import type { Opening, RoomFinish, RoomShell, Wall } from '../engine/types';
+import { DEFAULT_FINISH, WALLS } from '../engine/types';
 import { M, WALL_T } from './units';
 
 export interface Box { x: number; y: number; z: number; w: number; h: number; d: number; kind: 'wall' | 'glass' }
@@ -87,7 +87,10 @@ export function baseboardSegments(room: RoomShell & { openings: Opening[] }, wal
 /** Corner posts, in the order [top-left, top-right, bottom-left, bottom-right]. */
 const CORNER_WALLS: [Wall, Wall][] = [['top', 'left'], ['top', 'right'], ['bottom', 'left'], ['bottom', 'right']];
 
-export default function Walls({ room }: { room: RoomShell & { openings: Opening[] } }) {
+export default function Walls({ room }: { room: RoomShell & { openings: Opening[]; finish?: RoomFinish } }) {
+  // Painted from the room's own finish. `wallSegments` is exported for tests that pass a bare
+  // shell, so the default keeps this component working on one of those too.
+  const paint = room.finish?.wall ?? DEFAULT_FINISH.wall;
   // Each wall spans only its own dimension, which leaves a WALL_T slit at every corner.
   const H = room.height * M;
   const W = room.width * M, D = room.depth * M;
@@ -129,7 +132,7 @@ export default function Walls({ room }: { room: RoomShell & { openings: Opening[
       {corners.map(([x, z], i) => (
         <mesh key={`corner${i}`} ref={(m) => { cornerRefs.current[i] = m; }} position={[x, H / 2, z]} castShadow receiveShadow>
           <boxGeometry args={[WALL_T, H, WALL_T]} />
-          <meshStandardMaterial color="#efe9df" roughness={0.95} metalness={0} />
+          <meshStandardMaterial color={paint} roughness={0.95} metalness={0} />
         </mesh>
       ))}
       {WALLS.map((w) => (
@@ -138,7 +141,7 @@ export default function Walls({ room }: { room: RoomShell & { openings: Opening[
             <mesh key={`s${i}`} position={[b.x, b.y, b.z]} castShadow={b.kind === 'wall'} receiveShadow>
               <boxGeometry args={[b.w, b.h, b.d]} />
               {b.kind === 'wall'
-                ? <meshStandardMaterial color="#efe9df" roughness={0.95} metalness={0} />
+                ? <meshStandardMaterial color={paint} roughness={0.95} metalness={0} />
                 : <meshPhysicalMaterial color="#cfe6f5" transparent opacity={0.18} roughness={0.05} metalness={0} />}
             </mesh>
           ))}

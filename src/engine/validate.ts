@@ -1,5 +1,5 @@
 // src/engine/validate.ts
-import type { PlacedItem, Rect, Room, Rotation, Violation } from './types';
+import type { Category, PlacedItem, Rect, Room, Rotation, Violation } from './types';
 import { WINDOW_TOUCH_CM } from './types';
 import { findCatalogItem, isFloorSolid } from './catalog';
 import { clearanceGroups, containsRect, doorZones, footprint, intersection, intersects, openingSpan } from './geometry';
@@ -18,12 +18,14 @@ export function budgetUsed(room: Room): number {
   return room.items.reduce((sum, i) => sum + (findCatalogItem(room, i.catalogId)?.price ?? 0), 0);
 }
 
-function solidFootprints(room: Room, items: PlacedItem[]): { item: PlacedItem; rect: Rect; name: string }[] {
-  const out: { item: PlacedItem; rect: Rect; name: string }[] = [];
+interface Solid { item: PlacedItem; rect: Rect; name: string; category: Category }
+
+function solidFootprints(room: Room, items: PlacedItem[]): Solid[] {
+  const out: Solid[] = [];
   for (const o of items) {
     const cat = findCatalogItem(room, o.catalogId);
     if (!cat || !isFloorSolid(cat)) continue;
-    out.push({ item: o, rect: footprint(o, cat), name: cat.name });
+    out.push({ item: o, rect: footprint(o, cat), name: cat.name, category: cat.category });
   }
   return out;
 }
@@ -63,8 +65,14 @@ export function itemViolations(room: Room, item: PlacedItem, others: PlacedItem[
     }
   }
 
+  // A chair is meant to live in the space it is pulled up to: tucked under the desk it serves,
+  // pushed in at the dining table. Counting one as an obstruction would make every sensibly
+  // furnished room complain, so chairs step out of the way when clearance is measured. They
+  // still take part in overlap and in reachability, so two chairs cannot share a spot and a
+  // chair still has to be walkable to.
+  const blockers = solids.filter((s) => s.category !== 'chair');
   for (const g of clearanceGroups(item, cat)) {
-    const isClear = (r: Rect) => containsRect(bounds, r) && !solids.some((s) => intersects(r, s.rect));
+    const isClear = (r: Rect) => containsRect(bounds, r) && !blockers.some((s) => intersects(r, s.rect));
     const results = g.rects.map(isClear);
     const pass = g.mode === 'all' ? results.every(Boolean) : results.some(Boolean);
     if (!pass) {

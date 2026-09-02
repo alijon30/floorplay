@@ -46,6 +46,15 @@ describe('itemViolations', () => {
     expect(itemViolations(bedBlocked, bedBlocked.items[0]!).map((v) => v.kind)).toContain('clearance');
   });
 
+  it('lets a chair sit inside the clearance of the desk it belongs to', () => {
+    // Desk against the top wall needs 90 cm in front; its own chair is tucked into that zone.
+    const room = withItems(makeDemoRoom(), [['desk-120', 60, 30], ['chair-office', 60, 105, 180]]);
+    expect(itemViolations(room, room.items[0]!).map((v) => v.kind)).not.toContain('clearance');
+    // The chair still occupies the floor: something on top of it is an overlap.
+    const shared = withItems(makeDemoRoom(), [['chair-office', 60, 105, 180], ['nightstand-45', 60, 105]]);
+    expect(itemViolations(shared, shared.items[1]!).map((v) => v.kind)).toContain('overlap');
+  });
+
   it('ignores rugs for overlap', () => {
     const room = withItems(makeDemoRoom(), [['rug-160x230', 180, 260], ['sofa-2', 180, 260]]);
     expect(itemViolations(room, room.items[1]!).map((v) => v.kind)).not.toContain('overlap');

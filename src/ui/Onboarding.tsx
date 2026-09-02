@@ -37,6 +37,7 @@ export default function Onboarding() {
   const dismissed = useRoom((s) => s.ui.onboardingDismissed);
   const loadDemo = useRoom((s) => s.loadDemo);
   const dismiss = useRoom((s) => s.dismissOnboarding);
+  const setWizardOpen = useRoom((s) => s.setWizardOpen);
   if (dismissed || room.items.length > 0 || room.ledger.length > 0) return null;
 
   return (
@@ -54,6 +55,8 @@ export default function Onboarding() {
           <button className="rounded bg-emerald-700 px-3 py-1 hover:bg-emerald-600" onClick={() => { loadDemo(); dismiss(); }}>Load the demo studio</button>
           <button className="rounded bg-neutral-800 px-3 py-1 hover:bg-neutral-700" onClick={dismiss}>Start empty</button>
         </div>
+
+        <button className="mt-2 text-xs text-emerald-400 underline hover:text-emerald-300" onClick={() => setWizardOpen(true)}>Or start from a ready-made room</button>
 
         <p className="mt-4 text-xs text-neutral-500">Try asking:</p>
         <ul className="mt-1 space-y-1">

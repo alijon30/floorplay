@@ -15,6 +15,8 @@ import { chromium } from 'playwright';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = resolve(process.cwd(), process.argv[2] ?? './smoke-out');
 const VIEWPORT = { width: 1440, height: 900 };
+/** Must match `STORAGE_KEY` in src/config.ts; the run reads persisted state back to assert on it. */
+const STORAGE_KEY = 'floorplay.v1';
 
 const shots = [];
 const consoleErrors = [];
@@ -141,6 +143,12 @@ async function main() {
     await page.getByRole('button', { name: 'Catalog', exact: true }).click();
     await settle();
     await shot('catalog');
+    // the room filter and the category chips narrow the list together
+    await page.getByRole('button', { name: 'bedroom', exact: true }).click();
+    await page.getByRole('button', { name: 'bed', exact: true }).click();
+    await page.mouse.move(400, 860);
+    await settle();
+    await shot('catalog-filtered');
     await page.getByRole('button', { name: 'Catalog', exact: true }).click();
     await settle();
 
@@ -190,6 +198,68 @@ async function main() {
     await shot('help');
     await page.keyboard.press('Escape');
     await settle();
+
+    // 16. the ready-made rooms grid in the new-room wizard
+    await page.getByRole('button', { name: 'My rooms ▾' }).click();
+    await page.getByRole('button', { name: 'New room', exact: true }).click();
+    await page.getByText('Ready-made rooms').waitFor({ timeout: 10_000 });
+    await settle(400);
+    await shot('wizard-templates');
+
+    // 17. load the bedroom template: plan and 3D both rebuild from it
+    await page.locator('[aria-label="Ready-made rooms"]').getByRole('button', { name: /^Bedroom/ }).click();
+    await settle(1200);
+    await shot('template-bedroom');
+    const canvasBox = await page.locator('canvas').first().boundingBox();
+    if (!canvasBox) throw new Error('Could not find the 3D canvas after loading a template');
+    await page.screenshot({ path: resolve(outDir, `${String(++n).padStart(2, '0')}-template-bedroom-3d.png`), clip: canvasBox });
+    shots.push(resolve(outDir, `${String(n).padStart(2, '0')}-template-bedroom-3d.png`));
+    findings.bedroomTemplate = await page.evaluate((key) => {
+      const r = JSON.parse(localStorage.getItem(key) ?? '{}');
+      const s = r?.state;
+      const room = s?.rooms?.[s?.currentId];
+      return room ? { name: room.name, items: room.items.length, finish: room.finish } : null;
+    }, STORAGE_KEY);
+
+    // 18. the style popover: wall swatches, floor finishes and three suggested palettes
+    await page.getByRole('button', { name: 'Style', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Style' }).waitFor({ timeout: 10_000 });
+    await settle(400);
+    await shot('style-popover');
+
+    // 19. apply the first suggested palette: one ledger entry repaints the room
+    await page.getByRole('dialog', { name: 'Style' }).getByRole('button', { name: 'Apply' }).first().click();
+    await settle(900);
+    await page.keyboard.press('Escape');
+    await settle(600);
+    await shot('palette-applied');
+    findings.palette = await page.evaluate((key) => {
+      const r = JSON.parse(localStorage.getItem(key) ?? '{}');
+      const s = r?.state;
+      const room = s?.rooms?.[s?.currentId];
+      const last = room?.ledger?.[room.ledger.length - 1];
+      return { ledger: room?.ledger?.length ?? 0, summary: last?.summary ?? null, ops: last?.ops?.length ?? 0, finish: room?.finish ?? null };
+    }, STORAGE_KEY);
+    if (!/palette$/.test(findings.palette.summary ?? '')) {
+      throw new Error(`Applying a palette did not write one palette ledger entry: ${JSON.stringify(findings.palette)}`);
+    }
+
+    // 20. shadows off: the 3D view keeps rendering, just flat
+    await page.getByText('Shadows', { exact: true }).click();
+    // Park the cursor off the control first: a hovered toggle photographs in its hover style.
+    await page.mouse.move(400, 860);
+    await settle(900);
+    await shot('shadows-off');
+
+    // 21. daylight overlay off: the plan loses its yellow wash
+    await page.getByRole('button', { name: 'Show daylight overlay on the plan' }).click();
+    await page.mouse.move(400, 860);
+    await settle(500);
+    await shot('daylight-off');
+    findings.shades = await page.evaluate((key) => {
+      const r = JSON.parse(localStorage.getItem(key) ?? '{}');
+      return { showDaylight: r?.state?.ui?.showDaylight ?? null, showShadows: r?.state?.ui?.showShadows ?? null };
+    }, STORAGE_KEY);
 
     const toolNames = await page.evaluate(() => globalThis.__floorplayFakeMC.getTools().map((t) => t.name));
     const toolCount = toolNames.length;

@@ -5,6 +5,7 @@ import type { PlacedItem, Rotation, Wall } from '../engine/types';
 import { BLOCKING_KINDS, nearestValid } from '../engine/nearest';
 import { snapToWall, suggestPositions } from '../engine/anchors';
 import { itemViolations } from '../engine/validate';
+import { FLOOR_PLAN_FILL } from '../finishes';
 import { ghostsFor, type Ghost } from './ghosts';
 import Grid from './layers/Grid';
 import Shell from './layers/Shell';
@@ -164,9 +165,9 @@ export default function Plan() {
         onPointerLeave={onUp}
         onPointerDown={() => select(null)}
       >
-        <rect x={0} y={0} width={room.width} height={room.depth} fill="#161618" />
+        <rect x={0} y={0} width={room.width} height={room.depth} fill={FLOOR_PLAN_FILL[room.finish.floor]} />
         <Grid width={room.width} depth={room.depth} />
-        <Daylight d={analysis.daylight} />
+        {ui.showDaylight && <Daylight d={analysis.daylight} />}
         <Shell width={room.width} depth={room.depth} />
         <Openings room={room} />
         <Items room={room} selectedId={ui.selectedItemId} dragPos={dragPos} fit={fit} onPointerDown={onItemDown} />

@@ -12,10 +12,16 @@ import IssuesPanel from './ui/IssuesPanel';
 import ProposalTray from './ui/ProposalTray';
 import Ledger from './ui/Ledger';
 import Onboarding from './ui/Onboarding';
+import RoomWizard from './ui/RoomWizard';
+import { useRoom } from './store';
 import './webmcp';
 
 export default function App() {
   const [ledgerOpen, setLedgerOpen] = useState(true);
+  // The wizard lives here rather than inside the rooms menu, so the onboarding card can open
+  // the same dialog without reaching across the top bar.
+  const wizardOpen = useRoom((s) => s.ui.wizardOpen);
+  const setWizardOpen = useRoom((s) => s.setWizardOpen);
   return (
     <div className="flex h-full flex-col">
       <TopBar />
@@ -38,6 +44,7 @@ export default function App() {
         {ledgerOpen && <div className="w-1/2 border-r border-neutral-800"><ProposalTray /></div>}
         <div className={ledgerOpen ? 'w-1/2' : 'w-full'}><Ledger open={ledgerOpen} onToggle={() => setLedgerOpen((o) => !o)} /></div>
       </div>
+      {wizardOpen && <RoomWizard onClose={() => setWizardOpen(false)} />}
       <DevPanel />
     </div>
   );

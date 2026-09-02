@@ -1,20 +1,22 @@
 // src/three/Floor.tsx
 import { useMemo } from 'react';
-import { PLANK_TILE_M, makePlankTexture } from './textures';
+import type { FloorFinish } from '../engine/types';
+import { FLOOR_FALLBACK, floorTileM, makeFloorTexture } from './textures';
 import { M } from './units';
 
-export default function Floor({ width, depth }: { width: number; depth: number }) {
+export default function Floor({ width, depth, finish }: { width: number; depth: number; finish: FloorFinish }) {
   const w = width * M, d = depth * M;
   const map = useMemo(() => {
-    const tex = makePlankTexture();
-    // One shared texture, one floor: setting the repeat here is safe.
-    if (tex) tex.repeat.set(Math.max(1, w / PLANK_TILE_M), Math.max(1, d / PLANK_TILE_M));
+    const tex = makeFloorTexture(finish);
+    // One texture per finish, one floor on screen: setting the repeat here is safe.
+    const tile = floorTileM(finish);
+    if (tex) tex.repeat.set(Math.max(1, w / tile), Math.max(1, d / tile));
     return tex;
-  }, [w, d]);
+  }, [w, d, finish]);
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[w / 2, 0, d / 2]} receiveShadow>
       <planeGeometry args={[w, d]} />
-      <meshStandardMaterial map={map} color={map ? '#ffffff' : '#c8b79a'} roughness={0.85} metalness={0} />
+      <meshStandardMaterial map={map} color={map ? '#ffffff' : FLOOR_FALLBACK[finish]} roughness={finish === 'tile' ? 0.45 : 0.85} metalness={0} />
     </mesh>
   );
 }

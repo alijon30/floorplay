@@ -141,7 +141,9 @@ const OFFICE: RoomTemplate = {
   finish: { wall: '#eef1f4', floor: 'ash' },
   items: [
     { catalogId: 'desk-140', x: 170, y: 35, rotation: 0 },
-    { catalogId: 'chair-office', x: 290, y: 130, rotation: 0 },
+    // Tucked into the desk's own front clearance, facing it. A chair never blocks the clearance
+    // of the piece it serves, so this reads as a workstation instead of a violation.
+    { catalogId: 'chair-office', x: 170, y: 110, rotation: 180 },
     { catalogId: 'shelf-tall-200', x: 17.5, y: 120, rotation: 270 },
     { catalogId: 'cabinet-120', x: 170, y: 337.5, rotation: 180 },
     { catalogId: 'filing-cabinet-45', x: 310, y: 250, rotation: 90 },
@@ -163,10 +165,11 @@ const DINING: RoomTemplate = {
   items: [
     { catalogId: 'rug-240x340', x: 210, y: 240, rotation: 0 },
     { catalogId: 'table-dining-200', x: 210, y: 240, rotation: 0 },
-    { catalogId: 'chair-dining', x: 160, y: 100, rotation: 0 },
-    { catalogId: 'chair-dining', x: 260, y: 100, rotation: 0 },
-    { catalogId: 'chair-dining', x: 160, y: 380, rotation: 180 },
-    { catalogId: 'chair-dining', x: 260, y: 380, rotation: 180 },
+    // Pushed in against the table, inside the 60 cm it keeps clear front and back.
+    { catalogId: 'chair-dining', x: 160, y: 160, rotation: 0 },
+    { catalogId: 'chair-dining', x: 260, y: 160, rotation: 0 },
+    { catalogId: 'chair-dining', x: 160, y: 320, rotation: 180 },
+    { catalogId: 'chair-dining', x: 260, y: 320, rotation: 180 },
     { catalogId: 'chair-dining', x: 75, y: 240, rotation: 270 },
     { catalogId: 'chair-dining', x: 345, y: 240, rotation: 90 },
     { catalogId: 'sideboard-200', x: 300, y: 497.5, rotation: 180 },

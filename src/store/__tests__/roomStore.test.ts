@@ -172,16 +172,19 @@ describe('roomStore', () => {
     }
   });
 
-  it('persists the onboarding dismissal', () => {
+  it('persists the onboarding dismissal and the daylight and shadow toggles', () => {
     vi.useFakeTimers();
     try {
       const storage = memoryStorage();
       const a = createRoomStore({ storage });
       expect(a.getState().ui.onboardingDismissed).toBe(false);
+      expect(a.getState().ui).toMatchObject({ showDaylight: true, showShadows: true });
       a.getState().dismissOnboarding();
+      a.getState().setShowDaylight(false);
+      a.getState().setShowShadows(false);
       vi.advanceTimersByTime(300);
       const b = createRoomStore({ storage });
-      expect(b.getState().ui.onboardingDismissed).toBe(true);
+      expect(b.getState().ui).toMatchObject({ onboardingDismissed: true, showDaylight: false, showShadows: false });
     } finally {
       vi.useRealTimers();
     }
@@ -214,6 +217,8 @@ describe('roomStore', () => {
     expect(room.name).toBe('Old room');
     expect(room.finish).toEqual({ wall: '#efe9df', floor: 'oak' });
     expect(room.catalogExtras[0]!.rooms.length).toBeGreaterThan(0);
+    // A save from before the shade toggles existed keeps them on rather than restoring undefined.
+    expect(store.getState().ui).toMatchObject({ showDaylight: true, showShadows: true });
   });
 
   it('survives corrupt persisted JSON', () => {

@@ -20,7 +20,13 @@ export interface UiState {
   onboardingDismissed: boolean;
   catalogOpen: boolean;
   catalogFilter: { category?: Category; fitsItemId?: string } | null;
+  /** The new-room dialog. Held here so the onboarding card can open it too. */
+  wizardOpen: boolean;
   camera: CameraPose;
+  /** Draw the daylight tint over the plan. Off is for reading the plan itself. */
+  showDaylight: boolean;
+  /** Cast and catch shadows in the 3D view. Off buys frames on a slow machine. */
+  showShadows: boolean;
 }
 
 export type DispatchInput = { ops: Op[]; actor: 'human' | 'agent'; summary?: string; tool?: string };
@@ -46,8 +52,11 @@ export interface RoomState {
   select(id: string | null): void;
   hoverProposal(id: string | null): void;
   setProposeFirst(v: boolean): void;
+  setShowDaylight(v: boolean): void;
+  setShowShadows(v: boolean): void;
   dismissOnboarding(): void;
   setCatalogOpen(open: boolean, filter?: UiState['catalogFilter']): void;
+  setWizardOpen(open: boolean): void;
   setCamera(pose: Partial<CameraPose>): void;
   setDaylightHour(hour: number): void;
   setNorthWall(wall: Wall): void;
@@ -92,7 +101,10 @@ const defaultUi = (): UiState => ({
   onboardingDismissed: false,
   catalogOpen: false,
   catalogFilter: null,
+  wizardOpen: false,
   camera: { mode: 'orbit', x: 180, y: 260, z: 160, yaw: 0, pitch: 0 },
+  showDaylight: true,
+  showShadows: true,
 });
 
 export function createRoomStore(opts: { storage?: StateStorage; debounceMs?: number } = {}): RoomStore {
@@ -191,8 +203,11 @@ export function createRoomStore(opts: { storage?: StateStorage; debounceMs?: num
       select(id) { set((s) => ({ ui: { ...s.ui, selectedItemId: id } })); },
       hoverProposal(id) { set((s) => ({ ui: { ...s.ui, hoveredProposalId: id } })); },
       setProposeFirst(v) { set((s) => ({ ui: { ...s.ui, proposeFirst: v } })); },
+      setShowDaylight(v) { set((s) => ({ ui: { ...s.ui, showDaylight: v } })); },
+      setShowShadows(v) { set((s) => ({ ui: { ...s.ui, showShadows: v } })); },
       dismissOnboarding() { set((s) => ({ ui: { ...s.ui, onboardingDismissed: true } })); },
       setCatalogOpen(open, filter = null) { set((s) => ({ ui: { ...s.ui, catalogOpen: open, catalogFilter: filter } })); },
+      setWizardOpen(open) { set((s) => ({ ui: { ...s.ui, wizardOpen: open } })); },
       setCamera(pose) { set((s) => ({ ui: { ...s.ui, camera: { ...s.ui.camera, ...pose } } })); },
 
       setDaylightHour(hour) {
@@ -263,7 +278,7 @@ export function createRoomStore(opts: { storage?: StateStorage; debounceMs?: num
     persist(initializer, {
       name: STORAGE_KEY,
       storage: storage as unknown as PersistStorage<RoomState>,
-      partialize: (s) => ({ rooms: s.rooms, currentId: s.currentId, ui: { proposeFirst: s.ui.proposeFirst, onboardingDismissed: s.ui.onboardingDismissed } }) as unknown as RoomState,
+      partialize: (s) => ({ rooms: s.rooms, currentId: s.currentId, ui: { proposeFirst: s.ui.proposeFirst, onboardingDismissed: s.ui.onboardingDismissed, showDaylight: s.ui.showDaylight, showShadows: s.ui.showShadows } }) as unknown as RoomState,
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<RoomState> & { ui?: Partial<UiState> };
         const stored = p.rooms && Object.keys(p.rooms).length ? p.rooms : current.rooms;

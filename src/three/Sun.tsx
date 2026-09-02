@@ -7,7 +7,7 @@ import { M } from './units';
 
 const NORTH: Record<Wall, [number, number]> = { top: [0, -1], right: [1, 0], bottom: [0, 1], left: [-1, 0] };
 
-export default function Sun({ hour, northWall, width, depth }: { hour: number; northWall: Wall; width: number; depth: number }) {
+export default function Sun({ hour, northWall, width, depth, castShadow = true }: { hour: number; northWall: Wall; width: number; depth: number; castShadow?: boolean }) {
   const { position, intensity, color } = useMemo(() => {
     const az = sunAzimuth(hour) ?? 0;
     const f = dayFactor(hour);
@@ -33,7 +33,7 @@ export default function Sun({ hour, northWall, width, depth }: { hour: number; n
       <hemisphereLight args={['#e8f1fb', '#c2b09a', 0.6 + 0.5 * f]} />
       <primitive object={target} />
       <directionalLight
-        position={position} intensity={intensity} color={color} castShadow target={target}
+        position={position} intensity={intensity} color={color} castShadow={castShadow} target={target}
         shadow-mapSize-width={2048} shadow-mapSize-height={2048} shadow-bias={-0.0004}
         shadow-camera-left={-S} shadow-camera-right={S} shadow-camera-top={S} shadow-camera-bottom={-S} shadow-camera-near={1} shadow-camera-far={40}
       />
