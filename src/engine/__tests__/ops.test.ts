@@ -29,7 +29,54 @@ describe('applyOps', () => {
     expect(room.items).toEqual([]);
     const back = applyOps(r.room, r.inverse);
     expect(back.ok).toBe(true);
-    if (back.ok) expect(back.room).toEqual(room);
+    if (!back.ok) return;
+    expect(back.room).toEqual(room);
+    const again = applyOps(back.room, back.inverse);
+    expect(again.ok).toBe(true);
+    if (again.ok) expect(again.room).toEqual(r.room);
+  });
+
+  it('restores array order on undo of a mid-array removal', () => {
+    const room = makeDemoRoom();
+    const placed = applyOps(room, [
+      { type: 'place', item: placeTest(room, 'chair-dining', 60, 60, 0, 'a') },
+      { type: 'place', item: placeTest(room, 'chair-dining', 160, 60, 0, 'b') },
+      { type: 'place', item: placeTest(room, 'chair-dining', 260, 60, 0, 'c') },
+    ]);
+    expect(placed.ok).toBe(true);
+    if (!placed.ok) return;
+    const removed = applyOps(placed.room, [{ type: 'remove', id: 'b' }]);
+    expect(removed.ok).toBe(true);
+    if (!removed.ok) return;
+    expect(removed.room.items.map((i) => i.id)).toEqual(['a', 'c']);
+    const undone = applyOps(removed.room, removed.inverse);
+    expect(undone.ok).toBe(true);
+    if (!undone.ok) return;
+    expect(undone.room.items.map((i) => i.id)).toEqual(['a', 'b', 'c']);
+    expect(undone.room).toEqual(placed.room);
+
+    const openingGone = applyOps(room, [{ type: 'removeOpening', id: 'door-main' }]);
+    expect(openingGone.ok).toBe(true);
+    if (!openingGone.ok) return;
+    expect(openingGone.room.openings.map((o) => o.id)).toEqual(['window-east']);
+    const openingBack = applyOps(openingGone.room, openingGone.inverse);
+    expect(openingBack.ok).toBe(true);
+    if (!openingBack.ok) return;
+    expect(openingBack.room.openings.map((o) => o.id)).toEqual(['door-main', 'window-east']);
+    expect(openingBack.room).toEqual(room);
+  });
+
+  it('undo of placing a locked item', () => {
+    const room = makeDemoRoom();
+    const r = applyOps(room, [{ type: 'place', item: { ...placeTest(room, 'desk-120', 60, 30, 0, 'a'), locked: true } }]);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.room.items).toHaveLength(1);
+    const back = applyOps(r.room, r.inverse);
+    expect(back.ok).toBe(true);
+    if (!back.ok) return;
+    expect(back.room.items).toHaveLength(0);
+    expect(back.room).toEqual(room);
   });
 
   it('refuses to move, remove, or swap a locked item', () => {

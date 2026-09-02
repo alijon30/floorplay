@@ -83,15 +83,18 @@ export interface RoomShell { width: number; depth: number; height: number; north
 
 export type Op =
   | { type: 'setShell'; width: number; depth: number; height: number; northWall: Wall }
-  | { type: 'addOpening'; opening: Opening }
+  /** `at` is an insert index; the opening is appended when absent. */
+  | { type: 'addOpening'; opening: Opening; at?: number }
   | { type: 'removeOpening'; id: string }
   | { type: 'setBrief'; brief: Brief }
-  | { type: 'place'; item: PlacedItem }
+  /** `at` is an insert index; the item is appended when absent. */
+  | { type: 'place'; item: PlacedItem; at?: number }
   | { type: 'move'; id: string; x: number; y: number; rotation: Rotation }
   | { type: 'remove'; id: string }
   | { type: 'swap'; id: string; catalogId: string }
   | { type: 'setLocked'; id: string; locked: boolean }
-  | { type: 'addCatalogItem'; item: CatalogItem }
+  /** `at` is an insert index; the catalog item is appended when absent. */
+  | { type: 'addCatalogItem'; item: CatalogItem; at?: number }
   | { type: 'removeCatalogItem'; id: string };
 
 export type ViolationKind = 'out_of_bounds' | 'overlap' | 'blocks_door' | 'blocks_window' | 'clearance' | 'unreachable' | 'over_budget';
