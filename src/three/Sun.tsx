@@ -24,14 +24,18 @@ export default function Sun({ hour, northWall, width, depth }: { hour: number; n
     return { position, intensity: 0.2 + 2.6 * f, color: warm.lerp(white, Math.min(1, f * 1.2)) };
   }, [hour, northWall, width, depth]);
   const target = useMemo(() => { const t = new THREE.Object3D(); t.position.set((width * M) / 2, 0, (depth * M) / 2); return t; }, [width, depth]);
+  // Fit the shadow frustum to the room so a 2048 map spends its texels on the floor.
+  const S = Math.max(4, Math.max(width, depth) * M * 0.9);
+  const f = dayFactor(hour);
   return (
     <>
-      <hemisphereLight args={['#dbeafe', '#3f3f46', 0.35 + 0.4 * dayFactor(hour)]} />
+      {/* Warm ground tint stands in for floor bounce; without it the walls read as grey. */}
+      <hemisphereLight args={['#e8f1fb', '#c2b09a', 0.6 + 0.5 * f]} />
       <primitive object={target} />
       <directionalLight
         position={position} intensity={intensity} color={color} castShadow target={target}
-        shadow-mapSize-width={2048} shadow-mapSize-height={2048}
-        shadow-camera-left={-6} shadow-camera-right={6} shadow-camera-top={6} shadow-camera-bottom={-6} shadow-camera-near={1} shadow-camera-far={40}
+        shadow-mapSize-width={2048} shadow-mapSize-height={2048} shadow-bias={-0.0004}
+        shadow-camera-left={-S} shadow-camera-right={S} shadow-camera-top={S} shadow-camera-bottom={-S} shadow-camera-near={1} shadow-camera-far={40}
       />
     </>
   );

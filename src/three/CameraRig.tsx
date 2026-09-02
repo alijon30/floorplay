@@ -18,17 +18,19 @@ export default function CameraRig({ pose, width, depth, onLook }: { pose: Camera
   const { camera, gl } = useThree();
   const yaw = useRef(pose.yaw);
   const pitch = useRef(pose.pitch);
-  const center: [number, number, number] = [(width * M) / 2, 0, (depth * M) / 2];
+  const cx = (width * M) / 2, cz = (depth * M) / 2;
+  const span = Math.max(width, depth) * M;
+  // Eye level rather than the floor, so the orbit view frames the furniture.
+  const center: [number, number, number] = [cx, 0.8, cz];
 
   // Position only. Looking around writes yaw/pitch back to the store, so depending on the
   // whole pose here would teleport the walker back to the stored spot on every look-drag.
   useEffect(() => {
     if (pose.mode === 'walk') { camera.position.set(pose.x * M, pose.z * M, pose.y * M); return; }
-    // High enough that the near wall falls below the bottom of the frustum, otherwise its
-    // outer face hides the front of the room.
-    const span = Math.max(width, depth) * M;
-    camera.position.set((width * M) / 2, span * 1.35, (depth * M) / 2 + span * 0.95);
-  }, [pose.mode, pose.x, pose.y, pose.z, camera, width, depth]);
+    // A three-quarter view from outside the near corner. Walls turn themselves off once
+    // the camera passes outside them, so this can sit low enough to read as a room.
+    camera.position.set(cx + span * 0.9, span * 0.75, cz + span * 1.1);
+  }, [pose.mode, pose.x, pose.y, pose.z, camera, cx, cz, span]);
 
   useEffect(() => {
     yaw.current = pose.yaw;
@@ -67,5 +69,7 @@ export default function CameraRig({ pose, width, depth, onLook }: { pose: Camera
     camera.lookAt(camera.position.clone().add(dir));
   });
 
-  return pose.mode === 'orbit' ? <OrbitControls target={center} maxPolarAngle={Math.PI / 2.05} /> : null;
+  return pose.mode === 'orbit'
+    ? <OrbitControls target={center} maxPolarAngle={Math.PI / 2.05} minDistance={1.5} maxDistance={4 * span} />
+    : null;
 }
