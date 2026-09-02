@@ -116,7 +116,7 @@ export default function RoomPanel() {
         <label className="mt-2 block">
           <span className="mb-1 block text-[11px] text-muted">Notes</span>
           <textarea
-            className="w-full rounded-md border border-line bg-raised px-2 py-1.5 text-[12.5px] leading-snug text-fg outline-none transition-colors hover:border-[#33333a] focus:border-accent/70 focus-visible:outline-none"
+            className="w-full rounded-md border border-line bg-raised px-2 py-1.5 text-[12.5px] leading-snug text-fg outline-none transition-colors hover:border-[var(--line-hi)] focus:border-accent/70 focus-visible:outline-none"
             rows={2}
             aria-label="Brief notes"
             value={notes}

@@ -1,6 +1,7 @@
 // src/engine/palette.ts
 import type { CatalogItem, FloorFinish, Room } from './types';
 import { findCatalogItem, itemColor } from './catalog';
+import { finish } from './materials';
 
 export interface Hsl { h: number; s: number; l: number }
 
@@ -109,11 +110,17 @@ const DARK_LIGHTNESS = 0.55;
 const isPinkRed = (h: number) => h >= 330 || h < 20;
 const isGreen = (h: number) => h >= 60 && h < 180;
 
+/**
+ * The three tones each scheme aims for, all of them named finishes from `materials.ts`.
+ *
+ * Read in the order dominant, woodwork, accent — the same order `accentIndex` sorts a piece
+ * into. Every one is a finish the catalog actually stocks, so a scheme asks for a colour the
+ * showroom can supply rather than a hue nothing in it wears.
+ */
 const ACCENTS: Record<Palette['name'], [string, string, string]> = {
-  // dominant, secondary, accent
-  warm: ['#b56b5a', '#c9a227', '#8c6f5a'],
-  cool: ['#6b7c93', '#7d8aa0', '#8c9a7a'],
-  neutral: ['#b9a48b', '#d8cbb3', '#3e3e46'],
+  warm: [finish('terracotta'), finish('oak'), finish('mustard')],
+  cool: [finish('navy'), finish('ash'), finish('sage')],
+  neutral: [finish('stone'), finish('white-oak'), finish('charcoal')],
 };
 
 /** Which of a scheme's three tones an item takes: statement pieces, then woodwork, then the rest. */

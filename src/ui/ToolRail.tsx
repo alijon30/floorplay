@@ -18,7 +18,7 @@ function RailButton({
         aria-pressed={on === undefined ? undefined : on}
         onClick={onClick}
         className={`relative inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors ${FOCUS} ${
-          on ? 'bg-accent/12 text-accent' : 'text-muted hover:bg-raised hover:text-fg'
+          on ? 'bg-[var(--accent-fill)] text-accent' : 'text-muted hover:bg-raised hover:text-fg'
         }`}
       >
         {on && <span aria-hidden="true" className="absolute -left-[7px] h-4 w-[2px] rounded-full bg-accent" />}

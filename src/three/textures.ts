@@ -89,24 +89,34 @@ function drawPlanks(spec: PlankSpec): HTMLCanvasElement | null {
       fillSpan(ctx, u0, u1, y, rowH);
     }
 
-    // Grain runs the full width so it wraps whatever the joints do.
+    // Grain runs the full width so it wraps whatever the joints do. Many fine strokes read
+    // as timber; a handful of thick ones read as a painted-on pattern, so the count is high
+    // and the alpha low.
     ctx.save();
     ctx.beginPath();
     ctx.rect(0, y, SIZE, rowH);
     ctx.clip();
-    for (let s = 0; s < 7; s++) {
-      const sy = y + rowH * (0.1 + 0.8 * rnd(r * 31 + s, 6));
+    for (let s = 0; s < 16; s++) {
+      const sy = y + rowH * (0.06 + 0.88 * rnd(r * 31 + s, 6));
       const dark = rnd(r * 31 + s, 7) > 0.45;
-      ctx.strokeStyle = dark ? 'rgba(60,38,20,0.16)' : 'rgba(255,236,206,0.14)';
-      ctx.lineWidth = 1 + rnd(r * 31 + s, 8) * 2.5;
+      ctx.strokeStyle = dark ? 'rgba(60,38,20,0.09)' : 'rgba(255,236,206,0.08)';
+      ctx.lineWidth = 0.6 + rnd(r * 31 + s, 8) * 1.6;
       ctx.beginPath();
       ctx.moveTo(0, sy);
-      for (let x = 0; x <= SIZE; x += 64) {
+      for (let x = 0; x <= SIZE; x += 32) {
         // A whole number of periods keeps the wobble continuous across the wrap.
         ctx.lineTo(x, sy + Math.sin((x / SIZE) * Math.PI * 4 + s) * rowH * 0.05);
       }
       ctx.stroke();
     }
+    // A soft lengthwise wash per row, so no two boards catch the light identically.
+    const tint = rnd(r, 9);
+    const wash = ctx.createLinearGradient(0, y, SIZE, y);
+    wash.addColorStop(0, `rgba(255,244,224,${0.02 + tint * 0.03})`);
+    wash.addColorStop(0.5, 'rgba(255,244,224,0)');
+    wash.addColorStop(1, `rgba(52,34,18,${0.02 + tint * 0.03})`);
+    ctx.fillStyle = wash;
+    ctx.fillRect(0, y, SIZE, rowH);
     ctx.restore();
 
     // Butt joints, then the seam between this row and the next.
@@ -179,6 +189,141 @@ export function makeFloorTexture(finish: FloorFinish): THREE.CanvasTexture | nul
 export const FLOOR_FALLBACK: Record<FloorFinish, string> = {
   oak: '#c8b79a', walnut: '#6b4a32', ash: '#d6c6ac', grey: '#9a9a99', tile: '#cfd6da',
 };
+
+/*
+ * Furniture-scale detail maps.
+ *
+ * The floor above is one big surface that wants a metre-accurate tile. These three are the
+ * opposite: they are what stops a sofa reading as a coloured box, so they are drawn small,
+ * kept very low in contrast, and mapped straight onto a part's own 0..1 UVs. One repeat per
+ * face means an oak table top and an oak leg both wear a full sheet of grain, which is what a
+ * veneered panel actually looks like, and it means no per-mesh texture state to keep in sync.
+ *
+ * Each is cached by the exact hex it is drawn in. The catalog paints from twenty-two named
+ * finishes, so the caches settle at a few dozen entries; the limit is only there to stop a
+ * colour picker dragged through a thousand hues from filling GPU memory.
+ */
+const DETAIL = 256;
+const CACHE_LIMIT = 96;
+
+function newDetail(): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } | null {
+  if (typeof document === 'undefined') return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = DETAIL;
+  const ctx = canvas.getContext('2d');
+  return ctx ? { canvas, ctx } : null;
+}
+
+/** Wrap a finished canvas as a repeating sRGB texture. */
+function detailTexture(canvas: HTMLCanvasElement): THREE.CanvasTexture {
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  return tex;
+}
+
+/** Shared plumbing for the three per-hex caches: draw once, hand the same texture back after. */
+function cached(
+  cache: Map<string, THREE.CanvasTexture | null>,
+  hex: string,
+  draw: (ctx: CanvasRenderingContext2D) => void,
+): THREE.CanvasTexture | null {
+  const key = hex.toLowerCase();
+  const hit = cache.get(key);
+  if (hit !== undefined) return hit;
+  if (cache.size >= CACHE_LIMIT) return null;
+  const made = newDetail();
+  if (!made) { cache.set(key, null); return null; }
+  made.ctx.fillStyle = key;
+  made.ctx.fillRect(0, 0, DETAIL, DETAIL);
+  draw(made.ctx);
+  const tex = detailTexture(made.canvas);
+  cache.set(key, tex);
+  return tex;
+}
+
+const woodCache = new Map<string, THREE.CanvasTexture | null>();
+const fabricCache = new Map<string, THREE.CanvasTexture | null>();
+const plasterCache = new Map<string, THREE.CanvasTexture | null>();
+
+/**
+ * Wood grain in one finish: fine lengthwise figure with a couple of open pores.
+ *
+ * Held to roughly two to three percent either side of the base colour. Above that it stops
+ * reading as timber and starts reading as a wood-effect sticker.
+ */
+export function makeWoodTexture(hex: string): THREE.CanvasTexture | null {
+  return cached(woodCache, hex, (ctx) => {
+    for (let i = 0; i < 90; i++) {
+      const y = rnd(i, 41) * DETAIL;
+      const dark = rnd(i, 42) > 0.42;
+      ctx.strokeStyle = dark ? 'rgba(46,28,12,0.05)' : 'rgba(255,246,228,0.045)';
+      ctx.lineWidth = 0.5 + rnd(i, 43) * 1.4;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      // Whole periods, so the figure meets itself at the wrap.
+      for (let x = 0; x <= DETAIL; x += 16) ctx.lineTo(x, y + Math.sin((x / DETAIL) * Math.PI * 2 * 2 + i) * 3.5);
+      ctx.stroke();
+    }
+    // Two cathedral figures: the wider arcs a flat-sawn board shows.
+    for (let k = 0; k < 2; k++) {
+      const y = (0.3 + 0.4 * k) * DETAIL;
+      ctx.strokeStyle = 'rgba(46,28,12,0.055)';
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      for (let x = 0; x <= DETAIL; x += 8) ctx.lineTo(x, y + Math.sin((x / DETAIL) * Math.PI * 2 + k * 2) * 10);
+      ctx.stroke();
+    }
+  });
+}
+
+/**
+ * A woven cloth in one finish: a plain over-and-under weave, softened by a little slub.
+ *
+ * The threads are drawn at two pixels so a cushion carries a visible tooth up close and
+ * dissolves into an even matte from across the room.
+ */
+export function makeFabricTexture(hex: string): THREE.CanvasTexture | null {
+  return cached(fabricCache, hex, (ctx) => {
+    const pitch = 4;
+    for (let i = 0; i * pitch < DETAIL; i++) {
+      const u = i * pitch;
+      ctx.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.045)';
+      ctx.fillRect(u, 0, 2, DETAIL);
+      ctx.fillStyle = i % 2 === 0 ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.04)';
+      ctx.fillRect(0, u, DETAIL, 2);
+    }
+    // Slub: the thicker threads any real weave has, scattered but repeatable.
+    for (let i = 0; i < 130; i++) {
+      const x = Math.floor(rnd(i, 51) * (DETAIL / pitch)) * pitch;
+      const y = rnd(i, 52) * DETAIL;
+      ctx.fillStyle = rnd(i, 53) > 0.5 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
+      ctx.fillRect(x, y, 2, 4 + rnd(i, 54) * 8);
+    }
+  });
+}
+
+/**
+ * Painted plaster in one wall colour: fine roll texture, nothing more.
+ *
+ * A wall is the largest flat thing on screen and the one most obviously fake when it is a
+ * single flat value. The speckle is barely above one percent, which is enough for the sun to
+ * find something to graze.
+ */
+export function makePlasterTexture(hex: string): THREE.CanvasTexture | null {
+  const tex = cached(plasterCache, hex, (ctx) => {
+    for (let i = 0; i < 1600; i++) {
+      const x = rnd(i, 61) * DETAIL, y = rnd(i, 62) * DETAIL;
+      ctx.fillStyle = rnd(i, 63) > 0.5 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0.03)';
+      ctx.fillRect(x, y, 1 + rnd(i, 64) * 1.6, 1 + rnd(i, 65) * 1.6);
+    }
+  });
+  // Walls are metres across; a single sheet stretched over one would blur to nothing.
+  if (tex) tex.repeat.set(6, 4);
+  return tex;
+}
 
 let groundFade: THREE.CanvasTexture | null | undefined;
 

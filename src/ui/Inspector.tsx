@@ -78,7 +78,7 @@ export default function Inspector() {
                 aria-label={`Color ${c}`}
                 aria-pressed={color === c}
                 onClick={() => dispatch({ actor: 'human', ops: [{ type: 'recolor', id: item.id, color: c }] })}
-                className={`h-[22px] w-[22px] rounded-[3px] transition-shadow focus-visible:outline-none ${color === c ? 'ring-2 ring-accent ring-offset-2 ring-offset-panel' : 'ring-1 ring-line hover:ring-[#3d3d46]'}`}
+                className={`h-[22px] w-[22px] rounded-[3px] transition-shadow focus-visible:outline-none ${color === c ? 'ring-2 ring-accent ring-offset-2 ring-offset-panel' : 'ring-1 ring-line hover:ring-[var(--line-hi)]'}`}
                 style={{ background: c }}
               />
             ))}
@@ -87,7 +87,7 @@ export default function Inspector() {
             <button
               aria-pressed={item.color === undefined}
               onClick={() => dispatch({ actor: 'human', ops: [{ type: 'recolor', id: item.id, color: null }] })}
-              className={item.color === undefined ? 'inline-flex h-[22px] shrink-0 items-center rounded-[3px] bg-accent/12 px-2 text-[11px] text-accent' : BTN_SM}
+              className={item.color === undefined ? 'inline-flex h-[22px] shrink-0 items-center rounded-[3px] bg-[var(--accent-fill)] px-2 text-[11px] text-accent' : BTN_SM}
             >Default</button>
           </div>
         </section>

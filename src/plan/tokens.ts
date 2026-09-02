@@ -7,20 +7,20 @@
  * can be restyled without touching the drawing, and the drawing keeps the contrast a printed
  * sheet has.
  */
-export const PAPER = '#f5f5f3';
+export const PAPER = '#f7f5f0';
 /** 10 cm rules, drawn everywhere; and the 100 cm rules over them. */
-export const GRID_FINE = '#ebebe7';
-export const GRID_MAJOR = '#dcdcd6';
+export const GRID_FINE = '#ebe8e1';
+export const GRID_MAJOR = '#dad6cd';
 /** Walls, door leaves, swing arcs. The darkest thing on the sheet. */
-export const INK = '#26262b';
+export const INK = '#2b2b31';
 /** Furniture outlines, glyphs and labels: a step back from the walls. */
-export const INK_SOFT = '#3a3a40';
+export const INK_SOFT = '#4a4a52';
 /** Dimension lines, ticks and their numbers. */
-export const INK_DIM = '#9a9a94';
+export const INK_DIM = '#6b6b74';
 /** Selection, windows, ghosts. The same accent the interface uses. */
 export const ACCENT = '#5b8cff';
 /** Violations. */
-export const BAD = '#d0453f';
+export const BAD = '#d1544c';
 /** Daylight, as a wash rather than a colour anyone reads a value from. */
 export const SUNLIGHT = { r: 244, g: 186, b: 74 };
 /** Furniture fill is the item's own colour at this alpha, so the drawing stays a drawing. */

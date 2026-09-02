@@ -1,9 +1,11 @@
 // src/three/Walls.tsx
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { Opening, RoomFinish, RoomShell, Wall } from '../engine/types';
 import { DEFAULT_FINISH, WALLS } from '../engine/types';
+import { finish } from '../engine/materials';
+import { makePlasterTexture } from './textures';
 import { M, WALL_T } from './units';
 
 export interface Box { x: number; y: number; z: number; w: number; h: number; d: number; kind: 'wall' | 'glass' }
@@ -11,6 +13,8 @@ export interface Box { x: number; y: number; z: number; w: number; h: number; d:
 /** Baseboard height and how far it stands proud of the wall, in meters. */
 export const BASEBOARD_H = 0.08;
 const BASEBOARD_T = 0.02;
+/** Painted skirting: a dark stain, so it reads as a line at the foot of every wall. */
+const BASEBOARD_COLOR = finish('black-stain');
 
 /** Boxes (meters, centered) for one wall, split around its openings. */
 export function wallSegments(room: RoomShell & { openings: Opening[] }, wall: Wall): Box[] {
@@ -114,6 +118,9 @@ export default function Walls({ room }: { room: RoomShell & { openings: Opening[
   // Painted from the room's own finish. `wallSegments` is exported for tests that pass a bare
   // shell, so the default keeps this component working on one of those too.
   const paint = room.finish?.wall ?? DEFAULT_FINISH.wall;
+  // Painted plaster, not a flat fill: a wall is the biggest surface on screen and the one
+  // that gives the game away when the sun grazes it and finds nothing to catch.
+  const plaster = useMemo(() => makePlasterTexture(paint), [paint]);
   // Each wall spans only its own dimension, which leaves a WALL_T slit at every corner.
   const H = room.height * M;
   const W = room.width * M, D = room.depth * M;
@@ -155,7 +162,7 @@ export default function Walls({ room }: { room: RoomShell & { openings: Opening[
       {corners.map(([x, z], i) => (
         <mesh key={`corner${i}`} ref={(m) => { cornerRefs.current[i] = m; }} position={[x, H / 2, z]} castShadow receiveShadow>
           <boxGeometry args={[WALL_T, H, WALL_T]} />
-          <meshStandardMaterial color={paint} roughness={0.95} metalness={0} />
+          <meshStandardMaterial map={plaster} color={plaster ? '#ffffff' : paint} roughness={0.95} metalness={0} />
         </mesh>
       ))}
       {WALLS.map((w) => (
@@ -175,14 +182,14 @@ export default function Walls({ room }: { room: RoomShell & { openings: Opening[
             <mesh key={`s${i}`} position={[b.x, b.y, b.z]} castShadow={b.kind === 'wall'} receiveShadow>
               <boxGeometry args={[b.w, b.h, b.d]} />
               {b.kind === 'wall'
-                ? <meshStandardMaterial color={paint} roughness={0.95} metalness={0} />
+                ? <meshStandardMaterial map={plaster} color={plaster ? '#ffffff' : paint} roughness={0.95} metalness={0} />
                 : <meshPhysicalMaterial color="#dfe8f0" emissive="#cfdbe6" emissiveIntensity={0.7} transparent opacity={0.55} roughness={0.05} metalness={0} toneMapped={false} />}
             </mesh>
           ))}
           {baseboardSegments(room, w).map((b, i) => (
             <mesh key={`b${i}`} position={[b.x, b.y, b.z]} receiveShadow>
               <boxGeometry args={[b.w, b.h, b.d]} />
-              <meshStandardMaterial color="#4b4640" roughness={0.6} metalness={0} />
+              <meshStandardMaterial color={BASEBOARD_COLOR} roughness={0.6} metalness={0} />
             </mesh>
           ))}
         </group>

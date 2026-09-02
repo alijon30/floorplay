@@ -70,7 +70,7 @@ export default function StatusStrip() {
           className="flex items-center gap-1.5 rounded text-[11.5px] text-muted transition-colors hover:text-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
         >
           <span className={`relative h-3.5 w-6 shrink-0 rounded-full transition-colors ${ui.proposeFirst ? 'bg-accent' : 'bg-line'}`}>
-            <span className={`absolute top-0.5 h-2.5 w-2.5 rounded-full transition-all ${ui.proposeFirst ? 'left-3 bg-[#0b1020]' : 'left-0.5 bg-muted'}`} />
+            <span className={`absolute top-0.5 h-2.5 w-2.5 rounded-full transition-all ${ui.proposeFirst ? 'left-3 bg-[var(--accent-ink)]' : 'left-0.5 bg-muted'}`} />
           </span>
           Propose first
         </button>

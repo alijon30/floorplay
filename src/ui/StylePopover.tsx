@@ -69,7 +69,7 @@ export default function StylePopover({ onClose, anchorRef, position = 'right-0 m
             aria-label={`Wall ${s.name}`}
             aria-pressed={room.finish.wall === s.hex}
             onClick={() => setWall(s.hex)}
-            className={`h-[22px] w-[22px] rounded-[3px] transition-shadow focus-visible:outline-none ${room.finish.wall === s.hex ? 'ring-2 ring-accent ring-offset-2 ring-offset-panel' : 'ring-1 ring-line hover:ring-[#3d3d46]'}`}
+            className={`h-[22px] w-[22px] rounded-[3px] transition-shadow focus-visible:outline-none ${room.finish.wall === s.hex ? 'ring-2 ring-accent ring-offset-2 ring-offset-panel' : 'ring-1 ring-line hover:ring-[var(--line-hi)]'}`}
             style={{ background: s.hex }}
           />
         ))}

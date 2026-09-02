@@ -183,7 +183,7 @@ export function ItemGlyph({ shape, color, w, h, size = 28 }: { shape: Shape; col
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true" focusable="false" className="shrink-0">
       {/* A tile behind every thumbnail: it fixes the footprint at one size, and gives the
           darkest pieces in the catalog something to stand against. */}
-      <rect x={0} y={0} width={size} height={size} rx={4} fill="#0e0e11" />
+      <rect x={0} y={0} width={size} height={size} rx={4} style={{ fill: 'var(--bg)' }} />
       <rect
         x={(size - gw) / 2} y={(size - gh) / 2} width={gw} height={gh} rx={2}
         fill={color} stroke={ink} strokeWidth={1}

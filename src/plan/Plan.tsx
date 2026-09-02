@@ -68,7 +68,7 @@ function Tool({ on, label, icon, onClick }: { on?: boolean; label: string; icon:
       title={label}
       onClick={onClick}
       className={`inline-flex h-7 w-7 items-center justify-center rounded-md border transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
-        on ? 'border-accent/50 bg-accent/12 text-accent' : 'border-black/8 bg-white/70 text-[#5c5c63] hover:bg-white hover:text-[#26262b]'
+        on ? 'border-accent/50 bg-[var(--accent-fill)] text-accent' : 'border-black/8 bg-white/70 text-[var(--plan-ink-soft)] hover:bg-white hover:text-[var(--plan-ink)]'
       }`}
     >
       <Icon name={icon} />
@@ -213,7 +213,7 @@ export default function Plan() {
   const toolbar = (
     <>
       <div role="group" aria-label="North wall" className="inline-flex h-7 items-center gap-px rounded-md border border-black/8 bg-white/70 p-px">
-        <span className="px-1.5 text-[10px] font-medium uppercase tracking-[0.08em] text-[#8a8a84]">N</span>
+        <span className="px-1.5 text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--plan-dim)]">N</span>
         {WALLS.map((w) => (
           <button
             key={w}
@@ -223,7 +223,7 @@ export default function Plan() {
             title={`North is the ${w} wall`}
             onClick={() => setNorthWall(w)}
             className={`inline-flex h-[22px] w-[22px] items-center justify-center rounded-[4px] font-mono text-[10px] uppercase transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
-              room.northWall === w ? 'bg-accent/15 font-medium text-accent' : 'text-[#6d6d74] hover:text-[#26262b]'
+              room.northWall === w ? 'bg-[var(--accent-fill)] font-medium text-accent' : 'text-[var(--plan-dim)] hover:text-[var(--plan-ink)]'
             }`}
           >{w[0]}</button>
         ))}

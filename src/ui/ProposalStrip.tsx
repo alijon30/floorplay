@@ -4,7 +4,7 @@ import { findCatalogItem } from '../engine/catalog';
 import { footprint } from '../engine/geometry';
 import { metricsDelta } from '../engine/metrics';
 import { ghostsFor } from '../plan/ghosts';
-import { ACCENT, BAD, PAPER } from '../plan/tokens';
+import { ACCENT, BAD, INK, INK_SOFT, PAPER } from '../plan/tokens';
 import type { Proposal, Room } from '../engine/types';
 import { BTN_PRIMARY, BTN_QUIET, CARD, NUM } from './styles';
 
@@ -42,12 +42,12 @@ function Thumb({ room, proposal }: { room: Room; proposal: Proposal }) {
     <svg width={THUMB} height={THUMB} viewBox={`0 0 ${THUMB} ${THUMB}`} className="shrink-0 rounded" aria-hidden="true" focusable="false">
       <rect x={0} y={0} width={THUMB} height={THUMB} rx={4} fill={PAPER} />
       <g transform={`translate(${(THUMB - w) / 2} ${(THUMB - h) / 2}) scale(${scale})`}>
-        <rect x={0} y={0} width={room.width} height={room.depth} fill="none" stroke="#26262b" strokeWidth={1 / scale} />
+        <rect x={0} y={0} width={room.width} height={room.depth} fill="none" stroke={INK} strokeWidth={1 / scale} />
         {room.items.map((i) => {
           const cat = findCatalogItem(room, i.catalogId);
           if (!cat) return null;
           const r = footprint(i, cat);
-          return <rect key={i.id} x={r.x} y={r.y} width={r.w} height={r.h} fill="#3a3a40" opacity={0.16} />;
+          return <rect key={i.id} x={r.x} y={r.y} width={r.w} height={r.h} fill={INK_SOFT} opacity={0.16} />;
         })}
         {ghosts.map((g) => (
           <rect

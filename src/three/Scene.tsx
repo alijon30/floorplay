@@ -2,7 +2,8 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { ContactShadows } from '@react-three/drei';
-import type * as THREE from 'three';
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { useRoom } from '../store';
 import { findCatalogItem } from '../engine/catalog';
 import { cameraPreset } from '../engine/camera';
@@ -38,6 +39,39 @@ function ShadowSync({ enabled }: { enabled: boolean }) {
       for (const m of Array.isArray(mat) ? mat : [mat]) m.needsUpdate = true;
     });
   }, [enabled, gl, scene]);
+  return null;
+}
+
+/**
+ * The room the metalwork reflects.
+ *
+ * A metal in a physically based renderer has no diffuse colour of its own — all it can show
+ * is what is around it. With nothing around it, brass handles, steel appliances and the mirror
+ * all render as black holes. `RoomEnvironment` builds a lit box out of plain meshes in code,
+ * so a pre-filtered probe of it costs one render at startup, ships no image, and needs no
+ * network. Kept low: it is there to give metal something to catch, not to relight the room.
+ */
+function StudioEnvironment() {
+  const gl = useThree((s) => s.gl);
+  const scene = useThree((s) => s.scene);
+  useEffect(() => {
+    const pmrem = new THREE.PMREMGenerator(gl);
+    const room = new RoomEnvironment();
+    const target = pmrem.fromScene(room, 0.04);
+    scene.environment = target.texture;
+    scene.environmentIntensity = 0.35;
+    return () => {
+      scene.environment = null;
+      target.dispose();
+      pmrem.dispose();
+      room.traverse((o) => {
+        const m = o as THREE.Mesh;
+        m.geometry?.dispose();
+        const mat = m.material;
+        for (const one of Array.isArray(mat) ? mat : mat ? [mat] : []) one.dispose();
+      });
+    };
+  }, [gl, scene]);
   return null;
 }
 
@@ -105,14 +139,25 @@ export default function Scene() {
       */}
       <div
         className="h-full w-full"
-        style={{ background: 'radial-gradient(120% 100% at 50% 32%, #1a1a1e 0%, #131316 55%, #0f0f11 100%)' }}
+        style={{ background: 'radial-gradient(120% 100% at 50% 32%, #1c1c21 0%, #151519 55%, #0e0e10 100%)' }}
       >
         {/*
           react-three-fiber reads `shadows` only when it builds the renderer, so the key
           remounts the canvas on the toggle. Without it the checkbox changed nothing on screen.
         */}
-        <Canvas key={shadows ? 'shadows-on' : 'shadows-off'} shadows={shadows} camera={{ fov: 55, near: 0.05, far: 100, position: [cx - span * 0.9, span * 0.75, cz - span * 1.1] }}>
+        <Canvas
+          key={shadows ? 'shadows-on' : 'shadows-off'}
+          shadows={shadows}
+          camera={{ fov: 55, near: 0.05, far: 100, position: [cx - span * 0.9, span * 0.75, cz - span * 1.1] }}
+          /*
+            Filmic tone mapping is what stops a sunlit wall clipping to flat white and lets the
+            highlight on a brass handle roll off instead of blowing out. The slight exposure lift
+            puts the mid-tones back where they sat before the curve took hold.
+          */
+          gl={{ toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.05 }}
+        >
           <ShadowSync enabled={shadows} />
+          <StudioEnvironment />
           <Sun hour={room.daylightHour} northWall={room.northWall} width={room.width} depth={room.depth} castShadow={shadows} />
           {/*
             The room hangs 2 cm below world zero. drei's ContactShadows blurs its render
@@ -125,7 +170,7 @@ export default function Scene() {
             <GroundFade w={w} d={d} />
             <Floor width={room.width} depth={room.depth} finish={room.finish.floor} />
             <Walls room={room} />
-            {shadows && <ContactShadows position={[0, 0.005, 0]} scale={[2 * w, 2 * d]} opacity={0.45} blur={2.2} far={2} resolution={1024} color="#3a3128" />}
+            {shadows && <ContactShadows position={[0, 0.014, 0]} scale={[2 * w, 2 * d]} opacity={0.45} blur={2.2} far={2} resolution={1024} color="#3a3128" />}
             {room.items.map((item) => {
               const cat = findCatalogItem(room, item.catalogId);
               return cat ? <Furniture key={item.id} item={item} cat={cat} selected={ui.selectedItemId === item.id} onSelect={select} roomW={room.width} roomD={room.depth} /> : null;

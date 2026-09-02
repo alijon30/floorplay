@@ -27,6 +27,10 @@ export default function Sun({ hour, northWall, width, depth, castShadow = true }
   // Fit the shadow frustum to the room so a 2048 map spends its texels on the floor.
   const S = Math.max(4, Math.max(width, depth) * M * 0.9);
   const f = dayFactor(hour);
+  // The bounce a real room gets off the wall the sun is not on: without it every surface
+  // facing away from the window falls to a flat, lifeless grey.
+  const cx = (width * M) / 2, cz = (depth * M) / 2;
+  const fill: [number, number, number] = [2 * cx - position[0], Math.max(1.6, position[1] * 0.55), 2 * cz - position[2]];
   return (
     <>
       {/* Warm ground tint stands in for floor bounce; without it the walls read as grey. */}
@@ -35,8 +39,12 @@ export default function Sun({ hour, northWall, width, depth, castShadow = true }
       <directionalLight
         position={position} intensity={intensity} color={color} castShadow={castShadow} target={target}
         shadow-mapSize-width={2048} shadow-mapSize-height={2048} shadow-bias={-0.0004}
+        // A soft edge: a hard-edged shadow from a 15 m sun is the single most synthetic thing
+        // in an interior render.
+        shadow-radius={4}
         shadow-camera-left={-S} shadow-camera-right={S} shadow-camera-top={S} shadow-camera-bottom={-S} shadow-camera-near={1} shadow-camera-far={40}
       />
+      <directionalLight position={fill} intensity={0.25} color="#ffd9b3" target={target} />
     </>
   );
 }

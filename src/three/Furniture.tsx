@@ -5,7 +5,9 @@ import * as THREE from 'three';
 import { Edges, Html, RoundedBox } from '@react-three/drei';
 import type { CatalogItem, PlacedItem, Wall } from '../engine/types';
 import { isMounted, itemColor } from '../engine/catalog';
+import { finish, materialTypeOf, type MaterialType } from '../engine/materials';
 import { footprint } from '../engine/geometry';
+import { makeFabricTexture, makeWoodTexture } from './textures';
 import { M } from './units';
 
 type Props = {
@@ -40,25 +42,118 @@ function mix(hex: string, toward: string, t: number): string {
   return scratch.set(hex).lerp(new THREE.Color(toward), t).getStyle();
 }
 
+/** Rough perceived lightness, 0 to 1: enough to choose a worktop that contrasts with its units. */
+function lightness(hex: string): number {
+  const c = scratch.set(hex);
+  return 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
+}
+
+// The finishes the shapes below reach for directly: hardware, frames, upholstery liners.
+const WALNUT = finish('walnut');
+const BLACK_STAIN = finish('black-stain');
+const WHITE_OAK = finish('white-oak');
+const LINEN = finish('linen');
+const BRASS = finish('brass');
+const STEEL = finish('steel');
+const BLACK_METAL = finish('black-metal');
+const CONCRETE = finish('concrete');
+const TERRACOTTA_POT = '#a9694c';
+const CUSHION_WHITE = '#faf7f2';
+
+/** Must match `--accent` and `--bad` in `index.css`: a ghost is the interface speaking, not a finish. */
+const GHOST_BLUE = '#7c9cff';
+const REMOVAL_RED = '#e5655d';
+
+/**
+ * How each material behaves under the studio lights.
+ *
+ * This is the whole point of naming finishes rather than picking hexes: oak and brass can be
+ * the same lightness on screen and still have to answer light completely differently, and a
+ * room only reads as furnished when they do.
+ */
+const PROFILE: Record<MaterialType, { roughness: number; metalness: number }> = {
+  wood: { roughness: 0.55, metalness: 0 },
+  fabric: { roughness: 0.95, metalness: 0 },
+  metal: { roughness: 0.35, metalness: 0.85 },
+  surface: { roughness: 0.7, metalness: 0 },
+  leaf: { roughness: 0.8, metalness: 0 },
+};
+
 type MatProps = G & {
   color: string;
+  /** Force the material rather than deriving it from the colour: a stone pot, a linen shade. */
+  mat?: MaterialType;
   roughness?: number;
   metalness?: number;
   emissive?: string;
   emissiveIntensity?: number;
   side?: THREE.Side;
+  /** Skip the grain or weave map: glass, screens and mirrors are the smoothest things here. */
+  flat?: boolean;
 };
 
-function Mat({ color, ghost, removal, roughness = 0.8, metalness = 0, emissive = '#000000', emissiveIntensity = 1, side = THREE.FrontSide }: MatProps) {
-  if (removal) return <meshStandardMaterial color="#e0605a" transparent opacity={0.32} roughness={0.5} side={side} />;
-  if (ghost) return <meshStandardMaterial color="#5b8cff" transparent opacity={0.38} roughness={0.5} side={side} />;
-  return <meshStandardMaterial color={color} roughness={roughness} metalness={metalness} emissive={emissive} emissiveIntensity={emissiveIntensity} side={side} />;
+/*
+ * One material object per distinct finish, shared by every mesh that wears it.
+ *
+ * A furnished room is several hundred meshes and most of them are one of a dozen finishes, so
+ * building a material per mesh would compile the same shader over and over and hand the GPU a
+ * hundred copies of the same uniforms. Keying the cache on everything that can differ means a
+ * whole wall of oak drawer fronts is one material and one texture upload.
+ */
+const materials = new Map<string, THREE.MeshStandardMaterial>();
+
+function materialFor(spec: MatProps): THREE.MeshStandardMaterial {
+  const side = spec.side ?? THREE.FrontSide;
+  if (spec.removal || spec.ghost) {
+    const key = `${spec.removal ? 'removal' : 'ghost'}|${side}`;
+    const hit = materials.get(key);
+    if (hit) return hit;
+    const m = new THREE.MeshStandardMaterial({
+      color: spec.removal ? REMOVAL_RED : GHOST_BLUE,
+      transparent: true,
+      opacity: spec.removal ? 0.32 : 0.38,
+      roughness: 0.5,
+      side,
+    });
+    materials.set(key, m);
+    return m;
+  }
+  const type = spec.mat ?? materialTypeOf(spec.color);
+  const p = PROFILE[type];
+  const roughness = spec.roughness ?? p.roughness;
+  const metalness = spec.metalness ?? p.metalness;
+  const emissive = spec.emissive ?? '#000000';
+  const emissiveIntensity = spec.emissiveIntensity ?? 1;
+  const key = `${spec.color}|${type}|${roughness}|${metalness}|${emissive}|${emissiveIntensity}|${side}|${spec.flat ? 1 : 0}`;
+  const hit = materials.get(key);
+  if (hit) return hit;
+  const map = spec.flat ? null
+    : type === 'wood' ? makeWoodTexture(spec.color)
+      : type === 'fabric' ? makeFabricTexture(spec.color) : null;
+  const m = new THREE.MeshStandardMaterial({
+    // The map is already drawn in the finish's own colour, so tinting it again would darken it.
+    color: map ? '#ffffff' : spec.color,
+    map,
+    roughness,
+    metalness,
+    emissive,
+    emissiveIntensity,
+    side,
+  });
+  materials.set(key, m);
+  return m;
+}
+
+/** `dispose={null}`: the cache owns these, so unmounting one sofa must not free every sofa's material. */
+function Mat(props: MatProps) {
+  return <primitive object={materialFor(props)} attach="material" dispose={null} />;
 }
 
 type PartProps = MatProps & {
   w: number; h: number; d: number;
   x?: number; y: number; z?: number;
   radius?: number;
+  rot?: [number, number, number];
   children?: ReactNode;
 };
 
@@ -67,12 +162,12 @@ type PartProps = MatProps & {
  * rugs, screens) fall back to a plain box because an extrude bevel wider than the part
  * itself produces inverted geometry.
  */
-function Part({ w, h, d, x = 0, y, z = 0, radius = 0.02, children, ...m }: PartProps) {
+function Part({ w, h, d, x = 0, y, z = 0, radius = 0.02, rot, children, ...m }: PartProps) {
   const r = Math.min(radius, Math.min(w, h, d) * 0.45);
   const mat = <Mat {...m} />;
   if (r < 0.004) {
     return (
-      <mesh position={[x, y, z]} castShadow={!m.ghost} receiveShadow>
+      <mesh position={[x, y, z]} rotation={rot} castShadow={!m.ghost} receiveShadow>
         <boxGeometry args={[w, h, d]} />
         {mat}
         {children}
@@ -80,14 +175,39 @@ function Part({ w, h, d, x = 0, y, z = 0, radius = 0.02, children, ...m }: PartP
     );
   }
   return (
-    <RoundedBox args={[w, h, d]} radius={r} smoothness={4} bevelSegments={2} position={[x, y, z]} castShadow={!m.ghost} receiveShadow>
+    <RoundedBox args={[w, h, d]} radius={r} smoothness={4} bevelSegments={2} position={[x, y, z]} rotation={rot} castShadow={!m.ghost} receiveShadow>
       {mat}
       {children}
     </RoundedBox>
   );
 }
 
+/** A turned leg: wider where it meets the frame, narrower on the floor. */
+function Leg({ x, z, h, top, bottom, ...m }: MatProps & { x: number; z: number; h: number; top: number; bottom: number }) {
+  return (
+    <mesh position={[x, h / 2, z]} castShadow={!m.ghost} receiveShadow>
+      <cylinderGeometry args={[top, bottom, h, 10]} />
+      <Mat {...m} />
+    </mesh>
+  );
+}
+
 const SIGNS: [number, number][] = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
+
+/** Muted two-tone prints, so a gallery wall is not four copies of one picture. */
+const PRINTS: [string, string][] = [
+  ['#c7cec4', '#b8674a'],
+  ['#d8d0c2', '#2f3d5c'],
+  ['#d9b8ad', '#3f5d4a'],
+  ['#c9a544', '#9a9a94'],
+];
+
+/** Deterministic index from an id, so a picture keeps its print across reloads. */
+function pick<T>(list: T[], id: string): T {
+  let n = 0;
+  for (let i = 0; i < id.length; i++) n = (n * 31 + id.charCodeAt(i)) >>> 0;
+  return list[n % list.length]!;
+}
 
 export default function Furniture({ item, cat, ghost, removal, selected, onSelect, roomW, roomD }: Props) {
   const w = cat.width * M, d = cat.depth * M, h = cat.height * M;
@@ -115,49 +235,62 @@ export default function Furniture({ item, cat, ghost, removal, selected, onSelec
   const interactive = !ghost && !removal && !!onSelect;
   // The outline rides on the item's main body only; hanging it off every part would draw
   // a cage of green lines instead of a silhouette.
-  const edges = selected && interactive ? <Edges color="#5b8cff" lineWidth={2} /> : null;
+  const edges = selected && interactive ? <Edges color={GHOST_BLUE} lineWidth={2} /> : null;
 
   let body: ReactElement;
   switch (cat.shape) {
     case 'bed': {
-      const frameH = h * 0.55, matH = h * 0.5, top = frameH + matH;
-      const headTop = top + 0.42, headBottom = h * 0.2;
+      const frameH = h * 0.42, matH = h * 0.58, top = frameH + matH;
+      const headTop = top + 0.36, headBottom = h * 0.12;
+      // The duvet covers the foot two thirds and stops in a turned-back fold, which is what
+      // separates a made bed from a slab of foam with a sheet painted on it.
+      const duvetD = d * 0.6, duvetZ = d / 2 - duvetD / 2 - 0.02;
+      const foldZ = duvetZ - duvetD / 2 - 0.05;
       body = (
         <group>
-          <Part w={w} h={frameH} d={d} y={frameH / 2} color="#6f5942" roughness={0.75} {...g} />
-          <Part w={w - 0.06} h={matH} d={d - 0.06} y={frameH + matH / 2} color={c} radius={0.03} {...g}>{edges}</Part>
-          <Part w={w + 0.05} h={headTop - headBottom} d={0.06} y={(headTop + headBottom) / 2} z={-d / 2 - 0.03} color="#6f5942" roughness={0.75} {...g} />
-          <Part w={w - 0.05} h={0.06} d={d * 0.6} y={top + 0.03} z={d / 2 - d * 0.3} color={mix(c, '#ffffff', 0.45)} roughness={0.9} radius={0.03} {...g} />
+          {/* The mattress is inset, so the timber rail shows all the way round it. Without
+              that border a made bed in a pale linen is one undivided white mass. */}
+          <Part w={w} h={frameH} d={d} y={frameH / 2} color={WALNUT} radius={0.012} {...g} />
+          <Part w={w - 0.06} h={matH} d={d - 0.06} y={frameH + matH / 2} color={CUSHION_WHITE} mat="fabric" radius={0.04} {...g}>{edges}</Part>
+          <Part w={w + 0.06} h={headTop - headBottom} d={0.08} y={(headTop + headBottom) / 2} z={-d / 2 - 0.04} color={c} mat="fabric" radius={0.03} {...g} />
+          <Part w={w - 0.14} h={0.08} d={duvetD} y={top + 0.03} z={duvetZ} color={mix(c, '#ffffff', 0.08)} mat="fabric" radius={0.03} {...g} />
+          <Part w={w - 0.14} h={0.055} d={0.13} y={top + 0.055} z={foldZ} color={mix(c, '#ffffff', 0.55)} mat="fabric" radius={0.026} {...g} />
           {[-1, 1].map((s) => (
-            <Part key={s} w={w * 0.4} h={0.1} d={0.32} x={s * w * 0.22} y={top + 0.05} z={-d / 2 + 0.26} color="#faf7f2" roughness={0.9} radius={0.045} {...g} />
+            <Part key={s} w={w * 0.4} h={0.12} d={0.34} x={s * w * 0.22} y={top + 0.06} z={-d / 2 + 0.3} rot={[-0.12, 0, 0]} color={CUSHION_WHITE} mat="fabric" radius={0.055} {...g} />
           ))}
         </group>
       );
       break;
     }
     case 'sofa': {
-      const legH = 0.09, seatH = h * 0.28, seatTop = legH + seatH, armT = 0.14;
+      const legH = 0.1, seatH = h * 0.26, seatTop = legH + seatH, armT = 0.15;
       const inner = Math.max(0.2, w - armT * 2);
       const n = Math.max(1, Math.round(inner / 0.72));
-      const cw = inner / n - 0.02;
+      const gap = 0.01;
+      const cw = inner / n - gap;
+      const backH = h - seatTop - 0.05;
       body = (
         <group>
           {SIGNS.map(([sx, sz], i) => (
-            <Part key={i} w={0.05} h={legH} d={0.05} x={sx * (w / 2 - 0.09)} y={legH / 2} z={sz * (d / 2 - 0.09)} color="#4a3a2c" roughness={0.6} {...g} />
+            <Leg key={i} x={sx * (w / 2 - 0.1)} z={sz * (d / 2 - 0.1)} h={legH} top={0.02} bottom={0.015} color={WALNUT} {...g} />
           ))}
-          <Part w={w} h={seatH} d={d} y={legH + seatH / 2} color={c} {...g}>{edges}</Part>
-          <Part w={w} h={h - legH} d={0.16} y={legH + (h - legH) / 2} z={-d / 2 + 0.08} color={c} {...g} />
+          <Part w={w} h={seatH} d={d} y={legH + seatH / 2} color={c} radius={0.03} {...g}>{edges}</Part>
+          <Part w={w} h={h - legH} d={0.17} y={legH + (h - legH) / 2} z={-d / 2 + 0.085} color={c} radius={0.04} {...g} />
           {Array.from({ length: n }, (_, i) => {
             const x = -inner / 2 + (i + 0.5) * (inner / n);
             return (
               <group key={i}>
-                <Part w={cw} h={0.12} d={d - 0.24} x={x} y={seatTop + 0.05} z={0.03} color={mix(c, '#ffffff', 0.14)} radius={0.035} {...g} />
-                <Part w={cw} h={h - seatTop - 0.06} d={0.12} x={x} y={seatTop + (h - seatTop) / 2} z={-d / 2 + 0.21} color={mix(c, '#ffffff', 0.2)} radius={0.035} {...g} />
+                <Part w={cw} h={0.13} d={d - 0.26} x={x} y={seatTop + 0.055} z={0.04} color={mix(c, '#ffffff', 0.1)} radius={0.045} {...g} />
+                {/* Tipped back a little, the way a cushion actually leans into the frame. */}
+                <Part
+                  w={cw} h={backH} d={0.13} x={x} y={seatTop + 0.04 + backH / 2} z={-d / 2 + 0.23}
+                  rot={[0.13, 0, 0]} color={mix(c, '#ffffff', 0.16)} radius={0.045} {...g}
+                />
               </group>
             );
           })}
           {[-1, 1].map((s) => (
-            <Part key={s} w={armT} h={h * 0.72 - legH} d={d} x={s * (w / 2 - armT / 2)} y={legH + (h * 0.72 - legH) / 2} color={mix(c, '#000000', 0.06)} radius={0.05} {...g} />
+            <Part key={s} w={armT} h={h * 0.7 - legH} d={d} x={s * (w / 2 - armT / 2)} y={legH + (h * 0.7 - legH) / 2} color={mix(c, '#000000', 0.05)} radius={0.07} {...g} />
           ))}
         </group>
       );
@@ -165,12 +298,15 @@ export default function Furniture({ item, cat, ghost, removal, selected, onSelec
     }
     case 'desk':
     case 'table': {
-      const top = cat.shape === 'desk' ? 0.04 : 0.05;
+      const top = 0.03;
+      const legH = h - top;
+      const legWood = lightness(c) > 0.6 ? mix(c, '#000000', 0.12) : c;
       body = (
         <group>
-          <Part w={w} h={top} d={d} y={h - top / 2} color={c} radius={0.012} {...g}>{edges}</Part>
+          {/* A 3 cm top with a real bevel: the edge is where a table stops looking like a plane. */}
+          <Part w={w} h={top} d={d} y={h - top / 2} color={c} radius={0.008} {...g}>{edges}</Part>
           {SIGNS.map(([sx, sz], i) => (
-            <Part key={i} w={0.05} h={h - top} d={0.05} x={sx * (w / 2 - 0.06)} y={(h - top) / 2} z={sz * (d / 2 - 0.06)} color="#3f3f46" roughness={0.55} metalness={0.25} radius={0.008} {...g} />
+            <Leg key={i} x={sx * (w / 2 - 0.07)} z={sz * (d / 2 - 0.07)} h={legH} top={0.022} bottom={0.015} color={legWood} {...g} />
           ))}
         </group>
       );
@@ -178,26 +314,35 @@ export default function Furniture({ item, cat, ghost, removal, selected, onSelec
     }
     case 'chair': {
       const seatY = h * 0.45, legH = seatY - 0.03;
+      const backH = h * 0.44;
+      const backY = seatY + 0.03 + backH / 2;
+      const legWood = lightness(c) > 0.6 ? mix(c, '#000000', 0.15) : c;
       body = (
         <group>
-          <Part w={w} h={0.06} d={d} y={seatY} color={c} radius={0.018} {...g}>{edges}</Part>
-          <Part w={w} h={h * 0.48} d={0.05} y={seatY + 0.03 + h * 0.24} z={-d / 2 + 0.03} color={c} radius={0.018} {...g} />
+          <Part w={w} h={0.05} d={d} y={seatY} color={c} radius={0.016} {...g}>{edges}</Part>
+          {/* Two panels leaning at slightly different angles read as one curved backrest. */}
+          <Part w={w * 0.96} h={backH * 0.55} d={0.028} y={backY - backH * 0.22} z={-d / 2 + 0.045} rot={[0.1, 0, 0]} color={c} radius={0.012} {...g} />
+          <Part w={w * 0.96} h={backH * 0.52} d={0.028} y={backY + backH * 0.24} z={-d / 2 + 0.075} rot={[0.24, 0, 0]} color={c} radius={0.012} {...g} />
           {SIGNS.map(([sx, sz], i) => (
-            <Part key={i} w={0.035} h={legH} d={0.035} x={sx * (w / 2 - 0.045)} y={legH / 2} z={sz * (d / 2 - 0.045)} color="#3f3f46" roughness={0.55} metalness={0.25} radius={0.006} {...g} />
+            <Leg key={i} x={sx * (w / 2 - 0.05)} z={sz * (d / 2 - 0.05)} h={legH} top={0.017} bottom={0.012} color={legWood} {...g} />
           ))}
         </group>
       );
       break;
     }
     case 'wardrobe': {
-      const panel = mix(c, '#000000', 0.07);
+      const plinth = 0.04;
+      const carcassH = h - plinth;
+      const doorH = carcassH - 0.05;
+      const doorW = w / 2 - 0.0055; // a 3 mm shadow gap down the middle and at each end
       body = (
         <group>
-          <Part w={w} h={h} d={d} y={h / 2} color={c} {...g}>{edges}</Part>
+          <Part w={w - 0.05} h={plinth} d={d - 0.04} y={plinth / 2} color={BLACK_STAIN} radius={0.006} {...g} />
+          <Part w={w} h={carcassH} d={d} y={plinth + carcassH / 2} color={c} {...g}>{edges}</Part>
           {[-1, 1].map((s) => (
             <group key={s}>
-              <Part w={w / 2 - 0.02} h={h - 0.07} d={0.02} x={s * (w / 4)} y={h / 2} z={d / 2 + 0.005} color={panel} radius={0.008} {...g} />
-              <Part w={0.016} h={0.14} d={0.016} x={s * 0.04} y={h * 0.5} z={d / 2 + 0.025} color="#9aa0a8" roughness={0.3} metalness={0.6} radius={0.006} {...g} />
+              <Part w={doorW} h={doorH} d={0.02} x={s * (w / 4)} y={plinth + carcassH / 2} z={d / 2 + 0.006} color={mix(c, '#000000', 0.05)} radius={0.006} {...g} />
+              <Part w={0.014} h={0.16} d={0.014} x={s * 0.035} y={plinth + carcassH * 0.5} z={d / 2 + 0.028} color={BRASS} radius={0.006} {...g} />
             </group>
           ))}
         </group>
@@ -206,36 +351,40 @@ export default function Furniture({ item, cat, ghost, removal, selected, onSelec
     }
     case 'shelf': {
       const n = Math.max(2, Math.round(h / 0.4));
+      const slab = 0.018;
       body = (
         <group>
-          <Part w={w} h={h} d={0.02} y={h / 2} z={-d / 2 + 0.01} color={mix(c, '#000000', 0.1)} {...g}>{edges}</Part>
+          <Part w={w} h={h} d={0.016} y={h / 2} z={-d / 2 + 0.008} color={mix(c, '#000000', 0.1)} {...g}>{edges}</Part>
           {[-1, 1].map((s) => (
-            <Part key={s} w={0.022} h={h} d={d} x={s * (w / 2 - 0.011)} y={h / 2} color={c} radius={0.006} {...g} />
+            <Part key={s} w={slab} h={h} d={d} x={s * (w / 2 - slab / 2)} y={h / 2} color={c} radius={0.005} {...g} />
           ))}
           {Array.from({ length: n + 1 }, (_, i) => (
-            <Part key={i} w={w - 0.044} h={0.022} d={d - 0.02} y={0.011 + (i * (h - 0.022)) / n} z={0.01} color={c} radius={0.006} {...g} />
+            <Part key={i} w={w - slab * 2} h={slab} d={d - 0.018} y={slab / 2 + (i * (h - slab)) / n} z={0.009} color={c} radius={0.005} {...g} />
           ))}
         </group>
       );
       break;
     }
     case 'rug':
-      // Kept under the contact-shadow plane so a rug reads as a rug and not as a shadow.
-      body = <Part w={w} h={0.003} d={d} y={0.0025} color={c} roughness={0.95} {...g}>{edges}</Part>;
+      // A centimetre of pile, with the weave the fabric map gives it. It stays under the
+      // contact-shadow plane, so a sofa standing on a rug still grounds itself on the rug.
+      body = <Part w={w} h={0.01} d={d} y={0.005} color={c} mat="fabric" {...g}>{edges}</Part>;
       break;
     case 'lamp': {
+      // The catalog colour names the metalwork; every shade is the same warm linen, because
+      // what a lamp contributes to a room is its light, not its cloth.
+      const shade = <Mat color={LINEN} mat="fabric" emissive="#ffe7c4" emissiveIntensity={0.85} side={THREE.DoubleSide} {...g} />;
       if (mounted) {
-        // A pendant hangs from a cord that runs up out of the top of its own box.
         const shadeH = Math.min(h, 0.24);
         body = (
           <group>
             <mesh position={[0, h + 0.3, 0]}>
-              <cylinderGeometry args={[0.006, 0.006, 0.6, 6]} />
-              <Mat color="#3f3f46" roughness={0.6} {...g} />
+              <cylinderGeometry args={[0.005, 0.005, 0.6, 6]} />
+              <Mat color={c} {...g} />
             </mesh>
             <mesh position={[0, shadeH / 2, 0]}>
               <cylinderGeometry args={[w * 0.16, w * 0.5, shadeH, 24, 1, true]} />
-              <Mat color={c} roughness={0.9} emissive={c} emissiveIntensity={0.7} side={THREE.DoubleSide} {...g} />
+              {shade}
               {edges}
             </mesh>
             {!ghost && !removal && <pointLight position={[0, 0.02, 0]} intensity={0.6} color="#ffd9a0" distance={4} decay={2} />}
@@ -247,16 +396,16 @@ export default function Furniture({ item, cat, ghost, removal, selected, onSelec
       body = (
         <group>
           <mesh position={[0, 0.012, 0]} castShadow={!ghost} receiveShadow>
-            <cylinderGeometry args={[w * 0.32, w * 0.35, 0.024, 20]} />
-            <Mat color="#4b5563" roughness={0.5} metalness={0.4} {...g} />
+            <cylinderGeometry args={[w * 0.3, w * 0.34, 0.024, 20]} />
+            <Mat color={c} {...g} />
           </mesh>
           <mesh position={[0, (h - shadeH) / 2, 0]} castShadow={!ghost}>
-            <cylinderGeometry args={[0.016, 0.016, h - shadeH, 12]} />
-            <Mat color="#6b7280" roughness={0.45} metalness={0.5} {...g} />
+            <cylinderGeometry args={[0.011, 0.014, h - shadeH, 12]} />
+            <Mat color={c} {...g} />
           </mesh>
           <mesh position={[0, shadeY, 0]}>
             <cylinderGeometry args={[w * 0.34, w * 0.48, shadeH, 24, 1, true]} />
-            <Mat color={c} roughness={0.9} emissive={c} emissiveIntensity={0.6} side={THREE.DoubleSide} {...g} />
+            {shade}
             {edges}
           </mesh>
           {!ghost && !removal && <pointLight position={[0, shadeY - 0.04, 0]} intensity={0.55} color="#ffd9a0" distance={3.2} decay={2} />}
@@ -265,47 +414,60 @@ export default function Furniture({ item, cat, ghost, removal, selected, onSelec
       break;
     }
     case 'plant': {
-      const potH = h * 0.26, r1 = w * 0.36, r2 = w * 0.29, r3 = w * 0.26;
-      const y1 = h - r1, y2 = h - r2 * 2.4, y3 = h - r3 * 3.4;
-      const stemTop = Math.min(y1, y3);
+      const potH = h * 0.24, potR = w * 0.32;
+      const pot = pick([TERRACOTTA_POT, CONCRETE, TERRACOTTA_POT], cat.id);
+      const canopy = h - potH;
+      const dark = mix(c, '#000000', 0.28);
+      // Five to seven flattened blades fanned round the stem: a palm, not a snowman.
+      const blades = 5 + (cat.width > 45 ? 2 : 0);
       body = (
         <group>
           <mesh position={[0, potH / 2, 0]} castShadow={!ghost} receiveShadow>
-            <cylinderGeometry args={[w * 0.32, w * 0.26, potH, 20]} />
-            <Mat color="#a9694c" roughness={0.85} {...g} />
+            <cylinderGeometry args={[potR, potR * 0.8, potH, 20]} />
+            <Mat color={pot} mat="surface" {...g} />
             {edges}
           </mesh>
           <mesh position={[0, potH - 0.008, 0]}>
-            <cylinderGeometry args={[w * 0.3, w * 0.3, 0.02, 20]} />
-            <Mat color="#3b2f26" roughness={1} {...g} />
+            <cylinderGeometry args={[potR * 0.94, potR * 0.94, 0.02, 20]} />
+            <Mat color="#3b2f26" mat="surface" {...g} />
           </mesh>
-          <mesh position={[0, (potH + stemTop) / 2, 0]} castShadow={!ghost}>
-            <cylinderGeometry args={[0.018, 0.024, Math.max(0.02, stemTop - potH), 8]} />
-            <Mat color={mix(c, '#000000', 0.35)} roughness={0.9} {...g} />
+          <mesh position={[0, potH + canopy * 0.34, 0]} castShadow={!ghost}>
+            <cylinderGeometry args={[0.012, 0.02, canopy * 0.7, 8]} />
+            <Mat color={dark} {...g} />
           </mesh>
-          <mesh position={[0, y1, 0]} castShadow={!ghost}>
-            <sphereGeometry args={[r1, 18, 14]} />
-            <Mat color={c} roughness={0.9} {...g} />
-          </mesh>
-          <mesh position={[w * 0.26, y2, -w * 0.1]} castShadow={!ghost}>
-            <sphereGeometry args={[r2, 16, 12]} />
-            <Mat color={mix(c, '#ffffff', 0.16)} roughness={0.9} {...g} />
-          </mesh>
-          <mesh position={[-w * 0.24, y3, w * 0.14]} castShadow={!ghost}>
-            <sphereGeometry args={[r3, 16, 12]} />
-            <Mat color={mix(c, '#000000', 0.18)} roughness={0.9} {...g} />
-          </mesh>
+          {Array.from({ length: blades }, (_, i) => {
+            const a = (i / blades) * Math.PI * 2 + 0.4;
+            const lean = 0.5 + (i % 2) * 0.28;
+            const len = w * (0.52 + 0.14 * ((i * 7) % 3));
+            const y = potH + canopy * (0.6 + 0.12 * ((i * 5) % 3));
+            return (
+              <mesh
+                key={i}
+                position={[Math.cos(a) * len * 0.55, y, Math.sin(a) * len * 0.55]}
+                rotation={[0, -a, lean]}
+                scale={[len, len * 0.1, len * 0.42]}
+                castShadow={!ghost}
+              >
+                <sphereGeometry args={[0.5, 12, 8]} />
+                <Mat color={i % 2 === 0 ? c : dark} {...g} />
+              </mesh>
+            );
+          })}
         </group>
       );
       break;
     }
     case 'tv': {
+      const screen = <Mat color="#0a0e16" flat roughness={0.06} metalness={0.55} emissive="#0d1626" emissiveIntensity={0.5} {...g} />;
       if (mounted) {
         // A wall TV is the panel and nothing else: no stand, no cabinet under it.
         body = (
           <group>
-            <Part w={w} h={h} d={d} y={h / 2} color="#1b1f27" roughness={0.45} radius={0.008} {...g}>{edges}</Part>
-            <Part w={w - 0.05} h={h - 0.05} d={0.006} y={h / 2} z={d / 2 + 0.004} color="#0a0e16" roughness={0.2} metalness={0.5} {...g} />
+            <Part w={w} h={h} d={d} y={h / 2} color={BLACK_METAL} radius={0.006} {...g}>{edges}</Part>
+            <mesh position={[0, h / 2, d / 2 + 0.005]} castShadow={false} receiveShadow>
+              <boxGeometry args={[w - 0.04, h - 0.04, 0.006]} />
+              {screen}
+            </mesh>
           </group>
         );
         break;
@@ -313,10 +475,16 @@ export default function Furniture({ item, cat, ghost, removal, selected, onSelec
       const panelH = w * 0.5, panelY = h + 0.1 + panelH / 2;
       body = (
         <group>
-          <Part w={w} h={h} d={d} y={h / 2} color={c} roughness={0.5} {...g}>{edges}</Part>
-          <Part w={0.09} h={0.1} d={0.06} y={h + 0.05} z={-d / 2 + 0.09} color="#1b1f27" roughness={0.4} {...g} />
-          <Part w={w * 0.86} h={panelH} d={0.028} y={panelY} z={-d / 2 + 0.08} color="#1b1f27" roughness={0.45} radius={0.01} {...g} />
-          <Part w={w * 0.82} h={panelH - 0.04} d={0.006} y={panelY} z={-d / 2 + 0.098} color="#0a0e16" roughness={0.2} metalness={0.5} {...g} />
+          <Part w={w} h={h} d={d} y={h / 2} color={c} {...g}>{edges}</Part>
+          {Array.from({ length: 2 }, (_, i) => (
+            <Part key={i} w={w / 2 - 0.02} h={h - 0.06} d={0.016} x={(i - 0.5) * (w / 2)} y={h / 2} z={d / 2 + 0.005} color={mix(c, '#000000', 0.15)} radius={0.005} {...g} />
+          ))}
+          <Part w={0.09} h={0.1} d={0.06} y={h + 0.05} z={-d / 2 + 0.09} color={BLACK_METAL} {...g} />
+          <Part w={w * 0.86} h={panelH} d={0.026} y={panelY} z={-d / 2 + 0.08} color={BLACK_METAL} radius={0.008} {...g} />
+          <mesh position={[0, panelY, -d / 2 + 0.096]} receiveShadow>
+            <boxGeometry args={[w * 0.82, panelH - 0.035, 0.006]} />
+            {screen}
+          </mesh>
         </group>
       );
       break;
@@ -325,55 +493,66 @@ export default function Furniture({ item, cat, ghost, removal, selected, onSelec
       const topH = 0.04, plinth = 0.08;
       const bodyH = h - topH - plinth;
       const doors = Math.max(1, Math.round(w / 0.6));
+      // Dark units take a warm timber worktop, pale ones a stone. Either way the top is a
+      // different material from the doors, which is what a fitted kitchen actually looks like.
+      const worktop = lightness(c) < 0.35 ? WHITE_OAK : CONCRETE;
       body = (
         <group>
-          <Part w={w - 0.06} h={plinth} d={d - 0.06} y={plinth / 2} color="#3f3f46" roughness={0.7} {...g} />
+          <Part w={w - 0.08} h={plinth} d={d - 0.08} y={plinth / 2} color={BLACK_STAIN} {...g} />
           <Part w={w} h={bodyH} d={d} y={plinth + bodyH / 2} color={c} {...g}>{edges}</Part>
           {Array.from({ length: doors }, (_, i) => (
-            <Part
-              key={i} w={w / doors - 0.02} h={bodyH - 0.04} d={0.016}
-              x={-w / 2 + (i + 0.5) * (w / doors)} y={plinth + bodyH / 2} z={d / 2 + 0.004}
-              color={mix(c, '#000000', 0.06)} radius={0.006} {...g}
-            />
+            <group key={i}>
+              <Part
+                w={w / doors - 0.012} h={bodyH - 0.03} d={0.016}
+                x={-w / 2 + (i + 0.5) * (w / doors)} y={plinth + bodyH / 2} z={d / 2 + 0.005}
+                color={mix(c, '#000000', 0.05)} radius={0.005} {...g}
+              />
+              <Part
+                w={Math.min(0.18, w / doors - 0.1)} h={0.012} d={0.014}
+                x={-w / 2 + (i + 0.5) * (w / doors)} y={plinth + bodyH - 0.06} z={d / 2 + 0.022}
+                color={BRASS} radius={0.005} {...g}
+              />
+            </group>
           ))}
-          {/* The worktop overhangs the carcass, which is what makes a run of units read as one counter. */}
-          <Part w={w + 0.02} h={topH} d={d + 0.02} y={h - topH / 2} color={mix(c, '#ffffff', 0.4)} roughness={0.35} radius={0.008} {...g} />
+          {/* A 2 cm overhang all round is what makes a run of units read as one counter. */}
+          <Part w={w + 0.04} h={topH} d={d + 0.04} y={h - topH / 2} color={worktop} radius={0.006} {...g} />
         </group>
       );
       break;
     }
     case 'appliance': {
-      const front = mix(c, '#000000', 0.5);
       body = (
         <group>
-          <Part w={w} h={h} d={d} y={h / 2} color={c} roughness={0.4} metalness={0.25} {...g}>{edges}</Part>
-          <Part w={w - 0.04} h={h - 0.06} d={0.02} y={h / 2} z={d / 2 + 0.005} color={front} roughness={0.3} metalness={0.3} radius={0.008} {...g} />
-          <Part w={0.022} h={Math.min(0.5, h * 0.5)} d={0.035} x={w / 2 - 0.07} y={h * 0.6} z={d / 2 + 0.03} color="#9aa0a8" roughness={0.25} metalness={0.65} radius={0.008} {...g} />
+          <Part w={w} h={h} d={d} y={h / 2} color={c} {...g}>{edges}</Part>
+          <Part w={w - 0.03} h={h - 0.04} d={0.02} y={h / 2} z={d / 2 + 0.005} color={mix(c, '#000000', 0.12)} radius={0.006} {...g} />
+          {/* One horizontal bar across the door: the handle every white good has. */}
+          <Part w={w - 0.14} h={0.022} d={0.034} y={h - Math.min(0.12, h * 0.18)} z={d / 2 + 0.03} color={STEEL} radius={0.009} {...g} />
         </group>
       );
       break;
     }
     case 'stool': {
       const seatH = 0.05, r = Math.max(0.1, w * 0.45);
+      const metal = lightness(c) > 0.6 ? BLACK_METAL : c;
       body = (
         <group>
           <mesh position={[0, 0.015, 0]} castShadow={!ghost} receiveShadow>
             <cylinderGeometry args={[r * 0.78, r * 0.86, 0.03, 20]} />
-            <Mat color="#3f3f46" roughness={0.5} metalness={0.35} {...g} />
+            <Mat color={metal} {...g} />
           </mesh>
           <mesh position={[0, (h - seatH) / 2, 0]} castShadow={!ghost}>
-            <cylinderGeometry args={[0.028, 0.032, h - seatH, 12]} />
-            <Mat color="#3f3f46" roughness={0.5} metalness={0.35} {...g} />
+            <cylinderGeometry args={[0.022, 0.03, h - seatH, 12]} />
+            <Mat color={metal} {...g} />
           </mesh>
           {h > 0.6 && (
             <mesh position={[0, h * 0.28, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow={!ghost}>
               <torusGeometry args={[r * 0.7, 0.012, 8, 24]} />
-              <Mat color="#9aa0a8" roughness={0.3} metalness={0.6} {...g} />
+              <Mat color={BRASS} {...g} />
             </mesh>
           )}
           <mesh position={[0, h - seatH / 2, 0]} castShadow={!ghost} receiveShadow>
-            <cylinderGeometry args={[r, r, seatH, 24]} />
-            <Mat color={c} roughness={0.7} {...g} />
+            <cylinderGeometry args={[r, r * 0.96, seatH, 24]} />
+            <Mat color={c} {...g} />
             {edges}
           </mesh>
         </group>
@@ -382,11 +561,12 @@ export default function Furniture({ item, cat, ghost, removal, selected, onSelec
     }
     case 'bench': {
       const seatH = 0.05, legH = h - seatH;
+      const legWood = lightness(c) > 0.6 ? mix(c, '#000000', 0.18) : c;
       body = (
         <group>
-          <Part w={w} h={seatH} d={d} y={h - seatH / 2} color={c} radius={0.012} {...g}>{edges}</Part>
+          <Part w={w} h={seatH} d={d} y={h - seatH / 2} color={c} radius={0.01} {...g}>{edges}</Part>
           {SIGNS.map(([sx, sz], i) => (
-            <Part key={i} w={0.05} h={legH} d={0.05} x={sx * (w / 2 - 0.06)} y={legH / 2} z={sz * (d / 2 - 0.05)} color={mix(c, '#000000', 0.25)} roughness={0.6} radius={0.008} {...g} />
+            <Leg key={i} x={sx * (w / 2 - 0.07)} z={sz * (d / 2 - 0.06)} h={legH} top={0.022} bottom={0.016} color={legWood} {...g} />
           ))}
         </group>
       );
@@ -395,36 +575,66 @@ export default function Furniture({ item, cat, ghost, removal, selected, onSelec
     case 'picture':
     case 'mirror': {
       const face = cat.shape === 'mirror';
-      const inset = Math.max(0.03, Math.min(w, h) * 0.07);
+      // The frame is four rails around an opening, not a solid slab: a print sunk inside a
+      // solid box is a print nobody can see.
+      const frameT = Math.max(0.02, Math.min(w, h) * 0.08);
+      const openW = Math.max(0.02, w - frameT * 2), openH = Math.max(0.02, h - frameT * 2);
+      const [skyTone, earthTone] = pick(PRINTS, cat.id);
+      const printW = openW * 0.86, printH = openH * 0.86;
       body = (
         <group>
-          <Part w={w} h={h} d={d} y={h / 2} color={c} roughness={0.5} radius={0.006} {...g}>{edges}</Part>
-          <Part
-            w={Math.max(0.02, w - inset * 2)} h={Math.max(0.02, h - inset * 2)} d={Math.max(0.004, d * 0.35)}
-            y={h / 2} z={d * 0.34}
-            // A fully metallic pane renders black without an environment to reflect, so the
-            // glass is a pale, barely-metallic gloss with a little self-light instead.
-            color={face ? '#cfe0ea' : mix(c, '#ffffff', 0.62)}
-            roughness={face ? 0.06 : 0.85} metalness={face ? 0.15 : 0}
-            emissive={face ? '#9fb8c8' : '#000000'} emissiveIntensity={face ? 0.14 : 1}
-            radius={0.004} {...g}
-          />
+          <Part w={w} h={h} d={d * 0.22} y={h / 2} z={-d * 0.39} color={mix(c, '#000000', 0.3)} {...g}>{edges}</Part>
+          {[[0, h - frameT / 2, w, frameT], [0, frameT / 2, w, frameT],
+            [-(w - frameT) / 2, h / 2, frameT, openH], [(w - frameT) / 2, h / 2, frameT, openH]].map(([x, y, rw, rh], i) => (
+            <Part key={i} w={rw!} h={rh!} d={d} x={x} y={y!} color={c} radius={0.004} {...g} />
+          ))}
+          {face ? (
+            // A metallic pane needs an environment to reflect; the studio probe gives it one,
+            // and the faint self-light keeps it from going flat when the room is dim.
+            <Part
+              w={openW} h={openH} d={d * 0.5} y={h / 2} z={d * 0.1}
+              color={mix(STEEL, '#eaf1f6', 0.5)} flat roughness={0.05} metalness={0.45}
+              emissive="#9fb8c8" emissiveIntensity={0.12} radius={0.003} {...g}
+            />
+          ) : (
+            <group>
+              {/* Mount board recessed inside the rails, then a two-tone print floated on it. */}
+              <Part w={openW} h={openH} d={d * 0.45} y={h / 2} z={-d * 0.1} color="#efeae0" mat="surface" radius={0.002} {...g} />
+              <Part w={printW} h={printH * 0.58} d={0.005} y={h / 2 + printH * 0.21} z={d * 0.16} color={skyTone} mat="surface" roughness={0.85} radius={0.002} {...g} />
+              <Part w={printW} h={printH * 0.42} d={0.005} y={h / 2 - printH * 0.29} z={d * 0.16} color={earthTone} mat="surface" roughness={0.85} radius={0.002} {...g} />
+            </group>
+          )}
         </group>
       );
       break;
     }
     case 'curtain': {
       const panelW = w * 0.44, t = Math.max(0.02, d * 0.55);
+      const folds = 4;
+      const foldW = panelW / folds;
       body = (
         <group>
           <mesh position={[0, h - 0.02, -d * 0.1]} rotation={[0, 0, Math.PI / 2]} castShadow={!ghost}>
-            <cylinderGeometry args={[0.016, 0.016, w + 0.12, 10]} />
-            <Mat color="#9aa0a8" roughness={0.3} metalness={0.6} {...g} />
+            <cylinderGeometry args={[0.014, 0.014, w + 0.12, 10]} />
+            <Mat color={BLACK_METAL} {...g} />
           </mesh>
           {[-1, 1].map((s) => (
-            <Part key={s} w={panelW} h={h - 0.04} d={t} x={s * (w / 2 - panelW / 2)} y={(h - 0.04) / 2} color={c} roughness={0.95} radius={0.03} {...g}>
-              {s === -1 ? edges : null}
-            </Part>
+            <group key={s} position={[s * (w / 2 - panelW / 2), 0, 0]}>
+              {/* Overlapping vertical folds: a hanging cloth, not a plank of colour. */}
+              {Array.from({ length: folds }, (_, i) => {
+                const x = -panelW / 2 + (i + 0.5) * foldW;
+                const deep = i % 2 === 0;
+                return (
+                  <Part
+                    key={i} w={foldW * 1.35} h={h - 0.04} d={deep ? t : t * 0.62}
+                    x={x} y={(h - 0.04) / 2} z={deep ? 0 : t * 0.18}
+                    color={deep ? c : mix(c, '#ffffff', 0.12)} mat="fabric" radius={Math.min(0.035, foldW * 0.6)} {...g}
+                  >
+                    {s === -1 && i === 0 ? edges : null}
+                  </Part>
+                );
+              })}
+            </group>
           ))}
         </group>
       );
@@ -440,8 +650,8 @@ export default function Furniture({ item, cat, ghost, removal, selected, onSelec
             const x = -w / 2 + ((i + 0.5) * w) / n;
             return (
               <group key={i}>
-                <Part w={0.014} h={0.014} d={d * 0.8} x={x} y={h * 0.6} z={0} color="#9aa0a8" roughness={0.3} metalness={0.6} radius={0.006} {...g} />
-                <Part w={0.02} h={0.05} d={0.02} x={x} y={h * 0.42} z={d / 2 - 0.01} color="#9aa0a8" roughness={0.3} metalness={0.6} radius={0.008} {...g} />
+                <Part w={0.014} h={0.014} d={d * 0.8} x={x} y={h * 0.6} z={0} color={BRASS} radius={0.006} {...g} />
+                <Part w={0.02} h={0.05} d={0.02} x={x} y={h * 0.42} z={d / 2 - 0.01} color={BRASS} radius={0.008} {...g} />
               </group>
             );
           })}
@@ -453,16 +663,16 @@ export default function Furniture({ item, cat, ghost, removal, selected, onSelec
       const board = Math.min(0.04, h * 0.35);
       body = (
         <group>
-          <Part w={w} h={board} d={d} y={h - board / 2} color={c} radius={0.006} {...g}>{edges}</Part>
+          <Part w={w} h={board} d={d} y={h - board / 2} color={c} radius={0.005} {...g}>{edges}</Part>
           {[-1, 1].map((s) => (
-            <Part key={s} w={0.02} h={h - board} d={d * 0.75} x={s * (w / 2 - 0.07)} y={(h - board) / 2} z={-d * 0.1} color={mix(c, '#000000', 0.3)} roughness={0.6} radius={0.005} {...g} />
+            <Part key={s} w={0.018} h={h - board} d={d * 0.75} x={s * (w / 2 - 0.07)} y={(h - board) / 2} z={-d * 0.1} color={BLACK_METAL} radius={0.004} {...g} />
           ))}
         </group>
       );
       break;
     }
     case 'pouf':
-      body = <Part w={w} h={h} d={d} y={h / 2} radius={Math.min(w, d, h) * 0.45} color={c} roughness={0.95} {...g}>{edges}</Part>;
+      body = <Part w={w} h={h} d={d} y={h / 2} radius={Math.min(w, d, h) * 0.45} color={c} mat="fabric" {...g}>{edges}</Part>;
       break;
     case 'crib': {
       const post = 0.05, rail = 0.035, baseY = h * 0.4;
@@ -473,7 +683,7 @@ export default function Furniture({ item, cat, ghost, removal, selected, onSelec
           {SIGNS.map(([sx, sz], i) => (
             <Part key={i} w={post} h={h} d={post} x={sx * (w / 2 - post / 2)} y={h / 2} z={sz * (d / 2 - post / 2)} color={c} radius={0.008} {...g} />
           ))}
-          <Part w={w - post * 2} h={0.1} d={d - post * 2} y={baseY} color={mix(c, '#ffffff', 0.5)} roughness={0.9} radius={0.02} {...g}>{edges}</Part>
+          <Part w={w - post * 2} h={0.1} d={d - post * 2} y={baseY} color={CUSHION_WHITE} mat="fabric" radius={0.02} {...g}>{edges}</Part>
           {/* Slats: enough to read as a rail from across the room, not one per real bar. */}
           {[-1, 1].map((s) => (
             <group key={`z${s}`}>
@@ -503,8 +713,9 @@ export default function Furniture({ item, cat, ghost, removal, selected, onSelec
           <Part w={w} h={h} d={d} y={h / 2} color={c} {...g}>{edges}</Part>
           {Array.from({ length: drawers }, (_, i) => (
             <group key={i}>
-              <Part w={w - 0.06} h={dh - 0.02} d={0.018} y={0.03 + dh * (i + 0.5)} z={d / 2 + 0.004} color={mix(c, '#000000', 0.08)} radius={0.008} {...g} />
-              <Part w={w * 0.28} h={0.014} d={0.016} y={0.03 + dh * (i + 0.5)} z={d / 2 + 0.022} color="#9aa0a8" roughness={0.3} metalness={0.6} radius={0.005} {...g} />
+              {/* A 1.5 cm reveal round each front, so the carcass shows as a shadow line. */}
+              <Part w={w - 0.03} h={dh - 0.015} d={0.018} y={0.03 + dh * (i + 0.5)} z={d / 2 + 0.005} color={mix(c, '#000000', 0.06)} radius={0.006} {...g} />
+              <Part w={w * 0.3} h={0.013} d={0.014} y={0.03 + dh * (i + 0.5)} z={d / 2 + 0.021} color={BRASS} radius={0.005} {...g} />
             </group>
           ))}
         </group>

@@ -13,7 +13,7 @@ export default function Viewport({
 }: {
   label: string; toolbar?: ReactNode; children: ReactNode; tone?: 'dark' | 'light';
 }) {
-  const text = tone === 'light' ? 'text-[#8a8a84]' : 'text-muted';
+  const text = tone === 'light' ? 'text-[var(--plan-dim)]' : 'text-muted';
   return (
     <section aria-label={label} className="relative h-full w-full overflow-hidden">
       {children}

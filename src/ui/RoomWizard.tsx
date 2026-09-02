@@ -8,7 +8,7 @@ import { findCatalogItem, isMounted, itemColor } from '../engine/catalog';
 import { footprint } from '../engine/geometry';
 import { budgetUsed } from '../engine/validate';
 import type { Rect, RoomKind } from '../engine/types';
-import { INK_SOFT, PAPER } from '../plan/tokens';
+import { INK, INK_SOFT, PAPER } from '../plan/tokens';
 import { BTN, BTN_PRIMARY, BTN_QUIET, FOCUS, INPUT, LABEL, NUM } from './styles';
 
 const THUMB = 56;
@@ -49,7 +49,7 @@ function Thumb({ card }: { card: Card }) {
     <svg width={THUMB} height={THUMB} viewBox={`0 0 ${THUMB} ${THUMB}`} className="shrink-0 rounded" aria-hidden>
       <rect x={0} y={0} width={THUMB} height={THUMB} rx={4} fill={PAPER} />
       <g transform={`translate(${(THUMB - w) / 2} ${(THUMB - h) / 2}) scale(${scale})`}>
-        <rect x={0} y={0} width={card.width} height={card.depth} fill="none" stroke="#26262b" strokeWidth={1 / scale} />
+        <rect x={0} y={0} width={card.width} height={card.depth} fill="none" stroke={INK} strokeWidth={1 / scale} />
         {card.shells.map((s, i) => (
           <rect key={i} x={s.rect.x} y={s.rect.y} width={s.rect.w} height={s.rect.h} fill={s.color} fillOpacity={s.mounted ? 0.3 : 0.5} stroke={INK_SOFT} strokeWidth={0.5 / scale} />
         ))}
