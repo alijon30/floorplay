@@ -1,17 +1,19 @@
 // src/App.tsx
+import TopBar from './ui/TopBar';
+import MetricChips from './ui/MetricChips';
+import SplitPane from './ui/SplitPane';
 import DevPanel from './ui/DevPanel';
-import AgentChip from './ui/AgentChip';
-import { APP_NAME } from './config';
 import './webmcp';
+
+const Placeholder = ({ label }: { label: string }) => <div className="flex h-full items-center justify-center text-neutral-600">{label}</div>;
 
 export default function App() {
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center justify-between border-b border-neutral-800 px-4 py-2">
-        <div className="text-lg font-semibold">{APP_NAME}</div>
-        <AgentChip />
-      </header>
-      <main className="flex-1 p-4 text-neutral-400">Plan and 3D view arrive in Tasks 15 to 19. Press Ctrl+Shift+D (Cmd+Shift+D on macOS) for the WebMCP dev panel.</main>
+      <TopBar />
+      <MetricChips />
+      <SplitPane left={<Placeholder label="Plan (Task 16)" />} right={<Placeholder label="3D (Task 19)" />} />
+      <div className="h-48 border-t border-neutral-800"><Placeholder label="Proposals and ledger (Task 18)" /></div>
       <DevPanel />
     </div>
   );
