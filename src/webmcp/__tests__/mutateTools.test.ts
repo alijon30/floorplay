@@ -1,0 +1,95 @@
+import { describe, it, expect } from 'vitest';
+import { createRoomStore } from '../../store/roomStore';
+import { buildMutateTools } from '../tools/mutateTools';
+import { parseResult } from '../results';
+import { placeTest } from '../../engine/validate';
+
+function setup() {
+  const store = createRoomStore();
+  const tools = Object.fromEntries(buildMutateTools({ store }).map((t) => [t.name, t]));
+  return { store, tools, run: async (name: string, input: Record<string, unknown> = {}) => parseResult(await tools[name]!.execute(input)) as Record<string, unknown> };
+}
+
+describe('mutating tools', () => {
+  it('exposes the documented tool names', () => {
+    const { tools } = setup();
+    expect(Object.keys(tools).sort()).toEqual(['add_catalog_item', 'add_opening', 'move_item', 'place_item', 'propose_layout', 'remove_item', 'remove_opening', 'rotate_item', 'set_brief', 'set_camera', 'set_daylight_hour', 'set_item_locked', 'set_room_shell', 'swap_item', 'undo_last_action']);
+    expect(tools['place_item']!.annotations).toBeUndefined();
+  });
+
+  it('place_item applies, records the ledger, and reports violations with a suggestion', async () => {
+    const { store, run } = setup();
+    const r = await run('place_item', { catalogId: 'desk-120', x: 60, y: 30 });
+    expect(r).toMatchObject({ ok: true, status: 'applied' });
+    expect(store.getState().current().items).toHaveLength(1);
+    expect(store.getState().current().ledger[0]).toMatchObject({ actor: 'agent', tool: 'place_item' });
+    const bad = await run('place_item', { catalogId: 'desk-120', x: 30, y: 30 });
+    expect(bad['status']).toBe('applied');
+    expect((bad['violations'] as unknown[]).length).toBeGreaterThan(0);
+    expect(bad['suggestion']).toMatchObject({ x: expect.any(Number), y: expect.any(Number) });
+    expect(await run('place_item', { catalogId: 'nope', x: 0, y: 0 })).toMatchObject({ ok: false, error: 'invalid_input' });
+  });
+
+  it('respects propose-first mode', async () => {
+    const { store, run } = setup();
+    store.getState().setProposeFirst(true);
+    const r = await run('place_item', { catalogId: 'desk-120', x: 60, y: 30 });
+    expect(r).toMatchObject({ ok: true, status: 'proposed' });
+    expect(store.getState().current().items).toHaveLength(0);
+    expect(store.getState().current().proposals).toHaveLength(1);
+    const cam = await run('set_daylight_hour', { hour: 16 });
+    expect(cam['ok']).toBe(true);
+    expect(store.getState().current().daylightHour).toBe(16);
+  });
+
+  it('move, rotate, swap, lock and remove', async () => {
+    const { store, run } = setup();
+    const room = store.getState().current();
+    store.getState().dispatch({ ops: [{ type: 'place', item: placeTest(room, 'desk-120', 60, 30, 0, 'd') }], actor: 'human' });
+    expect(await run('move_item', { id: 'd', x: 200, y: 30 })).toMatchObject({ ok: true });
+    expect(store.getState().current().items[0]).toMatchObject({ x: 200, rotation: 0 });
+    expect(await run('rotate_item', { id: 'd', rotation: 90 })).toMatchObject({ ok: true });
+    expect(store.getState().current().items[0]!.rotation).toBe(90);
+    expect(await run('swap_item', { id: 'd', catalogId: 'desk-100' })).toMatchObject({ ok: true });
+    expect(await run('set_item_locked', { id: 'd', locked: true })).toMatchObject({ ok: true });
+    expect(await run('move_item', { id: 'd', x: 10, y: 10 })).toMatchObject({ ok: false, error: 'locked', itemId: 'd' });
+    expect(await run('remove_item', { id: 'd' })).toMatchObject({ ok: false, error: 'locked' });
+    expect(await run('set_item_locked', { id: 'd', locked: false })).toMatchObject({ ok: true });
+    expect(await run('remove_item', { id: 'd' })).toMatchObject({ ok: true });
+    expect(await run('remove_item', { id: 'd' })).toMatchObject({ ok: false, error: 'not_found' });
+  });
+
+  it('shell, openings, brief and catalog additions', async () => {
+    const { store, run } = setup();
+    expect(await run('set_room_shell', { width: 400, depth: 500, height: 260 })).toMatchObject({ ok: true });
+    expect(store.getState().current()).toMatchObject({ width: 400, northWall: 'top' });
+    const o = await run('add_opening', { kind: 'window', wall: 'top', offset: 100, width: 100 });
+    expect(o['ok']).toBe(true);
+    const win = store.getState().current().openings.find((x) => x.wall === 'top')!;
+    expect(win).toMatchObject({ height: 120, sill: 90 });
+    expect(await run('remove_opening', { id: win.id })).toMatchObject({ ok: true });
+    expect(await run('set_brief', { budget: 900 })).toMatchObject({ ok: true });
+    expect(store.getState().current().brief).toMatchObject({ budget: 900, needs: ['sleep', 'work from home', 'host two friends'] });
+    const c = await run('add_catalog_item', { name: 'Paper lamp', category: 'lamp', width: 30, depth: 30, height: 150, price: 25 });
+    expect(c['ok']).toBe(true);
+    const id = c['catalogId'] as string;
+    expect(store.getState().current().catalogExtras[0]).toMatchObject({ id, source: 'agent', blocksLight: false });
+    expect(await run('place_item', { catalogId: id, x: 40, y: 40 })).toMatchObject({ ok: true });
+  });
+
+  it('propose_layout, set_camera and undo', async () => {
+    const { store, run } = setup();
+    const p = await run('propose_layout', { label: 'Cozy', placements: [{ action: 'place', catalogId: 'bed-queen-160', x: 260, y: 300 }, { action: 'place', catalogId: 'desk-120', x: 60, y: 30 }] });
+    expect(p).toMatchObject({ ok: true, status: 'proposed' });
+    expect(store.getState().current().proposals[0]!.label).toBe('Cozy');
+    store.getState().acceptProposal(store.getState().current().proposals[0]!.id);
+    const cam = await run('set_camera', { preset: 'at_desk' });
+    expect(cam).toMatchObject({ ok: true, camera: { mode: 'walk', yaw: 0 } });
+    expect((cam['itemsInView'] as { id: string }[]).length).toBeGreaterThan(0);
+    expect(await run('set_camera', { preset: 'nope' })).toMatchObject({ ok: false, error: 'invalid_input' });
+    expect(await run('set_camera', { x: 100, y: 100, yaw: 90 })).toMatchObject({ ok: true });
+    const u = await run('undo_last_action');
+    expect(u).toMatchObject({ ok: true });
+    expect(store.getState().current().items).toHaveLength(0);
+  });
+});
