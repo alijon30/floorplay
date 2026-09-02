@@ -30,6 +30,8 @@ export default function App() {
   const dialog = useRoom((s) => s.ui.dialog);
   const closeDialog = useRoom((s) => s.closeDialog);
   const selectedItemId = useRoom((s) => s.ui.selectedItemId);
+  const roomPanelOpen = useRoom((s) => s.ui.roomPanelOpen);
+  const setRoomPanelOpen = useRoom((s) => s.setRoomPanelOpen);
   return (
     <div className="flex h-full flex-col">
       <TopBar />
@@ -40,9 +42,17 @@ export default function App() {
             <Plan />
             <CatalogDrawer />
             <Onboarding />
-            {/* One card at a time: the room's own numbers, or the selected piece's. */}
-            <div className="absolute right-3 top-3 z-20 flex max-h-[calc(100%-1.5rem)] w-64 flex-col gap-2 overflow-auto">
-              {selectedItemId ? <Inspector /> : <RoomPanel />}
+            {/* One card at a time: the room's own numbers, or the selected piece's. Closed, the
+                room card leaves a pill behind, so the plan can be seen whole and the card is
+                still one press away. */}
+            <div className="absolute right-3 top-3 z-20 flex max-h-[calc(100%-1.5rem)] w-64 flex-col items-end gap-2 overflow-auto">
+              {selectedItemId ? <Inspector /> : roomPanelOpen ? <RoomPanel /> : (
+                <button
+                  className="rounded-full border border-neutral-700 bg-neutral-900/95 px-3 py-1 text-xs text-neutral-300 shadow-xl backdrop-blur hover:border-emerald-500 hover:text-white"
+                  title="Show the room's size, budget and needs"
+                  onClick={() => setRoomPanelOpen(true)}
+                >Room</button>
+              )}
               <IssuesPanel />
             </div>
           </div>

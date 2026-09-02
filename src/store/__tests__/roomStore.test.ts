@@ -172,22 +172,37 @@ describe('roomStore', () => {
     }
   });
 
-  it('persists the onboarding dismissal and the daylight and shadow toggles', () => {
+  it('persists the onboarding dismissal, the daylight and shadow toggles and the room panel', () => {
     vi.useFakeTimers();
     try {
       const storage = memoryStorage();
       const a = createRoomStore({ storage });
       expect(a.getState().ui.onboardingDismissed).toBe(false);
-      expect(a.getState().ui).toMatchObject({ showDaylight: true, showShadows: true });
+      expect(a.getState().ui).toMatchObject({ showDaylight: true, showShadows: true, roomPanelOpen: true });
       a.getState().dismissOnboarding();
       a.getState().setShowDaylight(false);
       a.getState().setShowShadows(false);
+      a.getState().setRoomPanelOpen(false);
       vi.advanceTimersByTime(300);
       const b = createRoomStore({ storage });
-      expect(b.getState().ui).toMatchObject({ onboardingDismissed: true, showDaylight: false, showShadows: false });
+      expect(b.getState().ui).toMatchObject({ onboardingDismissed: true, showDaylight: false, showShadows: false, roomPanelOpen: false });
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('clears the selection when the room panel opens, since they share the rail', () => {
+    const store = createRoomStore();
+    const s = store.getState();
+    const r = s.dispatch({ ops: [{ type: 'place', item: placeTest(s.current(), 'desk-120', 60, 30, 0, 'a') }], actor: 'human' });
+    expect(r.ok).toBe(true);
+    store.getState().select('a');
+    store.getState().setRoomPanelOpen(true);
+    expect(store.getState().ui).toMatchObject({ roomPanelOpen: true, selectedItemId: null });
+    // Closing it is not a reason to touch the selection.
+    store.getState().select('a');
+    store.getState().setRoomPanelOpen(false);
+    expect(store.getState().ui).toMatchObject({ roomPanelOpen: false, selectedItemId: 'a' });
   });
 
   it('opens and closes the shared dialogs, and never persists which one is open', () => {
@@ -238,8 +253,9 @@ describe('roomStore', () => {
     expect(room.name).toBe('Old room');
     expect(room.finish).toEqual({ wall: '#efe9df', floor: 'oak' });
     expect(room.catalogExtras[0]!.rooms.length).toBeGreaterThan(0);
-    // A save from before the shade toggles existed keeps them on rather than restoring undefined.
-    expect(store.getState().ui).toMatchObject({ showDaylight: true, showShadows: true });
+    // A save from before the shade toggles existed keeps them on rather than restoring undefined,
+    // and one from before the room panel existed opens it.
+    expect(store.getState().ui).toMatchObject({ showDaylight: true, showShadows: true, roomPanelOpen: true });
   });
 
   it('survives corrupt persisted JSON', () => {

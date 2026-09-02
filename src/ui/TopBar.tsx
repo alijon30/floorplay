@@ -12,7 +12,7 @@ export default function TopBar() {
   const room = useRoom((s) => s.rooms[s.currentId]!);
   const ui = useRoom((s) => s.ui);
   const persistError = useRoom((s) => s.persistError);
-  const { renameRoom, setDaylightHour, setNorthWall, setCatalogOpen, setProposeFirst, setShowDaylight, openDialog, closeDialog, undo } = useRoom((s) => s);
+  const { renameRoom, setDaylightHour, setNorthWall, setCatalogOpen, setProposeFirst, setShowDaylight, setRoomPanelOpen, openDialog, closeDialog, undo } = useRoom((s) => s);
   // The shell and brief dialogs live in `App`, keyed off `ui.dialog`, so the room panel on the
   // right rail opens the very same ones. Only the style popover renders here, because it hangs
   // off its own button.
@@ -24,7 +24,13 @@ export default function TopBar() {
     <header className="flex flex-wrap items-center gap-3 border-b border-neutral-800 px-4 py-2 text-sm">
       <span className="text-lg font-semibold tracking-tight">{APP_NAME}</span>
       <input className="w-40 rounded bg-transparent px-1 text-neutral-200 outline-none hover:bg-neutral-800 focus:bg-neutral-800" value={room.name} onChange={(e) => renameRoom(e.target.value)} aria-label="Room name" />
-      <button className="rounded border border-neutral-700 px-2 py-1 text-xs hover:border-emerald-500" onClick={() => openDialog('shell')}>Room {room.width}×{room.depth}</button>
+      {/* Reveals the room card on the rail rather than a modal: the card holds the same
+          dimensions, and its own "Doors & windows…" link still reaches the shell dialog. */}
+      <button
+        className="rounded border border-neutral-700 px-2 py-1 text-xs hover:border-emerald-500"
+        title="Show the room card: size, budget and needs"
+        onClick={() => setRoomPanelOpen(true)}
+      >Room {room.width}×{room.depth}</button>
       <button className="rounded border border-neutral-700 px-2 py-1 text-xs hover:border-emerald-500" onClick={() => openDialog('brief')}>Brief · ${room.brief.budget} · {room.brief.needs.length ? room.brief.needs.join(', ') : 'no needs yet'}</button>
       <label className="flex items-center gap-2 text-xs text-neutral-300">☀ {String(room.daylightHour).padStart(2, '0')}:00
         <input type="range" min={6} max={20} value={room.daylightHour} onChange={(e) => setDaylightHour(Number(e.target.value))} aria-label="Daylight hour" />

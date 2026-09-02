@@ -32,6 +32,11 @@ export interface UiState {
   showDaylight: boolean;
   /** Cast and catch shadows in the 3D view. Off buys frames on a slow machine. */
   showShadows: boolean;
+  /**
+   * The room card on the right rail. Closing it is a lasting preference, so it persists:
+   * someone who wants the plan uncovered should not have to close it every visit.
+   */
+  roomPanelOpen: boolean;
 }
 
 /** The panels both the top bar and the room panel can open. */
@@ -62,6 +67,7 @@ export interface RoomState {
   setProposeFirst(v: boolean): void;
   setShowDaylight(v: boolean): void;
   setShowShadows(v: boolean): void;
+  setRoomPanelOpen(open: boolean): void;
   dismissOnboarding(): void;
   setCatalogOpen(open: boolean, filter?: UiState['catalogFilter']): void;
   setWizardOpen(open: boolean): void;
@@ -116,6 +122,7 @@ const defaultUi = (): UiState => ({
   camera: { mode: 'orbit', x: 180, y: 260, z: 160, yaw: 0, pitch: 0 },
   showDaylight: true,
   showShadows: true,
+  roomPanelOpen: true,
 });
 
 export function createRoomStore(opts: { storage?: StateStorage; debounceMs?: number } = {}): RoomStore {
@@ -216,6 +223,9 @@ export function createRoomStore(opts: { storage?: StateStorage; debounceMs?: num
       setProposeFirst(v) { set((s) => ({ ui: { ...s.ui, proposeFirst: v } })); },
       setShowDaylight(v) { set((s) => ({ ui: { ...s.ui, showDaylight: v } })); },
       setShowShadows(v) { set((s) => ({ ui: { ...s.ui, showShadows: v } })); },
+      // Opening the card puts the room in the rail's one slot, so the selection has to give
+      // way — otherwise the button people press to see the room does nothing they can see.
+      setRoomPanelOpen(open) { set((s) => ({ ui: { ...s.ui, roomPanelOpen: open, selectedItemId: open ? null : s.ui.selectedItemId } })); },
       dismissOnboarding() { set((s) => ({ ui: { ...s.ui, onboardingDismissed: true } })); },
       setCatalogOpen(open, filter = null) { set((s) => ({ ui: { ...s.ui, catalogOpen: open, catalogFilter: filter } })); },
       setWizardOpen(open) { set((s) => ({ ui: { ...s.ui, wizardOpen: open } })); },
@@ -291,7 +301,7 @@ export function createRoomStore(opts: { storage?: StateStorage; debounceMs?: num
     persist(initializer, {
       name: STORAGE_KEY,
       storage: storage as unknown as PersistStorage<RoomState>,
-      partialize: (s) => ({ rooms: s.rooms, currentId: s.currentId, ui: { proposeFirst: s.ui.proposeFirst, onboardingDismissed: s.ui.onboardingDismissed, showDaylight: s.ui.showDaylight, showShadows: s.ui.showShadows } }) as unknown as RoomState,
+      partialize: (s) => ({ rooms: s.rooms, currentId: s.currentId, ui: { proposeFirst: s.ui.proposeFirst, onboardingDismissed: s.ui.onboardingDismissed, showDaylight: s.ui.showDaylight, showShadows: s.ui.showShadows, roomPanelOpen: s.ui.roomPanelOpen } }) as unknown as RoomState,
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<RoomState> & { ui?: Partial<UiState> };
         const stored = p.rooms && Object.keys(p.rooms).length ? p.rooms : current.rooms;

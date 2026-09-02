@@ -349,13 +349,43 @@ async function main() {
     await page.getByRole('heading', { name: 'Room shell' }).waitFor({ timeout: 10_000 });
     await settle(300);
     await shot('room-panel-shell');
-    await page.getByRole('button', { name: 'Close' }).first().click();
+    // `exact` matters: the room panel's own close button is named "Close the room panel".
+    await page.getByRole('button', { name: 'Close', exact: true }).first().click();
     await settle(300);
     await page.getByRole('button', { name: 'Style…' }).click();
     await page.getByRole('dialog', { name: 'Style' }).waitFor({ timeout: 10_000 });
     await settle(300);
     await shot('room-panel-style');
     await page.keyboard.press('Escape');
+    await settle(300);
+
+    // 29. the card closes, leaving a pill, and comes back from either the pill or the top bar
+    await page.getByRole('button', { name: 'Close the room panel' }).click();
+    await settle(400);
+    if (await page.getByLabel('Room width in cm').count() !== 0) throw new Error('The room panel did not close');
+    await page.mouse.move(400, 860);
+    await settle(300);
+    await shot('room-panel-closed');
+    findings.roomPanelClosed = await page.evaluate((key) => {
+      const r = JSON.parse(localStorage.getItem(key) ?? '{}');
+      return r?.state?.ui?.roomPanelOpen ?? null;
+    }, STORAGE_KEY);
+    if (findings.roomPanelClosed !== false) {
+      throw new Error(`Closing the panel did not persist: ${JSON.stringify(findings.roomPanelClosed)}`);
+    }
+    // the pill on the rail brings it back
+    await page.getByRole('button', { name: 'Room', exact: true }).click();
+    await page.getByLabel('Room width in cm').waitFor({ timeout: 10_000 });
+    await settle(300);
+    await shot('room-panel-reopened');
+    // and so does the top bar's own Room button, which opens no dialog of its own
+    await page.getByRole('button', { name: 'Close the room panel' }).click();
+    await settle(300);
+    await page.getByRole('button', { name: /^Room \d+×\d+$/ }).first().click();
+    await page.getByLabel('Room width in cm').waitFor({ timeout: 10_000 });
+    if (await page.getByRole('heading', { name: 'Room shell' }).count() !== 0) {
+      throw new Error('The top bar Room button opened the shell dialog as well as the panel');
+    }
     await settle(300);
 
     const toolNames = await page.evaluate(() => globalThis.__floorplayFakeMC.getTools().map((t) => t.name));

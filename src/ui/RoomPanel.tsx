@@ -16,6 +16,7 @@ export default function RoomPanel() {
   const room = useRoom((s) => s.rooms[s.currentId]!);
   const dispatch = useRoom((s) => s.dispatch);
   const openDialog = useRoom((s) => s.openDialog);
+  const setRoomPanelOpen = useRoom((s) => s.setRoomPanelOpen);
 
   const [size, setSize] = useState({ width: room.width, depth: room.depth, height: room.height });
   const [budget, setBudget] = useState(String(room.brief.budget));
@@ -63,9 +64,15 @@ export default function RoomPanel() {
 
   return (
     <div className="w-64 shrink-0 rounded-lg border border-neutral-700 bg-neutral-900/95 p-3 text-sm shadow-xl backdrop-blur">
-      <div className="mb-2 flex items-baseline justify-between gap-2">
+      <div className="mb-2 flex items-baseline gap-2">
         <strong>Room</strong>
-        <span className="truncate text-xs text-neutral-400" title={room.name}>{room.name}</span>
+        <span className="ml-auto truncate text-xs text-neutral-400" title={room.name}>{room.name}</span>
+        <button
+          className="text-neutral-400 hover:text-white"
+          aria-label="Close the room panel"
+          title="Close. The Room button in the top bar brings it back."
+          onClick={() => setRoomPanelOpen(false)}
+        >×</button>
       </div>
 
       <div className="grid grid-cols-3 gap-1.5">
