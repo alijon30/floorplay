@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import type { StateStorage } from 'zustand/middleware';
 import { createRoomStore } from '../roomStore';
 import { placeTest } from '../../engine/validate';
+import { STORAGE_KEY } from '../../config';
 
 function memoryStorage(): StateStorage {
   const m = new Map<string, string>();
@@ -102,12 +103,63 @@ describe('roomStore', () => {
   });
 
   it('persists rooms through storage and recomputes analysis on load', () => {
+    vi.useFakeTimers();
+    try {
+      const storage = memoryStorage();
+      const a = createRoomStore({ storage });
+      const room = a.getState().current();
+      a.getState().dispatch({ ops: [{ type: 'place', item: placeTest(room, 'desk-120', 60, 30, 0, 'a') }], actor: 'human' });
+      vi.advanceTimersByTime(300);
+      const b = createRoomStore({ storage });
+      expect(b.getState().current().items).toHaveLength(1);
+      expect(b.getState().analysis.metrics.budgetUsed).toBe(129);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('coalesces rapid writes', () => {
+    vi.useFakeTimers();
+    try {
+      const base = memoryStorage();
+      const setItem = vi.fn(base.setItem);
+      const storage: StateStorage = { ...base, setItem };
+      const store = createRoomStore({ storage });
+      for (const id of ['a', 'b', 'c', 'd', 'e']) store.getState().select(id);
+      expect(setItem).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(300);
+      expect(setItem).toHaveBeenCalledTimes(1);
+      expect(store.getState().ui.selectedItemId).toBe('e');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps working when storage throws', () => {
+    vi.useFakeTimers();
+    try {
+      const storage: StateStorage = {
+        getItem: () => null,
+        setItem: () => { throw new Error('QuotaExceededError'); },
+        removeItem: () => {},
+      };
+      const store = createRoomStore({ storage });
+      const room = store.getState().current();
+      const r = store.getState().dispatch({ ops: [{ type: 'place', item: placeTest(room, 'desk-120', 60, 30, 0, 'a') }], actor: 'human' });
+      expect(r.ok).toBe(true);
+      expect(store.getState().current().items).toHaveLength(1);
+      vi.advanceTimersByTime(300);
+      expect(store.getState().persistError).toContain('Quota');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('survives corrupt persisted JSON', () => {
     const storage = memoryStorage();
-    const a = createRoomStore({ storage });
-    const room = a.getState().current();
-    a.getState().dispatch({ ops: [{ type: 'place', item: placeTest(room, 'desk-120', 60, 30, 0, 'a') }], actor: 'human' });
-    const b = createRoomStore({ storage });
-    expect(b.getState().current().items).toHaveLength(1);
-    expect(b.getState().analysis.metrics.budgetUsed).toBe(129);
+    storage.setItem(STORAGE_KEY, '{not json');
+    const store = createRoomStore({ storage });
+    expect(store.getState().current().name).toBe('Demo studio');
+    expect(store.getState().current().items).toHaveLength(0);
   });
 });

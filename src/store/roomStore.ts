@@ -1,6 +1,6 @@
 // src/store/roomStore.ts
 import { createStore, type StoreApi } from 'zustand/vanilla';
-import { persist, createJSONStorage, type StateStorage } from 'zustand/middleware';
+import { persist, type PersistStorage, type StateStorage } from 'zustand/middleware';
 import type { Analysis, CameraPose, Category, LedgerEntry, Op, Proposal, Room, Wall } from '../engine/types';
 import { analyze } from '../engine/analyze';
 import { applyOps, describeOps } from '../engine/ops';
@@ -8,6 +8,7 @@ import { evaluateOps } from '../engine/evaluate';
 import { makeDemoRoom, makeEmptyRoom } from '../engine/rooms';
 import { newId } from '../engine/ids';
 import { STORAGE_KEY } from '../config';
+import { createDebouncedStorage } from './persistence';
 
 export interface UiState {
   selectedItemId: string | null;
@@ -28,6 +29,8 @@ export interface RoomState {
   currentId: string;
   analysis: Analysis;
   ui: UiState;
+  /** Last persistence failure, surfaced as a small warning. Never persisted. */
+  persistError: string | null;
   current(): Room;
   dispatch(input: DispatchInput): DispatchResult;
   propose(input: { label: string; ops: Op[] }): { ok: true; proposal: Proposal } | { ok: false; error: string; message: string };
@@ -52,7 +55,11 @@ export interface RoomState {
 
 export type RoomStore = StoreApi<RoomState>;
 
+/** A store whose persistence can be forced to write immediately. Only set when persisting. */
+export type FlushableRoomStore = RoomStore & { flush?: () => void };
+
 const LEDGER_CAP = 200;
+const DEFAULT_DEBOUNCE_MS = 300;
 
 const defaultUi = (): UiState => ({
   selectedItemId: null,
@@ -63,7 +70,7 @@ const defaultUi = (): UiState => ({
   camera: { mode: 'orbit', x: 180, y: 260, z: 160, yaw: 0, pitch: 0 },
 });
 
-export function createRoomStore(opts: { storage?: StateStorage } = {}): RoomStore {
+export function createRoomStore(opts: { storage?: StateStorage; debounceMs?: number } = {}): RoomStore {
   const initialRoom = makeDemoRoom();
 
   const initializer = (set: StoreApi<RoomState>['setState'], get: StoreApi<RoomState>['getState']): RoomState => {
@@ -75,6 +82,7 @@ export function createRoomStore(opts: { storage?: StateStorage } = {}): RoomStor
       currentId: initialRoom.id,
       analysis: analyze(initialRoom),
       ui: defaultUi(),
+      persistError: null,
 
       current() {
         const s = get();
@@ -200,10 +208,30 @@ export function createRoomStore(opts: { storage?: StateStorage } = {}): RoomStor
 
   if (!opts.storage) return createStore<RoomState>(initializer);
 
-  return createStore<RoomState>()(
+  // Declared before the store so onError can reach it; storage errors raised during the
+  // initial hydration land before there is a store to write to, so they are held here.
+  let store: RoomStore | undefined;
+  let pendingError: string | null = null;
+
+  const storage = createDebouncedStorage(opts.storage, {
+    delayMs: opts.debounceMs ?? DEFAULT_DEBOUNCE_MS,
+    onError: (e) => {
+      const message = e instanceof Error ? e.message : String(e);
+      if (!store) {
+        pendingError = message;
+        return;
+      }
+      // Writing persistError itself triggers another persist write, which fails again on
+      // a broken storage. Bailing when the message is unchanged stops that loop.
+      if (store.getState().persistError === message) return;
+      store.setState({ persistError: message });
+    },
+  });
+
+  store = createStore<RoomState>()(
     persist(initializer, {
       name: STORAGE_KEY,
-      storage: createJSONStorage(() => opts.storage!),
+      storage: storage as unknown as PersistStorage<RoomState>,
       partialize: (s) => ({ rooms: s.rooms, currentId: s.currentId, ui: { proposeFirst: s.ui.proposeFirst } }) as unknown as RoomState,
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<RoomState> & { ui?: Partial<UiState> };
@@ -213,4 +241,8 @@ export function createRoomStore(opts: { storage?: StateStorage } = {}): RoomStor
       },
     }),
   );
+
+  if (pendingError !== null) store.setState({ persistError: pendingError });
+  (store as FlushableRoomStore).flush = storage.flush;
+  return store;
 }
