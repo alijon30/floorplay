@@ -14,6 +14,16 @@ import { describeOps } from '../../engine/ops';
 import { metricsDelta } from '../../engine/metrics';
 import { CAMERA_PRESETS, cameraPreset, itemsInView, type CameraPreset } from '../../engine/camera';
 
+/**
+ * The single write path for every mutating tool, and the one place that decides between
+ * applying and proposing.
+ *
+ * Result shape, uniform across all mutating tools so an agent learns one set of key names:
+ * every result carries `status`, `violations` and `metrics`. Applied results also carry
+ * `items` and `ledgerId`; proposed results also carry `proposalId` and `delta`. On a
+ * proposed result `violations` and `metrics` describe the room as it *would* be if the
+ * user accepted, not the room as it stands.
+ */
 export function mutate(ctx: ToolContext, args: { tool: string; ops: Op[]; summary?: string; label?: string; proposable: boolean }): ToolResult {
   const s = ctx.store.getState();
   const room = s.current();
@@ -22,7 +32,7 @@ export function mutate(ctx: ToolContext, args: { tool: string; ops: Op[]; summar
     if (!p.ok) return fail(p.error, p.message);
     return ok({
       status: 'proposed', proposalId: p.proposal.id, delta: metricsDelta(p.proposal.metricsBefore, p.proposal.metricsAfter),
-      violationsAfter: shortViolations(p.proposal.violationsAfter),
+      violations: shortViolations(p.proposal.violationsAfter), metrics: shortMetrics(p.proposal.metricsAfter),
       note: 'Propose-first mode is on. The user must accept this proposal on screen, or explicitly ask you to apply it.',
     });
   }
@@ -182,7 +192,7 @@ export function buildMutateTools(ctx: ToolContext): ToolDef[] {
         if (!mapped.ok) return fail(mapped.error, mapped.hint);
         const p = state().propose({ label: i['label'] as string, ops: mapped.ops });
         if (!p.ok) return fail(p.error, p.message);
-        return ok({ status: 'proposed', proposalId: p.proposal.id, label: p.proposal.label, delta: metricsDelta(p.proposal.metricsBefore, p.proposal.metricsAfter), violationsAfter: shortViolations(p.proposal.violationsAfter) });
+        return ok({ status: 'proposed', proposalId: p.proposal.id, label: p.proposal.label, delta: metricsDelta(p.proposal.metricsBefore, p.proposal.metricsAfter), violations: shortViolations(p.proposal.violationsAfter), metrics: shortMetrics(p.proposal.metricsAfter) });
       },
     },
     {
@@ -192,7 +202,11 @@ export function buildMutateTools(ctx: ToolContext): ToolDef[] {
       execute: (i) => {
         state().setDaylightHour(num(i, 'hour'));
         const s = state();
-        return ok({ hour: s.current().daylightHour, items: itemsSummary(s.current(), s.analysis).map((x) => ({ id: x.id, name: x.name, light: x.light })) });
+        return ok({
+          status: 'applied', hour: s.current().daylightHour,
+          items: itemsSummary(s.current(), s.analysis).map((x) => ({ id: x.id, name: x.name, light: x.light })),
+          violations: shortViolations(s.analysis.violations), metrics: shortMetrics(s.analysis.metrics),
+        });
       },
     },
     {
@@ -213,7 +227,8 @@ export function buildMutateTools(ctx: ToolContext): ToolDef[] {
           return fail('invalid_input', 'Give a preset or x, y and yaw');
         }
         s.setCamera(pose);
-        return ok({ camera: pose, itemsInView: itemsInView(r, pose) });
+        const a = state().analysis;
+        return ok({ status: 'applied', camera: pose, itemsInView: itemsInView(r, pose), violations: shortViolations(a.violations), metrics: shortMetrics(a.metrics) });
       },
     },
     {
@@ -224,7 +239,7 @@ export function buildMutateTools(ctx: ToolContext): ToolDef[] {
         const r = state().undo('agent');
         if (!r) return fail('nothing_to_undo', 'The ledger is empty');
         if (!r.ok) return fail(r.error, r.message);
-        return ok({ status: 'applied', ledgerId: r.entry.id, summary: r.entry.summary, violations: shortViolations(r.analysis.violations), metrics: shortMetrics(r.analysis.metrics) });
+        return ok({ status: 'applied', ledgerId: r.entry.id, summary: r.entry.summary, violations: shortViolations(r.analysis.violations), metrics: shortMetrics(r.analysis.metrics), items: itemsSummary(state().current(), r.analysis) });
       },
     },
   ];

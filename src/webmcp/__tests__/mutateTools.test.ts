@@ -77,6 +77,34 @@ describe('mutating tools', () => {
     expect(await run('place_item', { catalogId: id, x: 40, y: 40 })).toMatchObject({ ok: true });
   });
 
+  it('every mutating result carries status, violations and metrics', async () => {
+    const { run } = setup();
+    const uniform = (r: Record<string, unknown>, label: string) => {
+      expect(typeof r['status'], label).toBe('string');
+      expect(Array.isArray(r['violations']), label).toBe(true);
+      expect(typeof (r['metrics'] as { budgetUsed: unknown }).budgetUsed, label).toBe('number');
+    };
+    uniform(await run('set_daylight_hour', { hour: 12 }), 'set_daylight_hour');
+    uniform(await run('set_camera', { preset: 'overview' }), 'set_camera');
+    uniform(await run('set_brief', { budget: 900 }), 'set_brief');
+    const proposed = await run('propose_layout', { label: 'One', placements: [{ action: 'place', catalogId: 'desk-120', x: 60, y: 30 }] });
+    uniform(proposed, 'propose_layout');
+    expect(proposed).not.toHaveProperty('violationsAfter');
+    await run('place_item', { catalogId: 'desk-120', x: 60, y: 30 });
+    uniform(await run('undo_last_action'), 'undo_last_action');
+    expect(await run('undo_last_action')).toHaveProperty('items');
+  });
+
+  it('proposed results use the same violations and metrics keys as applied ones', async () => {
+    const { store, run } = setup();
+    store.getState().setProposeFirst(true);
+    const r = await run('place_item', { catalogId: 'desk-120', x: 60, y: 30 });
+    expect(r).toMatchObject({ ok: true, status: 'proposed' });
+    expect(Array.isArray(r['violations'])).toBe(true);
+    expect(typeof (r['metrics'] as { budgetUsed: unknown }).budgetUsed).toBe('number');
+    expect(r).not.toHaveProperty('violationsAfter');
+  });
+
   it('propose_layout, set_camera and undo', async () => {
     const { store, run } = setup();
     const p = await run('propose_layout', { label: 'Cozy', placements: [{ action: 'place', catalogId: 'bed-queen-160', x: 260, y: 300 }, { action: 'place', catalogId: 'desk-120', x: 60, y: 30 }] });
