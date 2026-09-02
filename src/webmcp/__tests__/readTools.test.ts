@@ -4,6 +4,7 @@ import { buildReadTools } from '../tools/readTools';
 import { placementsToOps } from '../tools/placements';
 import { parseResult } from '../results';
 import { placeTest } from '../../engine/validate';
+import type { CatalogItem } from '../../engine/types';
 
 function setup() {
   const store = createRoomStore();
@@ -31,14 +32,29 @@ describe('read tools', () => {
 
   it('get_catalog filters by category, size and price', async () => {
     const { tools } = setup();
-    const all = parseResult(await tools['get_catalog']!.execute({})) as { count: number };
+    const all = parseResult(await tools['get_catalog']!.execute({})) as { count: number; truncated: boolean };
     expect(all.count).toBeGreaterThanOrEqual(45);
+    expect(all.truncated).toBe(false);
     const beds = parseResult(await tools['get_catalog']!.execute({ category: 'bed', maxPrice: 400 })) as { items: { id: string }[] };
     expect(beds.items.map((b) => b.id).sort()).toEqual(['bed-daybed-90', 'bed-double-140', 'bed-single-90']);
     const narrow = parseResult(await tools['get_catalog']!.execute({ category: 'desk', maxWidth: 100 })) as { items: { id: string }[] };
     expect(narrow.items.map((b) => b.id)).toEqual(['desk-100']);
     const q = parseResult(await tools['get_catalog']!.execute({ query: 'rug' })) as { items: { category: string }[] };
     expect(q.items.every((i) => i.category === 'rug')).toBe(true);
+  });
+
+  it('get_catalog reports the full match count and flags truncation', async () => {
+    const { store, tools } = setup();
+    const extras: CatalogItem[] = Array.from({ length: 70 }, (_, i) => ({
+      id: `agent-other-${i}`, name: `Agent find ${i}`, category: 'other',
+      width: 40, depth: 40, height: 40, price: 1000 + i, color: '#8c6f5a',
+      shape: 'box', clearance: {}, blocksLight: false, source: 'agent',
+    }));
+    store.getState().current().catalogExtras = extras;
+    const r = parseResult(await tools['get_catalog']!.execute({ category: 'other' })) as { count: number; truncated: boolean; items: { id: string }[] };
+    expect(r.items).toHaveLength(60);
+    expect(r.count).toBe(73);
+    expect(r.truncated).toBe(true);
   });
 
   it('evaluate_layout scores a candidate without mutating', async () => {

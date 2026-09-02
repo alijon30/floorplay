@@ -12,6 +12,9 @@ import { bestSpots, computeDaylight, sunAzimuth } from '../../engine/daylight';
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
+/** Most catalog entries returned in one get_catalog call. `count` and `truncated` describe the full match set. */
+const CATALOG_PAGE = 60;
+
 export function buildReadTools(ctx: ToolContext): ToolDef[] {
   const state = () => ctx.store.getState();
   return [
@@ -24,7 +27,7 @@ export function buildReadTools(ctx: ToolContext): ToolDef[] {
     },
     {
       name: 'get_catalog',
-      description: 'List furniture available to place, with dimensions in cm, price in USD and clearance rules. Filter by category, maximum footprint, maximum price or a name query. Items added with add_catalog_item are included.',
+      description: 'List furniture available to place, with dimensions in cm, price in USD and clearance rules. Filter by category, maximum footprint, maximum price or a name query. Items added with add_catalog_item are included. Returns at most 60 items, cheapest first; narrow the filters if `truncated` is true.',
       inputSchema: {
         type: 'object',
         properties: { category: categoryProp, maxWidth: cm('Maximum width'), maxDepth: cm('Maximum depth'), maxPrice: numProp('Maximum price in USD'), query: strProp('Case-insensitive substring of the name or category') },
@@ -33,16 +36,15 @@ export function buildReadTools(ctx: ToolContext): ToolDef[] {
       execute: (input) => {
         const room = state().current();
         const q = typeof input['query'] === 'string' ? (input['query'] as string).toLowerCase() : null;
-        const items = catalogFor(room)
+        const matches = catalogFor(room)
           .filter((c) => !input['category'] || c.category === input['category'])
           .filter((c) => input['maxWidth'] === undefined || c.width <= (input['maxWidth'] as number))
           .filter((c) => input['maxDepth'] === undefined || c.depth <= (input['maxDepth'] as number))
           .filter((c) => input['maxPrice'] === undefined || c.price <= (input['maxPrice'] as number))
           .filter((c) => !q || c.name.toLowerCase().includes(q) || c.category.includes(q))
-          .sort((a, b) => a.price - b.price)
-          .slice(0, 60)
-          .map(catalogEntry);
-        return ok({ count: items.length, items });
+          .sort((a, b) => a.price - b.price);
+        const items = matches.slice(0, CATALOG_PAGE).map(catalogEntry);
+        return ok({ count: matches.length, truncated: matches.length > CATALOG_PAGE, items });
       },
     },
     {
