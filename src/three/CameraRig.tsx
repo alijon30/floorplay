@@ -10,6 +10,8 @@ const keys = new Set<string>();
 if (typeof window !== 'undefined') {
   window.addEventListener('keydown', (e) => { if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(e.key.toLowerCase())) keys.add(e.key.toLowerCase()); });
   window.addEventListener('keyup', (e) => keys.delete(e.key.toLowerCase()));
+  // Without this a key held while the window loses focus never sees its keyup and walks forever.
+  window.addEventListener('blur', () => keys.clear());
 }
 
 export default function CameraRig({ pose, width, depth, onLook }: { pose: CameraPose; width: number; depth: number; onLook: (yaw: number, pitch: number) => void }) {
@@ -18,12 +20,20 @@ export default function CameraRig({ pose, width, depth, onLook }: { pose: Camera
   const pitch = useRef(pose.pitch);
   const center: [number, number, number] = [(width * M) / 2, 0, (depth * M) / 2];
 
+  // Position only. Looking around writes yaw/pitch back to the store, so depending on the
+  // whole pose here would teleport the walker back to the stored spot on every look-drag.
+  useEffect(() => {
+    if (pose.mode === 'walk') { camera.position.set(pose.x * M, pose.z * M, pose.y * M); return; }
+    // High enough that the near wall falls below the bottom of the frustum, otherwise its
+    // outer face hides the front of the room.
+    const span = Math.max(width, depth) * M;
+    camera.position.set((width * M) / 2, span * 1.35, (depth * M) / 2 + span * 0.95);
+  }, [pose.mode, pose.x, pose.y, pose.z, camera, width, depth]);
+
   useEffect(() => {
     yaw.current = pose.yaw;
     pitch.current = pose.pitch;
-    if (pose.mode === 'walk') camera.position.set(pose.x * M, pose.z * M, pose.y * M);
-    else camera.position.set(center[0], Math.max(width, depth) * M * 0.9, center[2] + Math.max(width, depth) * M * 0.8);
-  }, [pose, camera, width, depth]);
+  }, [pose.yaw, pose.pitch]);
 
   useEffect(() => {
     if (pose.mode !== 'walk') return;

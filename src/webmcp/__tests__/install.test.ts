@@ -7,7 +7,7 @@ import { placeTest } from '../../engine/validate';
 import { alternativesFor } from '../../engine/alternatives';
 
 describe('installWebMCP', () => {
-  it('registers 20 static tools and swaps dynamic groups with state', async () => {
+  it('registers 23 static tools and swaps dynamic groups with state', async () => {
     const store = createRoomStore();
     const mc = new FakeModelContext();
     const { registry, isNative } = installWebMCP(store, mc);

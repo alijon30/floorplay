@@ -44,8 +44,23 @@ export function wallSegments(room: RoomShell & { openings: Opening[] }, wall: Wa
 
 export default function Walls({ room }: { room: RoomShell & { openings: Opening[] } }) {
   const walls: Wall[] = ['top', 'right', 'bottom', 'left'];
+  // Each wall spans only its own dimension, which leaves a WALL_T slit at every corner.
+  const H = room.height * M;
+  const lo = -WALL_T / 2;
+  const corners: [number, number][] = [
+    [lo, lo],
+    [room.width * M + WALL_T / 2, lo],
+    [lo, room.depth * M + WALL_T / 2],
+    [room.width * M + WALL_T / 2, room.depth * M + WALL_T / 2],
+  ];
   return (
     <group>
+      {corners.map(([x, z], i) => (
+        <mesh key={`corner${i}`} position={[x, H / 2, z]} castShadow receiveShadow>
+          <boxGeometry args={[WALL_T, H, WALL_T]} />
+          <meshStandardMaterial color="#e7e5e4" />
+        </mesh>
+      ))}
       {walls.flatMap((w) => wallSegments(room, w).map((b, i) => (
         <mesh key={`${w}${i}`} position={[b.x, b.y, b.z]} castShadow={b.kind === 'wall'} receiveShadow>
           <boxGeometry args={[b.w, b.h, b.d]} />

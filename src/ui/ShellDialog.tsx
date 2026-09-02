@@ -10,12 +10,17 @@ export default function ShellDialog({ onClose }: { onClose: () => void }) {
   const dispatch = useRoom((s) => s.dispatch);
   const [dims, setDims] = useState({ width: room.width, depth: room.depth, height: room.height });
   const [draft, setDraft] = useState<{ kind: 'door' | 'window'; wall: Wall; offset: number; width: number }>({ kind: 'window', wall: 'top', offset: 100, width: 100 });
-  const saveDims = () => dispatch({ actor: 'human', ops: [{ type: 'setShell', ...dims, northWall: room.northWall }] });
+  const [error, setError] = useState<string | null>(null);
+  const saveDims = () => {
+    const r = dispatch({ actor: 'human', ops: [{ type: 'setShell', ...dims, northWall: room.northWall }] });
+    setError(r.ok ? null : r.message);
+  };
   const addOpening = () => {
     const opening = draft.kind === 'door'
       ? { id: newId('door'), kind: 'door' as const, wall: draft.wall, offset: draft.offset, width: draft.width, height: 200, swing: 'in' as const, hinge: 'start' as const }
       : { id: newId('window'), kind: 'window' as const, wall: draft.wall, offset: draft.offset, width: draft.width, height: 120, sill: 90 };
-    dispatch({ actor: 'human', ops: [{ type: 'addOpening', opening }] });
+    const r = dispatch({ actor: 'human', ops: [{ type: 'addOpening', opening }] });
+    setError(r.ok ? null : r.message);
   };
   const num = (v: string) => Math.max(1, Number(v) || 1);
   return (
@@ -46,6 +51,7 @@ export default function ShellDialog({ onClose }: { onClose: () => void }) {
         <button className="rounded bg-neutral-800 px-3 py-1 text-sm hover:bg-neutral-700" onClick={addOpening}>Add opening</button>
         <button className="rounded px-3 py-1 text-sm text-neutral-300" onClick={onClose}>Done</button>
       </div>
+      {error && <p className="mt-2 text-xs text-red-400" role="alert">{error}</p>}
     </Modal>
   );
 }

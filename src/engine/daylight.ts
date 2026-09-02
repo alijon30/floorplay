@@ -28,6 +28,23 @@ function windowMidpoint(room: RoomShell, o: Opening): { x: number; y: number } {
   return { x: s.x + s.w / 2, y: s.y + s.h / 2 };
 }
 
+/** Diffuse skylight a window lets in regardless of where the sun is, as a share of full sun. */
+const SKY = 0.3;
+/** Cells this close to a window get the window's full contribution. */
+const FULL_CM = 100;
+/** What is left of that contribution at the far wall. */
+const FAR = 0.15;
+
+/**
+ * Light per 10 cm cell, 0 to 1.
+ *
+ * Each window contributes a direct term (how square-on the sun hits that wall, see
+ * `windowIntensity`) plus a diffuse skylight term of `SKY * dayFactor(hour)`, so a room with a
+ * window is dim but never black while the sun is up, even when no window faces the sun. Both
+ * terms fade with distance: full within `FULL_CM`, down to `FAR` at the far wall. Light-blocking
+ * furniture between the window and the cell cuts both terms to zero, and each cell keeps the
+ * brightest window rather than summing, so two windows never read brighter than full sun.
+ */
 export function computeDaylight(room: Room, hour: number = room.daylightHour): Daylight {
   const { cols, rows } = gridDims(room);
   const grid = new Float32Array(cols * rows);
@@ -35,9 +52,10 @@ export function computeDaylight(room: Room, hour: number = room.daylightHour): D
     const cat = findCatalogItem(room, item.catalogId);
     return cat && cat.blocksLight ? [footprint(item, cat)] : [];
   });
+  const sky = SKY * dayFactor(hour);
   const windows = room.openings
     .filter((o) => o.kind === 'window')
-    .map((o) => ({ mid: windowMidpoint(room, o), intensity: windowIntensity(room, o, hour) }))
+    .map((o) => ({ mid: windowMidpoint(room, o), intensity: Math.min(1, windowIntensity(room, o, hour) + sky) }))
     .filter((w) => w.intensity > 0);
   const maxDim = Math.max(room.width, room.depth);
 
@@ -60,7 +78,7 @@ export function computeDaylight(room: Room, hour: number = room.daylightHour): D
       let best = 0;
       for (const w of windows) {
         const d = Math.hypot(cx - w.mid.x, cy - w.mid.y);
-        const falloff = d <= 150 ? 1 : 1 - 0.75 * Math.min(1, (d - 150) / Math.max(1, maxDim - 150));
+        const falloff = d <= FULL_CM ? 1 : 1 - (1 - FAR) * Math.min(1, (d - FULL_CM) / Math.max(1, maxDim - FULL_CM));
         const v = w.intensity * falloff;
         if (v <= best) continue;
         if (clearLine(w.mid.x, w.mid.y, cx, cy)) best = v;
