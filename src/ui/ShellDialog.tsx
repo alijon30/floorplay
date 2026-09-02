@@ -4,6 +4,7 @@ import Modal from './Modal';
 import { useRoom } from '../store';
 import { WALLS, type Wall } from '../engine/types';
 import { newId } from '../engine/ids';
+import { BTN_PRIMARY, BTN_QUIET, INPUT, LABEL } from './styles';
 
 export default function ShellDialog({ onClose }: { onClose: () => void }) {
   const room = useRoom((s) => s.rooms[s.currentId]!);
@@ -25,31 +26,32 @@ export default function ShellDialog({ onClose }: { onClose: () => void }) {
   const num = (v: string) => Math.max(1, Number(v) || 1);
   return (
     <Modal title="Room shell" onClose={onClose}>
-      <div className="mb-2 grid grid-cols-3 gap-2 text-sm">
+      <div className={`mb-1 ${LABEL}`}>Size (cm)</div>
+      <div className="mb-2 grid grid-cols-3 gap-2">
         {(['width', 'depth', 'height'] as const).map((k) => (
-          <label key={k} className="block"><span className="capitalize">{k}</span> (cm)<input className="mt-1 w-full rounded bg-neutral-800 p-2" type="number" value={dims[k]} onChange={(e) => setDims({ ...dims, [k]: num(e.target.value) })} /></label>
+          <label key={k} className="block text-[11px] capitalize text-neutral-400">{k}<input className={`mt-0.5 w-full ${INPUT}`} type="number" aria-label={`Shell ${k} in cm`} value={dims[k]} onChange={(e) => setDims({ ...dims, [k]: num(e.target.value) })} /></label>
         ))}
       </div>
-      <button className="mb-4 rounded bg-emerald-700 px-3 py-1 text-sm hover:bg-emerald-600" onClick={saveDims}>Apply dimensions</button>
-      <h3 className="mb-1 text-sm font-semibold">Doors and windows</h3>
-      <ul className="mb-2 text-xs">
+      <button className={`mb-4 ${BTN_PRIMARY}`} onClick={saveDims}>Apply dimensions</button>
+      <div className={`mb-1 ${LABEL}`}>Doors and windows</div>
+      <ul className="mb-2 text-xs text-neutral-300">
         {room.openings.map((o) => (
           <li key={o.id} className="flex items-center justify-between py-0.5">
             <span>{o.kind} · {o.wall} wall · offset {o.offset} · width {o.width}</span>
-            <button className="text-neutral-400 hover:text-red-400" onClick={() => dispatch({ actor: 'human', ops: [{ type: 'removeOpening', id: o.id }] })}>remove</button>
+            <button className="rounded px-1 text-neutral-400 transition-colors hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500" onClick={() => dispatch({ actor: 'human', ops: [{ type: 'removeOpening', id: o.id }] })}>remove</button>
           </li>
         ))}
         {room.openings.length === 0 && <li className="text-neutral-500">No openings yet.</li>}
       </ul>
       <div className="grid grid-cols-4 gap-2 text-xs">
-        <select className="rounded bg-neutral-800 p-1" value={draft.kind} onChange={(e) => setDraft({ ...draft, kind: e.target.value as 'door' | 'window' })}><option value="window">window</option><option value="door">door</option></select>
-        <select className="rounded bg-neutral-800 p-1" value={draft.wall} onChange={(e) => setDraft({ ...draft, wall: e.target.value as Wall })}>{WALLS.map((w) => <option key={w} value={w}>{w}</option>)}</select>
-        <input className="rounded bg-neutral-800 p-1" type="number" value={draft.offset} onChange={(e) => setDraft({ ...draft, offset: num(e.target.value) })} title="offset (cm)" />
-        <input className="rounded bg-neutral-800 p-1" type="number" value={draft.width} onChange={(e) => setDraft({ ...draft, width: num(e.target.value) })} title="width (cm)" />
+        <select className={INPUT} aria-label="Opening kind" value={draft.kind} onChange={(e) => setDraft({ ...draft, kind: e.target.value as 'door' | 'window' })}><option value="window">window</option><option value="door">door</option></select>
+        <select className={INPUT} aria-label="Opening wall" value={draft.wall} onChange={(e) => setDraft({ ...draft, wall: e.target.value as Wall })}>{WALLS.map((w) => <option key={w} value={w}>{w}</option>)}</select>
+        <input className={INPUT} type="number" value={draft.offset} onChange={(e) => setDraft({ ...draft, offset: num(e.target.value) })} aria-label="Opening offset in cm" title="offset (cm)" />
+        <input className={INPUT} type="number" value={draft.width} onChange={(e) => setDraft({ ...draft, width: num(e.target.value) })} aria-label="Opening width in cm" title="width (cm)" />
       </div>
       <div className="mt-2 flex justify-between">
-        <button className="rounded bg-neutral-800 px-3 py-1 text-sm hover:bg-neutral-700" onClick={addOpening}>Add opening</button>
-        <button className="rounded px-3 py-1 text-sm text-neutral-300" onClick={onClose}>Done</button>
+        <button className={BTN_QUIET} onClick={addOpening}>Add opening</button>
+        <button className={BTN_PRIMARY} onClick={onClose}>Done</button>
       </div>
       {error && <p className="mt-2 text-xs text-red-400" role="alert">{error}</p>}
     </Modal>

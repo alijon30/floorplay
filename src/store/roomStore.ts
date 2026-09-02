@@ -39,8 +39,8 @@ export interface UiState {
   roomPanelOpen: boolean;
 }
 
-/** The panels both the top bar and the room panel can open. */
-export type DialogName = 'shell' | 'brief' | 'style';
+/** The panels both the top bar and the room panel can open. The brief lives in `RoomPanel`. */
+export type DialogName = 'shell' | 'style';
 
 export type DispatchInput = { ops: Op[]; actor: 'human' | 'agent'; summary?: string; tool?: string };
 export type DispatchResult =

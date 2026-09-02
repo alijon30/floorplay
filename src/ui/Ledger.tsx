@@ -1,6 +1,7 @@
 // src/ui/Ledger.tsx
 import { useEffect, useRef } from 'react';
 import { useRoom } from '../store';
+import { BTN_SM } from './styles';
 
 export default function Ledger({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   const room = useRoom((s) => s.rooms[s.currentId]!);
@@ -12,7 +13,7 @@ export default function Ledger({ open, onToggle }: { open: boolean; onToggle: ()
     <div className="flex h-full flex-col text-xs">
       <div className="flex items-center gap-2 border-b border-neutral-800 px-3 py-1">
         <button
-          className="flex items-center gap-2 rounded px-1 py-0.5 hover:bg-neutral-800"
+          className="flex items-center gap-2 rounded px-1 py-0.5 transition-colors hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
           onClick={onToggle}
           aria-expanded={open}
           title={open ? 'Collapse the ledger' : 'Expand the ledger'}
@@ -21,7 +22,7 @@ export default function Ledger({ open, onToggle }: { open: boolean; onToggle: ()
           <strong>Ledger</strong>
           <span className="text-neutral-500">{room.ledger.length}</span>
         </button>
-        <button disabled={!last} className="ml-auto rounded bg-neutral-800 px-2 py-0.5 hover:bg-neutral-700 disabled:opacity-40" onClick={() => undo()}>Undo last</button>
+        <button disabled={!last} className={`ml-auto ${BTN_SM}`} onClick={() => undo()}>Undo last</button>
       </div>
       {open && (
         <div className="flex-1 overflow-auto px-2 py-1">
@@ -30,8 +31,8 @@ export default function Ledger({ open, onToggle }: { open: boolean; onToggle: ()
             <div key={e.id} className="group flex items-center gap-2 rounded px-1 py-0.5 hover:bg-neutral-800">
               <span title={e.actor}>{e.actor === 'agent' ? '🤖' : '🧑'}</span>
               <span className="flex-1 truncate">{e.summary}{e.tool && <span className="text-neutral-500"> · {e.tool}</span>}</span>
-              <span className={`rounded px-1 ${e.violationsAfter ? 'bg-red-900 text-red-200' : 'bg-neutral-800 text-neutral-400'}`}>{e.violationsAfter} issues</span>
-              {idx < room.ledger.length - 1 && <button className="invisible rounded bg-neutral-700 px-1 group-hover:visible" onClick={() => revertTo(e.id)}>Revert to here</button>}
+              <span className={`shrink-0 rounded px-1 ${e.violationsAfter ? 'bg-red-900 text-red-200' : 'bg-neutral-800 text-neutral-400'}`}>{e.violationsAfter} issues</span>
+              {idx < room.ledger.length - 1 && <button className="invisible shrink-0 rounded bg-neutral-800 px-1.5 py-0.5 text-[11px] text-neutral-200 hover:bg-neutral-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 group-hover:visible" onClick={() => revertTo(e.id)}>Revert to here</button>}
             </div>
           ))}
           <div ref={endRef} />

@@ -2,7 +2,9 @@
 import { useRef, useState, type ReactNode } from 'react';
 
 export default function SplitPane({ left, right }: { left: ReactNode; right: ReactNode }) {
-  const [split, setSplit] = useState(0.55);
+  // The left pane is no longer only the plan: the catalog and the rail take their width from
+  // it rather than covering it, so it starts wider than half.
+  const [split, setSplit] = useState(0.62);
   const ref = useRef<HTMLDivElement>(null);
   const onDown = (e: React.PointerEvent) => {
     e.preventDefault();

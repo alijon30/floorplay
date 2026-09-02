@@ -218,7 +218,7 @@ describe('roomStore', () => {
       a.getState().closeDialog();
       expect(a.getState().ui.dialog).toBeNull();
       // An open dialog is this session's business, so a reload starts with the rail clear.
-      a.getState().openDialog('brief');
+      a.getState().openDialog('shell');
       vi.advanceTimersByTime(300);
       expect(createRoomStore({ storage }).getState().ui.dialog).toBeNull();
     } finally {

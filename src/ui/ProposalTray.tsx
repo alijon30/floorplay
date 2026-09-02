@@ -1,6 +1,7 @@
 // src/ui/ProposalTray.tsx
 import { useRoom } from '../store';
 import { metricsDelta } from '../engine/metrics';
+import { BTN_PRIMARY, BTN_QUIET } from './styles';
 
 const LABELS: Record<string, string> = { freeFloorPct: 'free floor %', minWalkwayCm: 'walkway cm', budgetUsed: 'budget $', openAreaCm2: 'open area cm²', violationCount: 'issues', budgetRemaining: 'remaining $' };
 
@@ -17,9 +18,9 @@ export default function ProposalTray() {
   const room = useRoom((s) => s.rooms[s.currentId]!);
   const hovered = useRoom((s) => s.ui.hoveredProposalId);
   const { acceptProposal, rejectProposal, hoverProposal } = useRoom((s) => s);
-  if (room.proposals.length === 0) {
-    return <div className="flex h-full items-center justify-center px-4 text-center text-xs text-neutral-600">No proposals yet. Ask your agent for layout options and they will appear here as cards, with ghosts on the plan.</div>;
-  }
+  // Empty, the tray is one muted line that `App` draws across the whole bar; there is nothing
+  // to show here and no reason to hold half the width for it.
+  if (room.proposals.length === 0) return null;
   return (
     <div className="flex h-full gap-2 overflow-x-auto p-2">
       {room.proposals.map((p) => {
@@ -27,7 +28,7 @@ export default function ProposalTray() {
         return (
           <div
             key={p.id}
-            className={`flex w-56 shrink-0 flex-col rounded-lg border p-2 text-xs ${hovered === p.id ? 'border-emerald-500 bg-neutral-800' : 'border-neutral-700 bg-neutral-900'}`}
+            className={`flex w-56 shrink-0 flex-col rounded-lg border p-2 text-xs transition-colors ${hovered === p.id ? 'border-emerald-500 bg-neutral-800' : 'border-neutral-800 bg-neutral-900/95'}`}
             onMouseEnter={() => hoverProposal(p.id)}
             onMouseLeave={() => hoverProposal(null)}
           >
@@ -39,8 +40,8 @@ export default function ProposalTray() {
               {p.violationsAfter.length > 0 && <div className="text-red-300">{p.violationsAfter.length} issue{p.violationsAfter.length > 1 ? 's' : ''} after</div>}
             </div>
             <div className="mt-2 flex gap-1">
-              <button className="flex-1 rounded bg-emerald-700 px-2 py-1 hover:bg-emerald-600" onClick={() => acceptProposal(p.id, 'human')}>Accept</button>
-              <button className="flex-1 rounded bg-neutral-700 px-2 py-1 hover:bg-neutral-600" onClick={() => rejectProposal(p.id)}>Reject</button>
+              <button className={`flex-1 ${BTN_PRIMARY}`} onClick={() => acceptProposal(p.id, 'human')}>Accept</button>
+              <button className={`flex-1 ${BTN_QUIET}`} onClick={() => rejectProposal(p.id)}>Reject</button>
             </div>
           </div>
         );

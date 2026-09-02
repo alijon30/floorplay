@@ -2,6 +2,7 @@
 import { useMemo } from 'react';
 import { useRoom } from '../store';
 import { BLOCKING_KINDS, nearestValid } from '../engine/nearest';
+import { BTN_SM, BTN_SM_ON, CARD, ROW } from './styles';
 
 /**
  * The room's open violations, each with a way to act on it.
@@ -29,16 +30,16 @@ export default function IssuesPanel() {
   if (violations.length === 0) return null;
 
   return (
-    <div className="flex min-h-0 w-64 flex-col rounded-lg border border-neutral-700 bg-neutral-900/95 p-3 text-sm shadow-xl backdrop-blur">
+    <div className={`w-full p-3 text-sm ${CARD}`}>
       <strong className="mb-2 block">Issues ({violations.length})</strong>
-      <ul className="min-h-0 max-h-[40vh] flex-1 space-y-1 overflow-auto">
+      <ul className="max-h-[45vh] space-y-1 overflow-auto">
         {rows.map(({ v, item, fixable, spot, blocked }, i) => (
-          <li key={i} className="rounded border border-neutral-800 p-2">
+          <li key={i} className={`p-2 ${ROW}`}>
             <span className="rounded bg-red-950 px-1 py-0.5 text-[10px] text-red-300">{v.kind.replace(/_/g, ' ')}</span>
-            <p className="mt-1 text-xs text-neutral-300">{v.message}</p>
-            <div className="mt-1 flex gap-1">
+            <p className="mt-1 text-[11px] text-neutral-300">{v.message}</p>
+            <div className="mt-1.5 flex gap-1">
               <button
-                className="rounded bg-neutral-800 px-2 py-0.5 text-xs hover:bg-neutral-700 disabled:opacity-40"
+                className={BTN_SM}
                 disabled={!item}
                 title={item ? undefined : 'This issue is not about one item'}
                 onClick={() => item && select(item.id)}
@@ -47,9 +48,9 @@ export default function IssuesPanel() {
               </button>
               {fixable && (
                 <button
-                  className="rounded bg-emerald-800 px-2 py-0.5 text-xs hover:bg-emerald-700 disabled:opacity-40"
+                  className={BTN_SM_ON}
                   disabled={blocked !== null}
-                  title={blocked ?? undefined}
+                  title={blocked ?? 'Move it to the nearest clear spot'}
                   onClick={() => {
                     if (!item || !spot) return;
                     dispatch({ actor: 'human', ops: [{ type: 'move', id: item.id, x: spot.x, y: spot.y, rotation: item.rotation }] });

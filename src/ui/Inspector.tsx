@@ -3,6 +3,8 @@ import { useRoom } from '../store';
 import { findCatalogItem, itemColor } from '../engine/catalog';
 import { rotatedDims } from '../engine/geometry';
 import { ROTATIONS } from '../engine/types';
+import { ItemGlyph } from '../plan/glyphs';
+import { BTN_DANGER, BTN_QUIET, BTN_SM, BTN_SM_ON, CARD, CLOSE, LABEL } from './styles';
 
 export default function Inspector() {
   const room = useRoom((s) => s.rooms[s.currentId]!);
@@ -15,27 +17,43 @@ export default function Inspector() {
   const dims = rotatedDims(cat, item.rotation);
   const issues = analysis.violations.filter((v) => v.itemIds.includes(item.id));
   const light = Math.round((analysis.metrics.lightByItem[item.id] ?? 0) * 100);
+  const color = itemColor(cat, item.color);
   return (
-    <div className="w-64 shrink-0 rounded-lg border border-neutral-700 bg-neutral-900/95 p-3 text-sm shadow-xl backdrop-blur">
-      <div className="mb-1 flex items-center justify-between"><strong>{cat.name}</strong><button className="text-neutral-400 hover:text-white" onClick={() => select(null)}>×</button></div>
-      <div className="mb-2 text-xs text-neutral-400">{cat.category} · {dims.w}×{dims.h} cm footprint · {cat.height} cm tall · ${cat.price} · light {light}%</div>
+    <div className={`w-full p-3 text-sm ${CARD}`}>
+      <div className="mb-2 flex items-start gap-2">
+        <ItemGlyph shape={cat.shape} color={color} w={cat.width} h={cat.depth} />
+        <div className="min-w-0 flex-1">
+          <strong className="block truncate leading-tight">{cat.name}</strong>
+          <span className="text-[11px] text-neutral-500">{cat.category} · ${cat.price}</span>
+        </div>
+        <button className={CLOSE} aria-label="Close the inspector" onClick={() => select(null)}>×</button>
+      </div>
+      <div className="mb-2 text-[11px] text-neutral-400">{dims.w}×{dims.h} cm footprint · {cat.height} cm tall · light {light}%</div>
+
+      <div className={`mb-1 ${LABEL}`}>Rotation</div>
       <div className="mb-2 flex gap-1">
         {ROTATIONS.map((r) => (
-          <button key={r} disabled={item.locked} className={`flex-1 rounded px-1 py-0.5 text-xs ${item.rotation === r ? 'bg-emerald-700' : 'bg-neutral-800 hover:bg-neutral-700'} disabled:opacity-40`} onClick={() => dispatch({ actor: 'human', ops: [{ type: 'move', id: item.id, x: item.x, y: item.y, rotation: r }] })}>{r}°</button>
+          <button
+            key={r}
+            disabled={item.locked}
+            className={`flex-1 ${item.rotation === r ? BTN_SM_ON : BTN_SM}`}
+            onClick={() => dispatch({ actor: 'human', ops: [{ type: 'move', id: item.id, x: item.x, y: item.y, rotation: r }] })}
+          >{r}°</button>
         ))}
       </div>
+
       {cat.colors && cat.colors.length > 0 && (
         <div className="mb-2">
-          <div className="mb-1 text-[11px] uppercase tracking-wide text-neutral-500">Finish</div>
+          <div className={`mb-1 ${LABEL}`}>Finish</div>
           <div className="flex flex-wrap items-center gap-1.5">
             {cat.colors.map((c) => (
               <button
                 key={c}
                 title={c}
                 aria-label={`Color ${c}`}
-                aria-pressed={itemColor(cat, item.color) === c}
+                aria-pressed={color === c}
                 onClick={() => dispatch({ actor: 'human', ops: [{ type: 'recolor', id: item.id, color: c }] })}
-                className={`h-6 w-6 rounded ring-offset-2 ring-offset-neutral-900 ${itemColor(cat, item.color) === c ? 'ring-2 ring-emerald-400' : 'ring-1 ring-neutral-700 hover:ring-neutral-400'}`}
+                className={`h-6 w-6 rounded ring-offset-2 ring-offset-neutral-900 focus-visible:outline-none ${color === c ? 'ring-2 ring-emerald-400' : 'ring-1 ring-neutral-700 hover:ring-neutral-400'}`}
                 style={{ background: c }}
               />
             ))}
@@ -44,17 +62,19 @@ export default function Inspector() {
             <button
               aria-pressed={item.color === undefined}
               onClick={() => dispatch({ actor: 'human', ops: [{ type: 'recolor', id: item.id, color: null }] })}
-              className={`rounded px-2 py-0.5 text-[11px] ${item.color === undefined ? 'bg-emerald-700 text-white' : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'}`}
+              className={item.color === undefined ? BTN_SM_ON : BTN_SM}
             >Default</button>
           </div>
         </div>
       )}
+
       <div className="mb-2 flex gap-1">
-        <button className="flex-1 rounded bg-neutral-800 px-2 py-1 text-xs hover:bg-neutral-700" onClick={() => dispatch({ actor: 'human', ops: [{ type: 'setLocked', id: item.id, locked: !item.locked }] })}>{item.locked ? 'Unlock' : 'Lock'}</button>
-        <button className="flex-1 rounded bg-neutral-800 px-2 py-1 text-xs hover:bg-neutral-700" onClick={() => setCatalogOpen(true, { category: cat.category, fitsItemId: item.id })}>Alternatives</button>
-        <button disabled={item.locked} className="flex-1 rounded bg-red-900 px-2 py-1 text-xs hover:bg-red-800 disabled:opacity-40" onClick={() => { dispatch({ actor: 'human', ops: [{ type: 'remove', id: item.id }] }); select(null); }}>Remove</button>
+        <button className={`flex-1 ${BTN_QUIET}`} onClick={() => dispatch({ actor: 'human', ops: [{ type: 'setLocked', id: item.id, locked: !item.locked }] })}>{item.locked ? 'Unlock' : 'Lock'}</button>
+        <button className={`flex-1 ${BTN_QUIET}`} title="Show pieces that could take its place" onClick={() => setCatalogOpen(true, { category: cat.category, fitsItemId: item.id })}>Swap</button>
+        <button disabled={item.locked} className={`flex-1 ${BTN_DANGER}`} onClick={() => { dispatch({ actor: 'human', ops: [{ type: 'remove', id: item.id }] }); select(null); }}>Remove</button>
       </div>
-      {issues.length > 0 && <ul className="list-disc pl-4 text-xs text-red-300">{issues.map((v, i) => <li key={i}>{v.message}</li>)}</ul>}
+
+      {issues.length > 0 && <ul className="list-disc pl-4 text-[11px] text-red-300">{issues.map((v, i) => <li key={i}>{v.message}</li>)}</ul>}
       <p className="mt-2 text-[11px] text-neutral-500">Drag to move · R rotate · L lock · Delete remove</p>
     </div>
   );

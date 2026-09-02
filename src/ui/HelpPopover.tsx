@@ -1,6 +1,7 @@
 // src/ui/HelpPopover.tsx
 import { useEffect, type RefObject } from 'react';
 import { WEBMCP_FLAG_URL } from '../config';
+import { CARD, CLOSE } from './styles';
 
 const SHORTCUTS: [string, string][] = [
   ['Drag', 'Move an item on the plan. It snaps to walls and to the nearest 5 cm.'],
@@ -32,15 +33,15 @@ export default function HelpPopover({ onClose, anchorRef }: { onClose: () => voi
   }, [onClose, anchorRef]);
 
   return (
-    <div role="dialog" aria-label="Help" className="absolute right-0 z-30 mt-1 w-80 rounded border border-neutral-700 bg-neutral-900 p-3 text-xs shadow-xl">
+    <div role="dialog" aria-label="Help" className={`absolute right-0 z-30 mt-1 w-80 p-3 text-xs shadow-2xl ${CARD}`}>
       <div className="mb-2 flex items-center justify-between">
         <strong className="text-sm">Keyboard and mouse</strong>
-        <button className="text-neutral-400 hover:text-white" onClick={onClose} aria-label="Close">×</button>
+        <button className={CLOSE} onClick={onClose} aria-label="Close">×</button>
       </div>
       <dl className="space-y-1">
         {SHORTCUTS.map(([key, what]) => (
           <div key={key} className="flex gap-2">
-            <dt className="w-32 shrink-0 rounded bg-neutral-800 px-1 py-0.5 text-center font-mono text-[11px] text-neutral-300">{key}</dt>
+            <dt className="w-28 shrink-0 rounded border border-neutral-800 bg-neutral-800 px-1 py-0.5 text-center font-mono text-[11px] text-neutral-200">{key}</dt>
             <dd className="flex-1 text-neutral-400">{what}</dd>
           </div>
         ))}
@@ -49,8 +50,8 @@ export default function HelpPopover({ onClose, anchorRef }: { onClose: () => voi
 
       <strong className="mt-3 block text-sm">The agent chip</strong>
       <p className="mt-1 text-neutral-400">
-        The chip in the top right says whether a WebMCP agent is connected, how many tools this page offers it,
-        and which tool it called last. Grey means no agent is listening; the plan still works on its own.
+        The chip in the top right says whether a WebMCP agent is connected and how many tools this page offers it.
+        Hover it to see which tool it called last. Grey means no agent is listening; the plan still works on its own.
       </p>
 
       <strong className="mt-3 block text-sm">Connecting an agent</strong>

@@ -1,6 +1,7 @@
 // src/ui/RoomPanel.tsx
 import { useEffect, useState } from 'react';
 import { useRoom } from '../store';
+import { BTN_PRIMARY, CARD, CLOSE, INPUT, LABEL, LINK } from './styles';
 
 /**
  * The room's own card on the right rail: size, budget, needs and notes.
@@ -63,24 +64,25 @@ export default function RoomPanel() {
   };
 
   return (
-    <div className="w-64 shrink-0 rounded-lg border border-neutral-700 bg-neutral-900/95 p-3 text-sm shadow-xl backdrop-blur">
+    <div className={`w-full p-3 text-sm ${CARD}`}>
       <div className="mb-2 flex items-baseline gap-2">
         <strong>Room</strong>
-        <span className="ml-auto truncate text-xs text-neutral-400" title={room.name}>{room.name}</span>
+        <span className="ml-auto min-w-0 truncate text-[11px] text-neutral-500" title={room.name}>{room.name}</span>
         <button
-          className="text-neutral-400 hover:text-white"
+          className={CLOSE}
           aria-label="Close the room panel"
           title="Close. The Room button in the top bar brings it back."
           onClick={() => setRoomPanelOpen(false)}
         >×</button>
       </div>
 
+      <div className={`mb-1 ${LABEL}`}>Size (cm)</div>
       <div className="grid grid-cols-3 gap-1.5">
         {(['width', 'depth', 'height'] as const).map((k) => (
           <label key={k} className="block text-[11px] text-neutral-400">
-            <span className="capitalize">{k}</span> (cm)
+            <span className="capitalize">{k}</span>
             <input
-              className="mt-0.5 w-full rounded bg-neutral-800 px-1.5 py-1 text-xs text-neutral-100"
+              className={`mt-0.5 w-full ${INPUT}`}
               type="number"
               min={1}
               aria-label={`Room ${k} in cm`}
@@ -91,7 +93,7 @@ export default function RoomPanel() {
         ))}
       </div>
       <button
-        className="mt-1.5 w-full rounded bg-emerald-700 px-2 py-1 text-xs text-white hover:bg-emerald-600 disabled:opacity-40 disabled:hover:bg-emerald-700"
+        className={`mt-1.5 w-full ${BTN_PRIMARY}`}
         disabled={!sizeChanged}
         title={sizeChanged ? 'Resize the room' : 'Change a number first'}
         onClick={applySize}
@@ -100,12 +102,13 @@ export default function RoomPanel() {
       <p className="mt-1 text-[11px] text-neutral-500">Tip: ask your agent “make the room 400 by 500” to do this by voice.</p>
 
       <div className="mt-3 border-t border-neutral-800 pt-2">
+        <div className={`mb-1 ${LABEL}`}>Brief</div>
         <label className="block text-[11px] text-neutral-400">
           Budget
-          <span className="mt-0.5 flex items-center gap-1 rounded bg-neutral-800 px-1.5">
+          <span className="mt-0.5 flex h-8 items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-2">
             <span className="text-xs text-neutral-500">$</span>
             <input
-              className="w-full bg-transparent py-1 text-xs text-neutral-100 outline-none"
+              className="w-full bg-transparent text-xs text-neutral-100 outline-none"
               type="number"
               min={0}
               aria-label="Budget in dollars"
@@ -117,7 +120,7 @@ export default function RoomPanel() {
         <label className="mt-1.5 block text-[11px] text-neutral-400">
           Needs (comma separated)
           <input
-            className="mt-0.5 w-full rounded bg-neutral-800 px-1.5 py-1 text-xs text-neutral-100"
+            className={`mt-0.5 w-full ${INPUT}`}
             aria-label="Needs, comma separated"
             value={needs}
             onChange={(e) => setNeeds(e.target.value)}
@@ -126,23 +129,20 @@ export default function RoomPanel() {
         <label className="mt-1.5 block text-[11px] text-neutral-400">
           Notes
           <textarea
-            className="mt-0.5 w-full rounded bg-neutral-800 px-1.5 py-1 text-xs text-neutral-100"
+            className="mt-0.5 w-full rounded-md border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-100 outline-none transition-colors hover:border-neutral-600 focus-visible:ring-2 focus-visible:ring-emerald-500"
             rows={2}
             aria-label="Brief notes"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
           />
         </label>
-        <button
-          className="mt-1.5 w-full rounded bg-emerald-700 px-2 py-1 text-xs text-white hover:bg-emerald-600"
-          onClick={applyBrief}
-        >Apply brief</button>
+        <button className={`mt-1.5 w-full ${BTN_PRIMARY}`} onClick={applyBrief}>Apply brief</button>
         {briefError && <p className="mt-1 text-[11px] text-red-400" role="alert">{briefError}</p>}
       </div>
 
-      <div className="mt-2 flex flex-wrap gap-3 border-t border-neutral-800 pt-2 text-[11px]">
-        <button className="text-emerald-400 hover:text-emerald-300" onClick={() => openDialog('shell')}>Doors &amp; windows…</button>
-        <button className="text-emerald-400 hover:text-emerald-300" onClick={() => openDialog('style')}>Style…</button>
+      <div className="mt-2 flex flex-wrap gap-3 border-t border-neutral-800 pt-2">
+        <button className={LINK} onClick={() => openDialog('shell')}>Doors &amp; windows…</button>
+        <button className={LINK} onClick={() => openDialog('style')}>Style…</button>
       </div>
     </div>
   );

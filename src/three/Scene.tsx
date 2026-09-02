@@ -85,8 +85,8 @@ export default function Scene() {
         <CameraRig pose={ui.camera} width={room.width} depth={room.depth} onLook={onLook} />
       </Canvas>
       <div className="absolute right-3 top-3 flex gap-2 text-xs">
-        <button className="rounded border border-neutral-700 bg-neutral-900/80 px-2 py-1 hover:border-emerald-500" onClick={toggle}>{ui.camera.mode === 'walk' ? 'Orbit view' : 'Walk through'}</button>
-        <label className="flex items-center gap-1 rounded border border-neutral-700 bg-neutral-900/80 px-2 py-1 text-neutral-300" title="Cast and catch shadows in the 3D view">
+        <button className="inline-flex h-8 items-center rounded-md border border-neutral-700 bg-neutral-900/90 px-2.5 text-neutral-200 transition-colors hover:border-emerald-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500" onClick={toggle}>{ui.camera.mode === 'walk' ? 'Orbit view' : 'Walk through'}</button>
+        <label className="flex h-8 items-center gap-1.5 rounded-md border border-neutral-700 bg-neutral-900/90 px-2.5 text-neutral-300" title="Cast and catch shadows in the 3D view">
           <input type="checkbox" checked={shadows} onChange={(e) => setShowShadows(e.target.checked)} /> Shadows
         </label>
       </div>

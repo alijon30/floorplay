@@ -8,6 +8,7 @@ import { findCatalogItem, isMounted, itemColor } from '../engine/catalog';
 import { footprint } from '../engine/geometry';
 import { budgetUsed } from '../engine/validate';
 import type { Rect, RoomKind } from '../engine/types';
+import { BTN, BTN_PRIMARY, BTN_QUIET, INPUT, LABEL } from './styles';
 
 const THUMB = 60;
 
@@ -63,14 +64,14 @@ export default function RoomWizard({ onClose }: { onClose: () => void }) {
   const submit = () => { createRoom({ name, ...dims }); onClose(); };
   return (
     <Modal title="New room" onClose={onClose}>
-      <strong className="mb-1 block text-[11px] uppercase tracking-wide text-neutral-500">Ready-made rooms</strong>
+      <strong className={`mb-1 block ${LABEL}`}>Ready-made rooms</strong>
       <div aria-label="Ready-made rooms" className="mb-4 grid grid-cols-2 gap-2">
         {cards.map((c) => (
           <button
             key={c.key}
             title={c.blurb}
             onClick={() => { loadTemplate(c.key); onClose(); }}
-            className="flex items-center gap-2 rounded border border-neutral-700 p-2 text-left hover:border-emerald-500"
+            className="flex items-center gap-2 rounded-lg border border-neutral-800 p-2 text-left transition-colors hover:border-emerald-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
           >
             <Thumb card={c} />
             <div className="min-w-0">
@@ -82,21 +83,21 @@ export default function RoomWizard({ onClose }: { onClose: () => void }) {
         ))}
       </div>
 
-      <strong className="mb-1 block text-[11px] uppercase tracking-wide text-neutral-500">Or size an empty one</strong>
-      <label className="mb-2 block text-sm">Name<input className="mt-1 w-full rounded bg-neutral-800 p-2" value={name} onChange={(e) => setName(e.target.value)} /></label>
+      <strong className={`mb-1 block ${LABEL}`}>Or size an empty one</strong>
+      <label className="mb-2 block text-[11px] text-neutral-400">Name<input className={`mt-1 w-full ${INPUT}`} aria-label="New room name" value={name} onChange={(e) => setName(e.target.value)} /></label>
       <div className="mb-2 flex flex-wrap gap-2">
         {PRESETS.map((p) => (
-          <button key={p.key} className="rounded border border-neutral-700 px-2 py-1 text-xs hover:border-emerald-500" onClick={() => { setName(p.name); setDims({ width: p.width, depth: p.depth, height: p.height }); }}>
+          <button key={p.key} className={BTN} onClick={() => { setName(p.name); setDims({ width: p.width, depth: p.depth, height: p.height }); }}>
             {p.name} {p.width}×{p.depth}
           </button>
         ))}
       </div>
-      <div className="mb-3 grid grid-cols-3 gap-2 text-sm">
+      <div className="mb-3 grid grid-cols-3 gap-2">
         {(['width', 'depth', 'height'] as const).map((k) => (
-          <label key={k} className="block capitalize">{k} (cm)<input className="mt-1 w-full rounded bg-neutral-800 p-2" type="number" value={dims[k]} onChange={(e) => setDims({ ...dims, [k]: Math.max(100, Number(e.target.value) || 100) })} /></label>
+          <label key={k} className="block text-[11px] text-neutral-400"><span className="capitalize">{k}</span> (cm)<input className={`mt-1 w-full ${INPUT}`} type="number" aria-label={`New room ${k} in cm`} value={dims[k]} onChange={(e) => setDims({ ...dims, [k]: Math.max(100, Number(e.target.value) || 100) })} /></label>
         ))}
       </div>
-      <div className="flex justify-end gap-2"><button className="rounded px-3 py-1 text-neutral-300" onClick={onClose}>Cancel</button><button className="rounded bg-emerald-600 px-3 py-1 text-white" onClick={submit}>Create</button></div>
+      <div className="flex justify-end gap-2"><button className={BTN_QUIET} onClick={onClose}>Cancel</button><button className={BTN_PRIMARY} onClick={submit}>Create</button></div>
     </Modal>
   );
 }
