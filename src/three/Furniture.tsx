@@ -50,8 +50,8 @@ type MatProps = G & {
 };
 
 function Mat({ color, ghost, removal, roughness = 0.8, metalness = 0, emissive = '#000000', emissiveIntensity = 1, side = THREE.FrontSide }: MatProps) {
-  if (removal) return <meshStandardMaterial color="#ef4444" transparent opacity={0.35} roughness={0.5} side={side} />;
-  if (ghost) return <meshStandardMaterial color="#34d399" transparent opacity={0.4} roughness={0.5} side={side} />;
+  if (removal) return <meshStandardMaterial color="#e0605a" transparent opacity={0.32} roughness={0.5} side={side} />;
+  if (ghost) return <meshStandardMaterial color="#5b8cff" transparent opacity={0.38} roughness={0.5} side={side} />;
   return <meshStandardMaterial color={color} roughness={roughness} metalness={metalness} emissive={emissive} emissiveIntensity={emissiveIntensity} side={side} />;
 }
 
@@ -115,7 +115,7 @@ export default function Furniture({ item, cat, ghost, removal, selected, onSelec
   const interactive = !ghost && !removal && !!onSelect;
   // The outline rides on the item's main body only; hanging it off every part would draw
   // a cage of green lines instead of a silhouette.
-  const edges = selected && interactive ? <Edges color="#34d399" lineWidth={2} /> : null;
+  const edges = selected && interactive ? <Edges color="#5b8cff" lineWidth={2} /> : null;
 
   let body: ReactElement;
   switch (cat.shape) {
@@ -522,7 +522,7 @@ export default function Furniture({ item, cat, ghost, removal, selected, onSelec
       <group position={[0, mountY, 0]}>{body}</group>
       {selected && interactive && (
         <Html center distanceFactor={6} position={[0, mountY + h + 0.3, 0]} pointerEvents="none" zIndexRange={[30, 0]}>
-          <div className="whitespace-nowrap rounded-full bg-neutral-900/85 px-2 py-0.5 text-[11px] font-medium text-white shadow ring-1 ring-emerald-400/60">
+          <div className="whitespace-nowrap rounded-full border border-accent/50 bg-panel/90 px-2 py-0.5 font-mono text-[10.5px] uppercase tracking-[0.06em] text-fg shadow-xl">
             {cat.name}
           </div>
         </Html>

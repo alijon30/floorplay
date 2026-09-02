@@ -2,10 +2,11 @@
 import { useMemo } from 'react';
 import { useRoom } from '../store';
 import { BLOCKING_KINDS, nearestValid } from '../engine/nearest';
-import { BTN_SM, BTN_SM_ON, CARD, ROW } from './styles';
+import { Icon } from './icons';
+import { BTN_SM, BTN_SM_ON } from './styles';
 
 /**
- * The room's open violations, each with a way to act on it.
+ * The Issues tab: every rule the layout breaks right now, each with a way to act on it.
  *
  * "Fix" is offered only for the kinds a move can actually resolve — `BLOCKING_KINDS` — so
  * `over_budget` and `unreachable` get a message and a Select button and nothing else.
@@ -27,17 +28,26 @@ export default function IssuesPanel() {
     [room, violations],
   );
 
-  if (violations.length === 0) return null;
+  if (violations.length === 0) {
+    return (
+      <div className="flex flex-col items-start gap-1.5 p-3">
+        <span className="flex h-6 items-center gap-1.5 rounded border border-ok/30 bg-ok/8 px-1.5 text-[11px] text-ok">
+          <Icon name="fit" size={12} />No issues
+        </span>
+        <p className="text-[11.5px] leading-snug text-muted">Nothing overlaps, every walkway is clear and the layout is inside its budget.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className={`w-full p-3 text-sm ${CARD}`}>
-      <strong className="mb-2 block">Issues ({violations.length})</strong>
-      <ul className="max-h-[45vh] space-y-1 overflow-auto">
+    <div className="p-3">
+      <h2 className="mb-2 text-[13px] font-medium text-fg">Issues ({violations.length})</h2>
+      <ul className="space-y-1.5">
         {rows.map(({ v, item, fixable, spot, blocked }, i) => (
-          <li key={i} className={`p-2 ${ROW}`}>
-            <span className="rounded bg-red-950 px-1 py-0.5 text-[10px] text-red-300">{v.kind.replace(/_/g, ' ')}</span>
-            <p className="mt-1 text-[11px] text-neutral-300">{v.message}</p>
-            <div className="mt-1.5 flex gap-1">
+          <li key={i} className="rounded-md border border-line bg-raised p-2">
+            <span className="inline-block rounded bg-bad/15 px-1.5 py-px text-[10px] uppercase tracking-[0.06em] text-bad">{v.kind.replace(/_/g, ' ')}</span>
+            <p className="mt-1.5 text-[11.5px] leading-snug text-fg/90">{v.message}</p>
+            <div className="mt-2 flex gap-1.5">
               <button
                 className={BTN_SM}
                 disabled={!item}
@@ -56,7 +66,7 @@ export default function IssuesPanel() {
                     dispatch({ actor: 'human', ops: [{ type: 'move', id: item.id, x: spot.x, y: spot.y, rotation: item.rotation }] });
                   }}
                 >
-                  Fix
+                  <Icon name="wand" size={12} />Fix
                 </button>
               )}
             </div>

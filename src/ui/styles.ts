@@ -1,66 +1,75 @@
 // src/ui/styles.ts
 /**
- * The handful of class strings every panel and control in the app is built from.
+ * The class strings every panel and control in the app is built from.
  *
  * One card, one button, one input, one section label. Holding them here is what keeps the
- * top bar, the rail, the drawer and the popovers looking like one program rather than four:
- * a change to the hover colour happens once, and every control follows.
+ * top bar, the rail, the catalog and the popovers looking like one program rather than four:
+ * a change to the focus ring happens once, and every control follows.
  *
  * Written as whole literals on purpose — Tailwind scans this file, so a class assembled from
  * fragments at runtime would never be generated.
  */
 
-/** Every panel that floats above the plan: rail cards, popovers, dialogs. */
-export const CARD = 'rounded-lg border border-neutral-800 bg-neutral-900/95';
+/** Focus is always the accent, always a ring, never an outline. */
+export const FOCUS = 'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent';
 
-/** The row inside a card: an item in a list, an issue, a swatch group. */
-export const ROW = 'rounded-md border border-neutral-800';
+/** A flat panel: the tool rail's fly-outs, the properties column, the catalog. */
+export const PANEL = 'border border-line bg-panel';
 
-/** A section heading inside a card. */
-export const LABEL = 'text-[10px] uppercase tracking-wide text-neutral-500';
+/** Anything that floats over the work: popovers, proposal cards, dialogs. */
+export const CARD = 'rounded-lg border border-line bg-panel shadow-xl';
 
-const FOCUS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500';
+/** A row inside a panel: a catalog entry, an issue, a palette. */
+export const ROW = 'rounded-md border border-line bg-raised';
 
-/** The default button: 32 px tall, bordered, emerald on hover. */
-export const BTN =
-  'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-neutral-700 px-2.5 text-xs text-neutral-200 transition-colors hover:border-emerald-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-40 disabled:hover:border-neutral-700';
+/** A section heading inside a panel. */
+export const LABEL = 'text-[10.5px] font-medium uppercase tracking-[0.08em] text-muted';
+
+/** Numbers, dimensions and prices. Tabular so columns of them never jitter. */
+export const NUM = 'font-mono tabular-nums';
+
+/** The panel title at the head of a column or a popover. */
+export const TITLE = 'text-[13px] font-medium text-fg';
+
+const BASE = `inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md px-2.5 text-[12.5px] transition-colors ${FOCUS} disabled:opacity-40 disabled:pointer-events-none`;
+
+/** The default button: a quiet outline that lifts on hover. */
+export const BTN = `${BASE} border border-line bg-raised text-fg hover:border-[#33333a] hover:bg-[#232329]`;
 
 /** The same button while its panel is open or its mode is on. */
-export const BTN_ON =
-  'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-emerald-500 px-2.5 text-xs text-emerald-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500';
+export const BTN_ON = `${BASE} border border-accent/60 bg-accent/12 text-accent`;
+
+/** The action a card is really for: Apply, Accept, Place, Create. */
+export const BTN_PRIMARY = `${BASE} bg-accent font-medium text-[#0b1020] hover:bg-[#729dff] disabled:bg-raised disabled:text-muted disabled:opacity-100`;
+
+/** A quieter action beside it: Reject, Lock, Select, Cancel. */
+export const BTN_QUIET = `${BASE} border border-transparent bg-raised text-fg hover:bg-[#232329]`;
+
+/** A destructive one: Remove. Ghost, never filled — it should not read as the main action. */
+export const BTN_DANGER = `${BASE} border border-transparent bg-raised text-bad hover:bg-bad/12`;
+
+const SMALL = `inline-flex h-6 shrink-0 items-center justify-center gap-1 rounded px-1.5 text-[11px] transition-colors ${FOCUS} disabled:opacity-40 disabled:pointer-events-none`;
+
+/** Half-height variants, for the chips and buttons packed inside a panel's rows. */
+export const BTN_SM = `${SMALL} border border-line bg-raised text-muted hover:text-fg hover:border-[#33333a]`;
+export const BTN_SM_ON = `${SMALL} border border-accent/60 bg-accent/12 text-accent`;
 
 /** A square button carrying only an icon. */
-export const ICON_BTN =
-  'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-neutral-700 text-neutral-300 transition-colors hover:border-emerald-500 hover:text-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-40 disabled:hover:border-neutral-700';
+export const ICON_BTN = `inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-raised hover:text-fg ${FOCUS} disabled:opacity-30 disabled:pointer-events-none`;
 
 /** The same, lit. */
-export const ICON_BTN_ON =
-  'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-emerald-500 text-emerald-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500';
+export const ICON_BTN_ON = `inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent/12 text-accent transition-colors ${FOCUS} disabled:opacity-30`;
 
-/** The action a card is really for: Apply, Accept, Place. */
-export const BTN_PRIMARY =
-  'inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md bg-emerald-700 px-2.5 text-xs text-white transition-colors hover:bg-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-40 disabled:hover:bg-emerald-700';
+/** A text field, number field or select. */
+export const INPUT = `h-8 w-full min-w-0 rounded-md border border-line bg-raised px-2 text-[12.5px] text-fg outline-none transition-colors placeholder:text-muted hover:border-[#33333a] focus:border-accent/70 ${FOCUS}`;
 
-/** A quieter action beside it: Reject, Lock, Select. */
-export const BTN_QUIET =
-  'inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md bg-neutral-800 px-2.5 text-xs text-neutral-200 transition-colors hover:bg-neutral-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-40 disabled:hover:bg-neutral-800';
-
-/** A destructive one: Remove. */
-export const BTN_DANGER =
-  'inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md bg-red-900 px-2.5 text-xs text-red-100 transition-colors hover:bg-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-40 disabled:hover:bg-red-900';
-
-/** Half-height variants for the buttons packed inside a rail card's rows. */
-export const BTN_SM = 'inline-flex h-6 shrink-0 items-center justify-center gap-1 rounded bg-neutral-800 px-2 text-[11px] text-neutral-200 transition-colors hover:bg-neutral-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-40 disabled:hover:bg-neutral-800';
-export const BTN_SM_ON = 'inline-flex h-6 shrink-0 items-center justify-center gap-1 rounded bg-emerald-700 px-2 text-[11px] text-white transition-colors hover:bg-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-40';
-
-/** A text field or select. */
-export const INPUT =
-  'h-8 rounded-md border border-neutral-700 bg-neutral-800 px-2 text-xs text-neutral-100 outline-none transition-colors hover:border-neutral-600 focus-visible:ring-2 focus-visible:ring-emerald-500';
-
-/** The link-weight buttons at the foot of a card. */
-export const LINK = 'rounded text-[11px] text-emerald-400 transition-colors hover:text-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500';
+/** The link-weight buttons at the foot of a panel. */
+export const LINK = `rounded text-[11.5px] text-accent transition-colors hover:text-[#8fb0ff] ${FOCUS}`;
 
 /** The × that closes a card or popover. */
-export const CLOSE = 'rounded text-neutral-400 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500';
+export const CLOSE = `inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted transition-colors hover:bg-raised hover:text-fg ${FOCUS}`;
 
-export { FOCUS };
+/** One cell of a segmented control. `SEG` wraps them; `SEG_ITEM`/`SEG_ITEM_ON` are the cells. */
+export const SEG = 'inline-flex h-7 shrink-0 items-center gap-px rounded-md border border-line bg-raised p-px';
+export const SEG_ITEM = `inline-flex h-[22px] shrink-0 items-center justify-center rounded-[4px] px-2 text-[11px] text-muted transition-colors hover:text-fg ${FOCUS}`;
+export const SEG_ITEM_ON = `inline-flex h-[22px] shrink-0 items-center justify-center rounded-[4px] bg-accent/15 px-2 text-[11px] font-medium text-accent transition-colors ${FOCUS}`;

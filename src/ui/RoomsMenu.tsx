@@ -1,7 +1,8 @@
 // src/ui/RoomsMenu.tsx
 import { useState } from 'react';
 import { useRoom } from '../store';
-import { BTN, BTN_PRIMARY, BTN_QUIET, CARD } from './styles';
+import { Icon } from './icons';
+import { BTN_PRIMARY, BTN_QUIET, CARD, FOCUS, NUM } from './styles';
 
 export default function RoomsMenu() {
   const rooms = useRoom((s) => s.rooms);
@@ -13,17 +14,32 @@ export default function RoomsMenu() {
   const [open, setOpen] = useState(false);
   return (
     <div className="relative">
-      <button className={BTN} aria-expanded={open} onClick={() => setOpen((o) => !o)}>My rooms ▾</button>
+      <button
+        className={`inline-flex h-7 items-center gap-1 rounded-md px-2 text-[12px] text-muted transition-colors hover:bg-raised hover:text-fg ${FOCUS} ${open ? 'bg-raised text-fg' : ''}`}
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      >My rooms<Icon name="chevron" size={12} /></button>
       {open && (
-        <div className={`absolute right-0 z-30 mt-1 w-64 p-2 text-sm shadow-2xl ${CARD}`}>
+        <div className={`absolute right-0 z-30 mt-1.5 w-72 p-1.5 ${CARD}`}>
           {Object.values(rooms).map((r) => (
-            <div key={r.id} className={`flex items-center justify-between rounded px-2 py-1 ${r.id === currentId ? 'bg-neutral-800' : 'hover:bg-neutral-800'}`}>
-              <button className="min-w-0 flex-1 truncate rounded text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500" onClick={() => { switchRoom(r.id); setOpen(false); }}>{r.name} <span className="text-neutral-500">{r.items.length} items</span></button>
-              <button className="rounded px-1 text-neutral-500 transition-colors hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500" aria-label={`Delete ${r.name}`} title="Delete" onClick={() => deleteRoom(r.id)}>✕</button>
+            <div key={r.id} className={`flex items-center gap-1 rounded-md px-1.5 py-1 transition-colors ${r.id === currentId ? 'bg-raised' : 'hover:bg-raised'}`}>
+              <button
+                className={`flex min-w-0 flex-1 items-baseline gap-2 rounded text-left text-[12px] ${FOCUS}`}
+                onClick={() => { switchRoom(r.id); setOpen(false); }}
+              >
+                <span className="min-w-0 truncate text-fg">{r.name}</span>
+                <span className={`shrink-0 text-[10.5px] text-muted ${NUM}`}>{r.items.length} items</span>
+              </button>
+              <button
+                className={`shrink-0 rounded p-0.5 text-muted transition-colors hover:bg-bad/12 hover:text-bad ${FOCUS}`}
+                aria-label={`Delete ${r.name}`}
+                title="Delete"
+                onClick={() => deleteRoom(r.id)}
+              ><Icon name="trash" size={13} /></button>
             </div>
           ))}
-          <div className="mt-2 flex gap-2 border-t border-neutral-800 pt-2">
-            <button className={`flex-1 ${BTN_QUIET}`} onClick={() => { setWizardOpen(true); setOpen(false); }}>New room</button>
+          <div className="mt-1.5 flex gap-1.5 border-t border-line pt-1.5">
+            <button className={`flex-1 ${BTN_QUIET}`} onClick={() => { setWizardOpen(true); setOpen(false); }}><Icon name="plus" size={13} />New room</button>
             <button className={`flex-1 ${BTN_PRIMARY}`} onClick={() => { loadDemo(); setOpen(false); }}>Load demo studio</button>
           </div>
         </div>

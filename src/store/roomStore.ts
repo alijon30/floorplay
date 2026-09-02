@@ -33,11 +33,24 @@ export interface UiState {
   /** Cast and catch shadows in the 3D view. Off buys frames on a slow machine. */
   showShadows: boolean;
   /**
-   * The room card on the right rail. Closing it is a lasting preference, so it persists:
-   * someone who wants the plan uncovered should not have to close it every visit.
+   * The properties column on the right. Closing it is a lasting preference, so it persists:
+   * someone who wants the viewports uncovered should not have to close it every visit.
    */
   roomPanelOpen: boolean;
+  /**
+   * Which tab the properties column shows. Held in the store rather than in the panel
+   * because selecting an item — on the plan, in 3D, or by an agent's tool call — has to move
+   * it to Selection from wherever the click happened.
+   */
+  propsTab: PropsTab;
+  /** The ledger drawer above the status strip. Collapsed it is one line. */
+  ledgerOpen: boolean;
+  /** The drafting grid under the plan. Off is for reading the drawing itself. */
+  showGrid: boolean;
 }
+
+/** The three tabs of the properties column. */
+export type PropsTab = 'room' | 'selection' | 'issues';
 
 /** The panels both the top bar and the room panel can open. The brief lives in `RoomPanel`. */
 export type DialogName = 'shell' | 'style';
@@ -68,6 +81,9 @@ export interface RoomState {
   setShowDaylight(v: boolean): void;
   setShowShadows(v: boolean): void;
   setRoomPanelOpen(open: boolean): void;
+  setPropsTab(tab: PropsTab): void;
+  setLedgerOpen(open: boolean): void;
+  setShowGrid(v: boolean): void;
   dismissOnboarding(): void;
   setCatalogOpen(open: boolean, filter?: UiState['catalogFilter']): void;
   setWizardOpen(open: boolean): void;
@@ -123,6 +139,9 @@ const defaultUi = (): UiState => ({
   showDaylight: true,
   showShadows: true,
   roomPanelOpen: true,
+  propsTab: 'room',
+  ledgerOpen: false,
+  showGrid: true,
 });
 
 export function createRoomStore(opts: { storage?: StateStorage; debounceMs?: number } = {}): RoomStore {
@@ -218,14 +237,28 @@ export function createRoomStore(opts: { storage?: StateStorage; debounceMs?: num
         return get().dispatch({ ops, actor, summary: `Reverted to: ${target.summary}` });
       },
 
-      select(id) { set((s) => ({ ui: { ...s.ui, selectedItemId: id } })); },
+      // Selecting anything moves the properties column to its tab and opens the column if it
+      // was closed: a click that quietly fills a panel nobody can see has done nothing.
+      select(id) {
+        set((s) => ({
+          ui: {
+            ...s.ui,
+            selectedItemId: id,
+            propsTab: id ? 'selection' : s.ui.propsTab === 'selection' ? 'room' : s.ui.propsTab,
+            roomPanelOpen: id ? true : s.ui.roomPanelOpen,
+          },
+        }));
+      },
       hoverProposal(id) { set((s) => ({ ui: { ...s.ui, hoveredProposalId: id } })); },
       setProposeFirst(v) { set((s) => ({ ui: { ...s.ui, proposeFirst: v } })); },
       setShowDaylight(v) { set((s) => ({ ui: { ...s.ui, showDaylight: v } })); },
       setShowShadows(v) { set((s) => ({ ui: { ...s.ui, showShadows: v } })); },
-      // Opening the card puts the room in the rail's one slot, so the selection has to give
-      // way — otherwise the button people press to see the room does nothing they can see.
-      setRoomPanelOpen(open) { set((s) => ({ ui: { ...s.ui, roomPanelOpen: open, selectedItemId: open ? null : s.ui.selectedItemId } })); },
+      // Opening the room tab puts the room in the column's one slot, so the selection has to
+      // give way — otherwise the button people press to see the room does nothing they can see.
+      setRoomPanelOpen(open) { set((s) => ({ ui: { ...s.ui, roomPanelOpen: open, propsTab: open ? 'room' : s.ui.propsTab, selectedItemId: open ? null : s.ui.selectedItemId } })); },
+      setPropsTab(tab) { set((s) => ({ ui: { ...s.ui, propsTab: tab, roomPanelOpen: true } })); },
+      setLedgerOpen(open) { set((s) => ({ ui: { ...s.ui, ledgerOpen: open } })); },
+      setShowGrid(v) { set((s) => ({ ui: { ...s.ui, showGrid: v } })); },
       dismissOnboarding() { set((s) => ({ ui: { ...s.ui, onboardingDismissed: true } })); },
       setCatalogOpen(open, filter = null) { set((s) => ({ ui: { ...s.ui, catalogOpen: open, catalogFilter: filter } })); },
       setWizardOpen(open) { set((s) => ({ ui: { ...s.ui, wizardOpen: open } })); },
@@ -242,23 +275,23 @@ export function createRoomStore(opts: { storage?: StateStorage; debounceMs?: num
 
       createRoom({ name, width, depth, height }) {
         const room = makeEmptyRoom(name, width, depth, height);
-        set((s) => ({ rooms: { ...s.rooms, [room.id]: room }, currentId: room.id, analysis: analyze(room), ui: { ...s.ui, selectedItemId: null, hoveredProposalId: null } }));
+        set((s) => ({ rooms: { ...s.rooms, [room.id]: room }, currentId: room.id, analysis: analyze(room), ui: { ...s.ui, selectedItemId: null, hoveredProposalId: null, propsTab: s.ui.propsTab === 'selection' ? 'room' : s.ui.propsTab } }));
         return room;
       },
       loadDemo() {
         const room = makeDemoRoom();
-        set((s) => ({ rooms: { ...s.rooms, [room.id]: room }, currentId: room.id, analysis: analyze(room), ui: { ...s.ui, selectedItemId: null, hoveredProposalId: null } }));
+        set((s) => ({ rooms: { ...s.rooms, [room.id]: room }, currentId: room.id, analysis: analyze(room), ui: { ...s.ui, selectedItemId: null, hoveredProposalId: null, propsTab: s.ui.propsTab === 'selection' ? 'room' : s.ui.propsTab } }));
         return room;
       },
       loadTemplate(key, name) {
         const room = buildTemplateRoom(key, name);
-        set((s) => ({ rooms: { ...s.rooms, [room.id]: room }, currentId: room.id, analysis: analyze(room), ui: { ...s.ui, selectedItemId: null, hoveredProposalId: null } }));
+        set((s) => ({ rooms: { ...s.rooms, [room.id]: room }, currentId: room.id, analysis: analyze(room), ui: { ...s.ui, selectedItemId: null, hoveredProposalId: null, propsTab: s.ui.propsTab === 'selection' ? 'room' : s.ui.propsTab } }));
         return room;
       },
       switchRoom(id) {
         const room = get().rooms[id];
         if (!room) return;
-        set((s) => ({ currentId: id, analysis: analyze(room), ui: { ...s.ui, selectedItemId: null, hoveredProposalId: null } }));
+        set((s) => ({ currentId: id, analysis: analyze(room), ui: { ...s.ui, selectedItemId: null, hoveredProposalId: null, propsTab: s.ui.propsTab === 'selection' ? 'room' : s.ui.propsTab } }));
       },
       deleteRoom(id) {
         const s = get();
@@ -301,7 +334,7 @@ export function createRoomStore(opts: { storage?: StateStorage; debounceMs?: num
     persist(initializer, {
       name: STORAGE_KEY,
       storage: storage as unknown as PersistStorage<RoomState>,
-      partialize: (s) => ({ rooms: s.rooms, currentId: s.currentId, ui: { proposeFirst: s.ui.proposeFirst, onboardingDismissed: s.ui.onboardingDismissed, showDaylight: s.ui.showDaylight, showShadows: s.ui.showShadows, roomPanelOpen: s.ui.roomPanelOpen } }) as unknown as RoomState,
+      partialize: (s) => ({ rooms: s.rooms, currentId: s.currentId, ui: { proposeFirst: s.ui.proposeFirst, onboardingDismissed: s.ui.onboardingDismissed, showDaylight: s.ui.showDaylight, showShadows: s.ui.showShadows, showGrid: s.ui.showGrid, roomPanelOpen: s.ui.roomPanelOpen, ledgerOpen: s.ui.ledgerOpen } }) as unknown as RoomState,
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<RoomState> & { ui?: Partial<UiState> };
         const stored = p.rooms && Object.keys(p.rooms).length ? p.rooms : current.rooms;

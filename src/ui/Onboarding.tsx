@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useRoom } from '../store';
 import { WEBMCP_FLAG_URL } from '../config';
-import { BTN_PRIMARY, BTN_QUIET, BTN_SM, CARD } from './styles';
+import { BTN_PRIMARY, BTN_QUIET, BTN_SM, CARD, LABEL, LINK } from './styles';
 
 const PROMPTS = [
   'Furnish this studio for my brief. Give me three options.',
@@ -43,33 +43,32 @@ export default function Onboarding() {
 
   return (
     <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center p-4">
-      <div className={`pointer-events-auto w-[30rem] max-w-full p-4 text-sm shadow-2xl backdrop-blur ${CARD}`}>
-        <h2 className="text-base font-semibold">Design a room with ChatGPT on the same plan</h2>
+      <div className={`pointer-events-auto w-[26rem] max-w-full p-4 ${CARD}`}>
+        <h2 className="text-[15px] font-medium leading-snug text-fg">Design a room with ChatGPT on the same plan</h2>
 
-        <ol className="mt-3 space-y-1 text-neutral-300">
-          <li><span className="text-neutral-500">1.</span> Load a room — the demo studio, or an empty one you size yourself.</li>
-          <li><span className="text-neutral-500">2.</span> Open this page in ChatGPT&apos;s browser, or in Chrome with <code className="rounded bg-neutral-800 px-1 text-[11px] text-emerald-300">{WEBMCP_FLAG_URL}</code> enabled.</li>
-          <li><span className="text-neutral-500">3.</span> Ask for options — layouts land on the plan for you to accept or reject.</li>
+        <ol className="mt-3 space-y-1.5 text-[12px] leading-snug text-muted">
+          <li><span className="mr-1.5 font-mono text-[11px] text-muted/60">01</span>Load a room — the demo studio, or an empty one you size yourself.</li>
+          <li><span className="mr-1.5 font-mono text-[11px] text-muted/60">02</span>Open this page in ChatGPT&apos;s browser, or in Chrome with <code className="rounded bg-raised px-1 font-mono text-[10.5px] text-accent">{WEBMCP_FLAG_URL}</code> enabled.</li>
+          <li><span className="mr-1.5 font-mono text-[11px] text-muted/60">03</span>Ask for options — layouts land on the plan for you to accept or reject.</li>
         </ol>
 
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4 flex items-center gap-1.5">
           <button className={BTN_PRIMARY} onClick={() => { loadDemo(); dismiss(); }}>Load the demo studio</button>
           <button className={BTN_QUIET} onClick={dismiss}>Start empty</button>
+          <button className={`ml-auto ${LINK}`} onClick={() => setWizardOpen(true)}>Ready-made rooms…</button>
         </div>
 
-        <button className="mt-2 rounded text-xs text-emerald-400 underline transition-colors hover:text-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500" onClick={() => setWizardOpen(true)}>Or start from a ready-made room</button>
-
-        <p className="mt-4 text-xs text-neutral-500">Try asking:</p>
-        <ul className="mt-1 space-y-1">
+        <div className={`mt-4 ${LABEL}`}>Try asking</div>
+        <ul className="mt-1.5 space-y-1">
           {PROMPTS.map((p) => (
-            <li key={p} className="flex items-center gap-2 rounded bg-neutral-800/60 px-2 py-1 text-xs text-neutral-300">
+            <li key={p} className="flex items-center gap-2 rounded-md border border-line bg-raised px-2 py-1.5 text-[11.5px] text-fg/90">
               <span className="flex-1">{p}</span>
               <CopyButton text={p} />
             </li>
           ))}
         </ul>
 
-        <button className="mt-3 rounded text-xs text-neutral-500 underline transition-colors hover:text-neutral-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500" onClick={dismiss}>Don&apos;t show again</button>
+        <button className="mt-3 rounded text-[11px] text-muted underline transition-colors hover:text-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent" onClick={dismiss}>Don&apos;t show again</button>
       </div>
     </div>
   );

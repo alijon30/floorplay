@@ -8,16 +8,16 @@ import type { FloorFinish } from './engine/types';
 /**
  * Floor fill on the plan.
  *
- * The plan is a dark technical drawing, so these are tints rather than wood colors: enough
- * to tell walnut from ash at a glance without lifting the floor above the furniture drawn
- * on top of it.
+ * The plan is a drawing on paper, so these are the faintest possible tints: enough to tell
+ * walnut from ash at a glance, never enough to compete with the grid ruled over them or the
+ * furniture outlined on top.
  */
 export const FLOOR_PLAN_FILL: Record<FloorFinish, string> = {
-  oak: '#2b2520',
-  walnut: '#241c18',
-  ash: '#2a2a28',
-  grey: '#262729',
-  tile: '#23282c',
+  oak: '#f8f5ee',
+  walnut: '#f6efe8',
+  ash: '#f9f7f2',
+  grey: '#f4f4f3',
+  tile: '#f2f5f6',
 };
 
 /** The chip shown on a finish button: what the material actually looks like in daylight. */

@@ -4,8 +4,9 @@ import { webmcp, useRegistryVersion } from '../webmcp';
 /**
  * Whether an agent is listening, and how much of this page it can reach.
  *
- * The last tool called moves to the tooltip: it changes on every call, and a chip that
- * re-flows the toolbar each time the agent does anything is worse than one that stays put.
+ * A dot and two words. The last tool called moves to the tooltip: it changes on every call,
+ * and a chip that re-flows the top bar each time the agent does anything is worse than one
+ * that stays put.
  */
 export default function AgentChip() {
   useRegistryVersion();
@@ -17,13 +18,10 @@ export default function AgentChip() {
     : 'No WebMCP agent connected. Open this page in ChatGPT or Chrome with WebMCP enabled.';
   const title = last ? `${state}\nLast call: ${last.name}${last.ok ? '' : ' (failed)'}` : state;
   return (
-    <div
-      className="flex h-8 shrink-0 items-center gap-2 rounded-full border border-neutral-800 bg-neutral-900 px-3 text-xs text-neutral-300"
-      title={title}
-    >
-      <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${connected ? 'bg-emerald-400' : 'bg-neutral-500'}`} />
-      <span className="whitespace-nowrap">{connected ? 'Agent connected' : 'No agent'}</span>
-      <span className="whitespace-nowrap text-neutral-500">· {count} tools</span>
+    <div className="flex h-7 shrink-0 items-center gap-2 px-1 text-[11.5px]" title={title}>
+      <span className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${connected ? 'bg-ok' : 'bg-muted'}`} />
+      <span className="whitespace-nowrap text-muted">{connected ? 'Agent connected' : 'No agent'}</span>
+      <span className="whitespace-nowrap font-mono tabular-nums text-[11px] text-muted/70">{count} tools</span>
     </div>
   );
 }

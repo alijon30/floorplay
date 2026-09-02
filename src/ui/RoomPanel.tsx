@@ -1,14 +1,10 @@
 // src/ui/RoomPanel.tsx
 import { useEffect, useState } from 'react';
 import { useRoom } from '../store';
-import { BTN_PRIMARY, CARD, CLOSE, INPUT, LABEL, LINK } from './styles';
+import { BTN_PRIMARY, INPUT, LABEL, LINK, NUM } from './styles';
 
 /**
- * The room's own card on the right rail: size, budget, needs and notes.
- *
- * It stands where the inspector stands, and shows whenever nothing is selected, so the two
- * numbers people reach for most — how big the room is and how much they can spend — are on
- * screen instead of behind a top bar button.
+ * The Room tab of the properties column: size, budget, needs and notes.
  *
  * Every field is a draft until its Apply button is pressed. Typing must never write to the
  * ledger, or a four-digit budget would land as four separate entries to undo.
@@ -17,7 +13,6 @@ export default function RoomPanel() {
   const room = useRoom((s) => s.rooms[s.currentId]!);
   const dispatch = useRoom((s) => s.dispatch);
   const openDialog = useRoom((s) => s.openDialog);
-  const setRoomPanelOpen = useRoom((s) => s.setRoomPanelOpen);
 
   const [size, setSize] = useState({ width: room.width, depth: room.depth, height: room.height });
   const [budget, setBudget] = useState(String(room.brief.budget));
@@ -27,7 +22,7 @@ export default function RoomPanel() {
   const [briefError, setBriefError] = useState<string | null>(null);
 
   // Re-seed when the room underneath changes: switching rooms, or the agent resizing the
-  // shell by voice. The card has to read as the room, not as whatever was typed into it once.
+  // shell by voice. The tab has to read as the room, not as whatever was typed into it once.
   useEffect(() => {
     setSize({ width: room.width, depth: room.depth, height: room.height });
     setSizeError(null);
@@ -64,51 +59,42 @@ export default function RoomPanel() {
   };
 
   return (
-    <div className={`w-full p-3 text-sm ${CARD}`}>
-      <div className="mb-2 flex items-baseline gap-2">
-        <strong>Room</strong>
-        <span className="ml-auto min-w-0 truncate text-[11px] text-neutral-500" title={room.name}>{room.name}</span>
+    <div className="flex flex-col gap-3 p-3">
+      <section>
+        <div className={`mb-1.5 ${LABEL}`}>Dimensions</div>
+        <div className="grid grid-cols-3 gap-1.5">
+          {(['width', 'depth', 'height'] as const).map((k) => (
+            <label key={k} className="block">
+              <span className="mb-1 block text-[11px] capitalize text-muted">{k}</span>
+              <input
+                className={`${INPUT} ${NUM}`}
+                type="number"
+                min={1}
+                aria-label={`Room ${k} in cm`}
+                value={size[k]}
+                onChange={(e) => setSize({ ...size, [k]: num(e.target.value) })}
+              />
+            </label>
+          ))}
+        </div>
         <button
-          className={CLOSE}
-          aria-label="Close the room panel"
-          title="Close. The Room button in the top bar brings it back."
-          onClick={() => setRoomPanelOpen(false)}
-        >×</button>
-      </div>
+          className={`mt-2 w-full ${BTN_PRIMARY}`}
+          disabled={!sizeChanged}
+          title={sizeChanged ? 'Resize the room' : 'Change a number first'}
+          onClick={applySize}
+        >Apply size</button>
+        {sizeError && <p className="mt-1.5 text-[11px] text-bad" role="alert">{sizeError}</p>}
+        <p className="mt-1.5 text-[11px] leading-snug text-muted">Or ask your agent: <span className="text-fg">“make the room 400 by 500”</span>.</p>
+      </section>
 
-      <div className={`mb-1 ${LABEL}`}>Size (cm)</div>
-      <div className="grid grid-cols-3 gap-1.5">
-        {(['width', 'depth', 'height'] as const).map((k) => (
-          <label key={k} className="block text-[11px] text-neutral-400">
-            <span className="capitalize">{k}</span>
+      <section className="border-t border-line pt-3">
+        <div className={`mb-1.5 ${LABEL}`}>Brief</div>
+        <label className="block">
+          <span className="mb-1 block text-[11px] text-muted">Budget</span>
+          <span className="flex h-8 items-center gap-1.5 rounded-md border border-line bg-raised px-2 transition-colors focus-within:border-accent/70">
+            <span className="text-[11px] text-muted">$</span>
             <input
-              className={`mt-0.5 w-full ${INPUT}`}
-              type="number"
-              min={1}
-              aria-label={`Room ${k} in cm`}
-              value={size[k]}
-              onChange={(e) => setSize({ ...size, [k]: num(e.target.value) })}
-            />
-          </label>
-        ))}
-      </div>
-      <button
-        className={`mt-1.5 w-full ${BTN_PRIMARY}`}
-        disabled={!sizeChanged}
-        title={sizeChanged ? 'Resize the room' : 'Change a number first'}
-        onClick={applySize}
-      >Apply size</button>
-      {sizeError && <p className="mt-1 text-[11px] text-red-400" role="alert">{sizeError}</p>}
-      <p className="mt-1 text-[11px] text-neutral-500">Tip: ask your agent “make the room 400 by 500” to do this by voice.</p>
-
-      <div className="mt-3 border-t border-neutral-800 pt-2">
-        <div className={`mb-1 ${LABEL}`}>Brief</div>
-        <label className="block text-[11px] text-neutral-400">
-          Budget
-          <span className="mt-0.5 flex h-8 items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-2">
-            <span className="text-xs text-neutral-500">$</span>
-            <input
-              className="w-full bg-transparent text-xs text-neutral-100 outline-none"
+              className={`w-full bg-transparent text-[12.5px] text-fg outline-none ${NUM}`}
               type="number"
               min={0}
               aria-label="Budget in dollars"
@@ -117,33 +103,34 @@ export default function RoomPanel() {
             />
           </span>
         </label>
-        <label className="mt-1.5 block text-[11px] text-neutral-400">
-          Needs (comma separated)
+        <label className="mt-2 block">
+          <span className="mb-1 block text-[11px] text-muted">Needs</span>
           <input
-            className={`mt-0.5 w-full ${INPUT}`}
+            className={INPUT}
             aria-label="Needs, comma separated"
+            placeholder="sleep, work from home"
             value={needs}
             onChange={(e) => setNeeds(e.target.value)}
           />
         </label>
-        <label className="mt-1.5 block text-[11px] text-neutral-400">
-          Notes
+        <label className="mt-2 block">
+          <span className="mb-1 block text-[11px] text-muted">Notes</span>
           <textarea
-            className="mt-0.5 w-full rounded-md border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-100 outline-none transition-colors hover:border-neutral-600 focus-visible:ring-2 focus-visible:ring-emerald-500"
+            className="w-full rounded-md border border-line bg-raised px-2 py-1.5 text-[12.5px] leading-snug text-fg outline-none transition-colors hover:border-[#33333a] focus:border-accent/70 focus-visible:outline-none"
             rows={2}
             aria-label="Brief notes"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
           />
         </label>
-        <button className={`mt-1.5 w-full ${BTN_PRIMARY}`} onClick={applyBrief}>Apply brief</button>
-        {briefError && <p className="mt-1 text-[11px] text-red-400" role="alert">{briefError}</p>}
-      </div>
+        <button className={`mt-2 w-full ${BTN_PRIMARY}`} onClick={applyBrief}>Apply brief</button>
+        {briefError && <p className="mt-1.5 text-[11px] text-bad" role="alert">{briefError}</p>}
+      </section>
 
-      <div className="mt-2 flex flex-wrap gap-3 border-t border-neutral-800 pt-2">
+      <section className="flex flex-wrap gap-4 border-t border-line pt-3">
         <button className={LINK} onClick={() => openDialog('shell')}>Doors &amp; windows…</button>
         <button className={LINK} onClick={() => openDialog('style')}>Style…</button>
-      </div>
+      </section>
     </div>
   );
 }

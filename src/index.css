@@ -1,2 +1,100 @@
 @import "tailwindcss";
+
+/**
+ * The whole surface is built from ten colours and two typefaces.
+ *
+ * They are declared once, in `@theme`, so Tailwind generates `bg-panel`, `border-line`,
+ * `text-muted` and the rest from the same values the SVG plan and the 3D view read back
+ * through the short aliases below.
+ */
+@theme {
+  --color-bg: #0d0d0f;
+  --color-panel: #141417;
+  --color-raised: #1b1b1f;
+  --color-line: #26262b;
+  --color-fg: #ececef;
+  --color-muted: #8a8a94;
+  --color-accent: #5b8cff;
+  --color-warn: #d9a441;
+  --color-bad: #e0605a;
+  --color-ok: #5cc79a;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+}
+
+/** Short names for the same palette, for inline styles and SVG attributes. */
+:root {
+  --bg: var(--color-bg);
+  --panel: var(--color-panel);
+  --raised: var(--color-raised);
+  --line: var(--color-line);
+  --fg: var(--color-fg);
+  --muted: var(--color-muted);
+  --accent: var(--color-accent);
+  --warn: var(--color-warn);
+  --bad: var(--color-bad);
+  --ok: var(--color-ok);
+  color-scheme: dark;
+}
+
 html, body, #root { height: 100%; margin: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+}
+
+/* Numbers are read in columns — dimensions, prices, deltas — so they never reflow. */
+.num, input[type="number"] {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); }
+
+/* Thin, unobtrusive scrollbars: a panel that scrolls should say so quietly. */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: #303038;
+  border: 3px solid transparent;
+  border-radius: 8px;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: #3d3d47; background-clip: content-box; }
+
+/* One flat accent-coloured slider, 120 ms like everything else. */
+input[type="range"] {
+  appearance: none;
+  height: 14px;
+  background: transparent;
+  cursor: pointer;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--line);
+}
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  margin-top: -4.5px;
+  height: 12px;
+  width: 12px;
+  border-radius: 50%;
+  background: var(--fg);
+  transition: background 120ms ease;
+}
+input[type="range"]:hover::-webkit-slider-thumb { background: var(--accent); }
+
+/* Nothing bouncy: one duration, one curve. */
+@media (prefers-reduced-motion: no-preference) {
+  button, a, input, select, textarea { transition-duration: 120ms; transition-timing-function: cubic-bezier(0.2, 0, 0.2, 1); }
+}

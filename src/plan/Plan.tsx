@@ -1,24 +1,32 @@
 // src/plan/Plan.tsx
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRoom } from '../store';
 import type { PlacedItem, Rotation, Wall } from '../engine/types';
+import { WALLS } from '../engine/types';
 import { BLOCKING_KINDS, nearestValid } from '../engine/nearest';
 import { snapToWall, suggestPositions } from '../engine/anchors';
 import { itemViolations } from '../engine/validate';
 import { FLOOR_PLAN_FILL } from '../finishes';
+import Viewport from '../ui/Viewport';
+import { Icon } from '../ui/icons';
 import { ghostsFor, type Ghost } from './ghosts';
+import { ACCENT, PAPER } from './tokens';
 import Grid from './layers/Grid';
 import Shell from './layers/Shell';
 import Openings from './layers/Openings';
+import Dimensions from './layers/Dimensions';
 import Daylight from './layers/Daylight';
 import Violations from './layers/Violations';
 import Items, { type Fit } from './layers/Items';
 import Ghosts from './layers/Ghosts';
 
 const snap = (v: number) => Math.round(v / 5) * 5;
-const PAD = 40;
+/** Room to the wall band, the dimension run and its number, in centimetres. */
+const PAD = 62;
 /** Half the snap guide's stroke, so the 4 cm line sits just inside the wall it marks. */
 const SNAP_LINE_INSET = 2;
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 4;
 
 type Drag =
   | { kind: 'item'; id: string; offX: number; offY: number; moved: boolean }
@@ -34,12 +42,49 @@ function wallLine(wall: Wall, width: number, depth: number): { x1: number; y1: n
   }
 }
 
+/** The viewport's size in device pixels, so the drawing can size its text and handles in them. */
+function useSize(ref: React.RefObject<HTMLElement | null>) {
+  const [size, setSize] = useState({ w: 640, h: 640 });
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(([entry]) => {
+      const r = entry?.contentRect;
+      if (r && r.width > 0 && r.height > 0) setSize({ w: r.width, h: r.height });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ref]);
+  return size;
+}
+
+/** One of the plan's own tools. */
+function Tool({ on, label, icon, onClick }: { on?: boolean; label: string; icon: Parameters<typeof Icon>[0]['name']; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={on === undefined ? undefined : on}
+      title={label}
+      onClick={onClick}
+      className={`inline-flex h-7 w-7 items-center justify-center rounded-md border transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
+        on ? 'border-accent/50 bg-accent/12 text-accent' : 'border-black/8 bg-white/70 text-[#5c5c63] hover:bg-white hover:text-[#26262b]'
+      }`}
+    >
+      <Icon name={icon} />
+    </button>
+  );
+}
+
 export default function Plan() {
   const room = useRoom((s) => s.rooms[s.currentId]!);
   const analysis = useRoom((s) => s.analysis);
   const ui = useRoom((s) => s.ui);
-  const { dispatch, select, undo, updateProposalOp } = useRoom((s) => s);
+  const { dispatch, select, undo, updateProposalOp, setShowDaylight, setShowGrid, setNorthWall } = useRoom((s) => s);
   const svgRef = useRef<SVGSVGElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
+  const size = useSize(frameRef);
+  const [zoom, setZoom] = useState(1);
   const [drag, setDrag] = useState<Drag | null>(null);
   const [dragPos, setDragPos] = useState<{ id: string; x: number; y: number } | null>(null);
   const [ghostPos, setGhostPos] = useState<{ key: string; x: number; y: number } | null>(null);
@@ -50,6 +95,18 @@ export default function Plan() {
     const list = ghostsFor(room, room.proposals, ui.hoveredProposalId);
     return ghostPos ? list.map((g) => (`${g.proposalId}:${g.opIndex}` === ghostPos.key ? { ...g, x: ghostPos.x, y: ghostPos.y, rect: { ...g.rect, x: ghostPos.x - g.rect.w / 2, y: ghostPos.y - g.rect.h / 2 } } : g)) : list;
   }, [room, ui.hoveredProposalId, ghostPos]);
+
+  // The whole sheet, then zoom in on its middle. `u` is centimetres per screen pixel, and
+  // every text size and handle in the drawing is a multiple of it, so a 500 cm room and a
+  // 900 cm one carry labels the same height.
+  const view = useMemo(() => {
+    const bw = room.width + 2 * PAD, bh = room.depth + 2 * PAD;
+    const w = bw / zoom, h = bh / zoom;
+    const box = { x: -PAD + (bw - w) / 2, y: -PAD + (bh - h) / 2, w, h };
+    const u = Math.max(w / Math.max(1, size.w), h / Math.max(1, size.h));
+    return { box, u };
+  }, [room.width, room.depth, zoom, size.w, size.h]);
+  const u = view.u;
 
   const toCm = useCallback((e: { clientX: number; clientY: number }) => {
     const svg = svgRef.current!;
@@ -153,28 +210,69 @@ export default function Plan() {
 
   const guide = snapWall ? wallLine(snapWall, room.width, room.depth) : null;
 
+  const toolbar = (
+    <>
+      <div role="group" aria-label="North wall" className="inline-flex h-7 items-center gap-px rounded-md border border-black/8 bg-white/70 p-px">
+        <span className="px-1.5 text-[10px] font-medium uppercase tracking-[0.08em] text-[#8a8a84]">N</span>
+        {WALLS.map((w) => (
+          <button
+            key={w}
+            type="button"
+            aria-label={`North is the ${w} wall`}
+            aria-pressed={room.northWall === w}
+            title={`North is the ${w} wall`}
+            onClick={() => setNorthWall(w)}
+            className={`inline-flex h-[22px] w-[22px] items-center justify-center rounded-[4px] font-mono text-[10px] uppercase transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
+              room.northWall === w ? 'bg-accent/15 font-medium text-accent' : 'text-[#6d6d74] hover:text-[#26262b]'
+            }`}
+          >{w[0]}</button>
+        ))}
+      </div>
+      <Tool on={ui.showGrid} label="Grid" icon="grid" onClick={() => setShowGrid(!ui.showGrid)} />
+      <Tool
+        on={ui.showDaylight}
+        label="Show daylight overlay on the plan"
+        icon={ui.showDaylight ? 'sun' : 'sunOff'}
+        onClick={() => setShowDaylight(!ui.showDaylight)}
+      />
+      <Tool label="Fit to view" icon="fit" onClick={() => setZoom(1)} />
+    </>
+  );
+
   return (
-    <div className="h-full w-full bg-neutral-950 outline-none" tabIndex={0} onKeyDown={onKey} onDragOver={(e) => e.preventDefault()} onDrop={onDrop}>
-      <svg
-        ref={svgRef}
-        className="h-full w-full select-none"
-        viewBox={`${-PAD} ${-PAD} ${room.width + 2 * PAD} ${room.depth + 2 * PAD}`}
-        preserveAspectRatio="xMidYMid meet"
-        onPointerMove={onMove}
-        onPointerUp={onUp}
-        onPointerLeave={onUp}
-        onPointerDown={() => select(null)}
+    <Viewport label="Plan" tone="light" toolbar={toolbar}>
+      <div
+        ref={frameRef}
+        className="h-full w-full outline-none"
+        style={{ background: PAPER }}
+        tabIndex={0}
+        onKeyDown={onKey}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={onDrop}
+        onWheel={(e) => setZoom((z) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z * Math.exp(-e.deltaY * 0.0012))))}
       >
-        <rect x={0} y={0} width={room.width} height={room.depth} fill={FLOOR_PLAN_FILL[room.finish.floor]} />
-        <Grid width={room.width} depth={room.depth} />
-        {ui.showDaylight && <Daylight d={analysis.daylight} />}
-        <Shell width={room.width} depth={room.depth} />
-        <Openings room={room} />
-        <Items room={room} selectedId={ui.selectedItemId} dragPos={dragPos} fit={fit} onPointerDown={onItemDown} />
-        {guide && <line x1={guide.x1} y1={guide.y1} x2={guide.x2} y2={guide.y2} stroke="#34d399" strokeWidth={4} strokeLinecap="round" pointerEvents="none" />}
-        <Violations violations={analysis.violations} selectedId={ui.selectedItemId} />
-        <Ghosts ghosts={ghosts} dim={!ui.hoveredProposalId && room.proposals.length > 1} onPointerDown={onGhostDown} />
-      </svg>
-    </div>
+        <svg
+          ref={svgRef}
+          className="h-full w-full select-none"
+          viewBox={`${view.box.x} ${view.box.y} ${view.box.w} ${view.box.h}`}
+          preserveAspectRatio="xMidYMid meet"
+          onPointerMove={onMove}
+          onPointerUp={onUp}
+          onPointerLeave={onUp}
+          onPointerDown={() => select(null)}
+        >
+          <rect x={0} y={0} width={room.width} height={room.depth} fill={FLOOR_PLAN_FILL[room.finish.floor]} />
+          {ui.showGrid && <Grid width={room.width} depth={room.depth} u={u} />}
+          {ui.showDaylight && <Daylight d={analysis.daylight} />}
+          <Shell room={room} />
+          <Openings room={room} u={u} />
+          <Items room={room} selectedId={ui.selectedItemId} dragPos={dragPos} fit={fit} u={u} onPointerDown={onItemDown} />
+          {guide && <line x1={guide.x1} y1={guide.y1} x2={guide.x2} y2={guide.y2} stroke={ACCENT} strokeWidth={3} strokeLinecap="round" vectorEffect="non-scaling-stroke" pointerEvents="none" />}
+          <Violations violations={analysis.violations} selectedId={ui.selectedItemId} u={u} />
+          <Ghosts ghosts={ghosts} dim={!ui.hoveredProposalId && room.proposals.length > 1} u={u} onPointerDown={onGhostDown} />
+          <Dimensions width={room.width} depth={room.depth} u={u} />
+        </svg>
+      </div>
+    </Viewport>
   );
 }

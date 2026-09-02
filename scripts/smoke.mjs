@@ -55,6 +55,8 @@ async function main() {
     return JSON.parse(r?.content?.[0]?.text ?? '{}');
   };
   const settle = (ms = 350) => page.waitForTimeout(ms);
+  /** Park the cursor over empty 3D, so no control photographs in its hover style. */
+  const park = () => page.mouse.move(1000, 700);
 
   try {
     await page.goto(url, { waitUntil: 'load' });
@@ -94,7 +96,7 @@ async function main() {
     await shot('proposals');
 
     // 3. hover the first card so its ghosts light up
-    const card = page.locator('div.w-56').filter({ hasText: 'Bed by the window' }).first();
+    const card = page.getByRole('group', { name: 'Bed by the window' }).first();
     await card.hover();
     await settle();
     await shot('hover-proposal');
@@ -116,11 +118,15 @@ async function main() {
     await settle();
     await shot('snapped');
 
-    // 7. that desk lands on the one from the accepted layout, so the issues panel should open
-    const issuesHeader = page.getByText(/^Issues \(\d+\)$/).first();
-    if (await issuesHeader.count() > 0) {
-      findings.issues = (await issuesHeader.textContent())?.trim() ?? null;
-      await shot('issues');
+    // 7. that desk lands on the one from the accepted layout, so the Issues tab should fill.
+    // The tab carries the count as a badge; its panel repeats it as a heading.
+    await page.getByRole('tab', { name: /^Issues/ }).click();
+    await settle();
+    const issuesHeader = page.getByRole('heading', { name: /^Issues \(\d+\)$/ }).first();
+    const hasIssues = await issuesHeader.count() > 0;
+    findings.issues = hasIssues ? (await issuesHeader.textContent())?.trim() ?? null : 'none';
+    await shot('issues');
+    if (hasIssues) {
       // Clear it with the agent's own repair tool so the later shots show a settled room.
       const newest = placed.items?.[placed.items.length - 1];
       if (newest) {
@@ -128,9 +134,10 @@ async function main() {
         findings.fixItem = { status: fixed.status ?? null, error: fixed.error ?? null };
       }
       await settle();
-    } else {
-      findings.issues = 'none';
     }
+    // back to the room, which is what the rest of the run photographs
+    await page.getByRole('tab', { name: 'Room' }).click();
+    await settle();
 
     // 8. daylight sweep
     for (const hour of [9, 12, 17]) {
@@ -146,7 +153,7 @@ async function main() {
     // the room filter and the category chips narrow the list together
     await page.getByRole('button', { name: 'bedroom', exact: true }).click();
     await page.getByRole('button', { name: 'bed', exact: true }).click();
-    await page.mouse.move(400, 860);
+    await park();
     await settle();
     await shot('catalog-filtered');
     await page.getByRole('button', { name: 'Catalog', exact: true }).click();
@@ -207,7 +214,7 @@ async function main() {
     }
 
     // 17. the same eight as cards in the new-room wizard
-    await page.getByRole('button', { name: 'My rooms ▾' }).click();
+    await page.getByRole('button', { name: 'My rooms' }).click();
     await page.getByRole('button', { name: 'New room', exact: true }).click();
     await page.getByText('Ready-made rooms').waitFor({ timeout: 10_000 });
     await settle(400);
@@ -283,9 +290,9 @@ async function main() {
     await shot('agent-colors');
 
     // 23. shadows off: the 3D view keeps rendering, just flat
-    await page.getByText('Shadows', { exact: true }).click();
+    await page.getByRole('button', { name: 'Shadows', exact: true }).click();
     // Park the cursor off the control first: a hovered toggle photographs in its hover style.
-    await page.mouse.move(400, 860);
+    await park();
     await settle(900);
     await shot('shadows-off');
     findings.shadowsOff = await page.evaluate((key) => {
@@ -298,14 +305,14 @@ async function main() {
 
     // 23b. and back on: the cast shadows under the furniture have to return. The pair of
     // screenshots either side of this is the whole test for the toggle actually applying.
-    await page.getByText('Shadows', { exact: true }).click();
-    await page.mouse.move(400, 860);
+    await page.getByRole('button', { name: 'Shadows', exact: true }).click();
+    await park();
     await settle(1200);
     await shot('shadows-on');
 
     // 24. daylight overlay off: the plan loses its yellow wash
     await page.getByRole('button', { name: 'Show daylight overlay on the plan' }).click();
-    await page.mouse.move(400, 860);
+    await park();
     await settle(500);
     await shot('daylight-off');
     findings.shades = await page.evaluate((key) => {
@@ -316,7 +323,7 @@ async function main() {
     // 25. the room panel: the right rail's card whenever nothing is selected, carrying the two
     // numbers people hunt for most.
     await page.getByLabel('Room width in cm').waitFor({ timeout: 10_000 });
-    await page.mouse.move(400, 860);
+    await park();
     await settle(400);
     await shot('room-panel');
 
@@ -324,11 +331,11 @@ async function main() {
     await page.getByLabel('Room width in cm').fill('400');
     await page.getByRole('button', { name: 'Apply size' }).click();
     await settle(900);
-    findings.roomPanelResize = (await page.getByRole('button', { name: /^Room \d+×\d+$/ }).first().textContent())?.trim() ?? null;
-    if (!/^Room 400×/.test(findings.roomPanelResize ?? '')) {
+    findings.roomPanelResize = (await page.getByTitle('Room size in centimetres').first().textContent())?.trim() ?? null;
+    if (!/^400 ×/.test(findings.roomPanelResize ?? '')) {
       throw new Error(`Applying 400 cm in the room panel left the top bar reading ${JSON.stringify(findings.roomPanelResize)}`);
     }
-    await page.mouse.move(400, 860);
+    await park();
     await settle(400);
     await shot('room-resized');
 
@@ -336,11 +343,11 @@ async function main() {
     await page.getByLabel('Budget in dollars').fill('900');
     await page.getByRole('button', { name: 'Apply brief' }).click();
     await settle(600);
-    findings.roomPanelBudget = (await page.locator('div[title^="Total price of everything placed"]').first().textContent())?.trim() ?? null;
+    findings.roomPanelBudget = (await page.getByTitle(/^Total price of everything placed/).first().textContent())?.trim() ?? null;
     if (!/\/ \$900$/.test(findings.roomPanelBudget ?? '')) {
       throw new Error(`Applying a $900 budget left the chip reading ${JSON.stringify(findings.roomPanelBudget)}`);
     }
-    await page.mouse.move(400, 860);
+    await park();
     await settle(400);
     await shot('room-brief');
 
@@ -363,7 +370,7 @@ async function main() {
     await page.getByRole('button', { name: 'Close the room panel' }).click();
     await settle(400);
     if (await page.getByLabel('Room width in cm').count() !== 0) throw new Error('The room panel did not close');
-    await page.mouse.move(400, 860);
+    await park();
     await settle(300);
     await shot('room-panel-closed');
     findings.roomPanelClosed = await page.evaluate((key) => {
@@ -378,15 +385,25 @@ async function main() {
     await page.getByLabel('Room width in cm').waitFor({ timeout: 10_000 });
     await settle(300);
     await shot('room-panel-reopened');
-    // and so does the top bar's own Room button, which opens no dialog of its own
+    // the rail's Room button opens the column and no dialog of its own
     await page.getByRole('button', { name: 'Close the room panel' }).click();
     await settle(300);
-    await page.getByRole('button', { name: /^Room \d+×\d+$/ }).first().click();
+    await page.getByRole('button', { name: 'Room', exact: true }).click();
     await page.getByLabel('Room width in cm').waitFor({ timeout: 10_000 });
     if (await page.getByRole('heading', { name: 'Room shell' }).count() !== 0) {
-      throw new Error('The top bar Room button opened the shell dialog as well as the panel');
+      throw new Error('The rail Room button opened the shell dialog as well as the column');
     }
     await settle(300);
+
+    // 30. the Issues tab of the properties column, and the ledger opened out
+    await page.getByRole('tab', { name: /^Issues/ }).click();
+    await park();
+    await settle(400);
+    await shot('properties-issues');
+    await page.getByRole('button', { name: /^Ledger/ }).click();
+    await park();
+    await settle(400);
+    await shot('ledger-expanded');
 
     const toolNames = await page.evaluate(() => globalThis.__floorplayFakeMC.getTools().map((t) => t.name));
     const toolCount = toolNames.length;

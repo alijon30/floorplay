@@ -7,20 +7,21 @@ import { nearestValid } from '../engine/nearest';
 import { suggestPositions } from '../engine/anchors';
 import { alternativesFor } from '../engine/alternatives';
 import { ItemGlyph } from '../plan/glyphs';
-import { BTN_QUIET, BTN_SM, BTN_SM_ON, CLOSE, INPUT, ROW } from './styles';
+import { Icon } from './icons';
+import { BTN_SM, BTN_SM_ON, CLOSE, INPUT, LABEL, NUM, TITLE } from './styles';
 
 /**
  * One horizontally scrolling line of filter chips. Twenty categories should cost one row, not
- * five, so the list they filter starts near the top of the drawer. The fade on the right edge
+ * five, so the list they filter starts near the top of the panel. The fade on the right edge
  * is the only thing saying there is more to scroll to.
  */
 function ChipRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="relative shrink-0">
-      <div role="group" aria-label={label} className="flex gap-1 overflow-x-auto px-2 pb-1.5 whitespace-nowrap">
+      <div role="group" aria-label={label} className="flex gap-1 overflow-x-auto px-2.5 pb-1.5 whitespace-nowrap">
         {children}
       </div>
-      <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-neutral-900 to-transparent" />
+      <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-panel to-transparent" />
     </div>
   );
 }
@@ -72,23 +73,23 @@ export default function CatalogDrawer() {
   };
 
   return (
-    <aside className="flex h-full w-72 shrink-0 flex-col border-r border-neutral-800 bg-neutral-900 text-sm">
-      <div className="flex h-10 shrink-0 items-center justify-between border-b border-neutral-800 px-3">
-        <strong className="text-sm">{fitsItem ? 'Alternatives' : 'Catalog'}</strong>
-        <button className={CLOSE} aria-label="Close the catalog" onClick={() => setCatalogOpen(false)}>×</button>
+    <aside className="flex h-full w-72 shrink-0 flex-col border-r border-line bg-panel">
+      <div className="flex h-10 shrink-0 items-center justify-between border-b border-line px-2.5">
+        <strong className={TITLE}>{fitsItem ? 'Alternatives' : 'Catalog'}</strong>
+        <button className={CLOSE} aria-label="Close the catalog" onClick={() => setCatalogOpen(false)}><Icon name="close" size={13} /></button>
       </div>
       {fitsItem ? (
         <div className="flex-1 space-y-1 overflow-auto p-2">
-          {alternatives.length === 0 && <p className="text-xs text-neutral-500">Nothing else in this category.</p>}
+          {alternatives.length === 0 && <p className="px-0.5 text-[11.5px] text-muted">Nothing else in this category.</p>}
           {alternatives.map((a) => {
             const cat = byId.get(a.catalogId);
             return (
-              <div key={a.catalogId} className={`flex items-center gap-2 p-2 ${ROW}`}>
+              <div key={a.catalogId} className="flex items-center gap-2.5 rounded-md border border-line bg-raised p-2">
                 {cat && <ItemGlyph shape={cat.shape} color={cat.color} w={cat.width} h={cat.depth} />}
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-xs text-neutral-100">{a.name}</div>
-                  <div className="text-[11px] text-neutral-500">
-                    {a.width}×{a.depth}×{a.height} · ${a.price} · {a.fits ? <span className="text-emerald-400">fits</span> : <span className="text-amber-400">does not fit</span>}
+                  <div className="truncate text-[12px] text-fg">{a.name}</div>
+                  <div className={`text-[11px] text-muted ${NUM}`}>
+                    {a.width}×{a.depth}×{a.height} · ${a.price} · {a.fits ? <span className="text-ok">fits</span> : <span className="text-warn">too big</span>}
                   </div>
                 </div>
                 <button className={BTN_SM_ON} onClick={() => replace(a.catalogId)}>Replace</button>
@@ -98,44 +99,46 @@ export default function CatalogDrawer() {
         </div>
       ) : (
         <>
-          <div className="p-2 pb-1.5">
-            <input className={`${INPUT} w-full`} placeholder="Search" aria-label="Search the catalog" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <div className="p-2.5 pb-2">
+            <input className={INPUT} placeholder="Search the catalog" aria-label="Search the catalog" value={query} onChange={(e) => setQuery(e.target.value)} />
           </div>
+          <div className={`px-2.5 pb-1 ${LABEL}`}>Room</div>
           <ChipRow label="Room kinds">
-            <button className={roomKind === null ? 'shrink-0 rounded-full bg-sky-800 px-2 py-0.5 text-xs text-sky-100' : 'shrink-0 rounded-full bg-neutral-800 px-2 py-0.5 text-xs text-neutral-300 hover:bg-neutral-700'} onClick={() => setRoomKind(null)}>All rooms</button>
+            <button className={roomKind === null ? BTN_SM_ON : BTN_SM} onClick={() => setRoomKind(null)}>All rooms</button>
             {ROOM_KINDS.map((k) => (
-              <button key={k} className={roomKind === k ? 'shrink-0 rounded-full bg-sky-800 px-2 py-0.5 text-xs capitalize text-sky-100' : 'shrink-0 rounded-full bg-neutral-800 px-2 py-0.5 text-xs capitalize text-neutral-300 hover:bg-neutral-700'} onClick={() => setRoomKind(k)}>{k}</button>
+              <button key={k} className={`capitalize ${roomKind === k ? BTN_SM_ON : BTN_SM}`} onClick={() => setRoomKind(k)}>{k}</button>
             ))}
           </ChipRow>
+          <div className={`px-2.5 pb-1 pt-1 ${LABEL}`}>Category</div>
           <ChipRow label="Categories">
             <button className={category === null ? BTN_SM_ON : BTN_SM} onClick={() => setCategory(null)}>all</button>
             {CATEGORIES.map((c) => <button key={c} className={category === c ? BTN_SM_ON : BTN_SM} onClick={() => setCategory(c)}>{c}</button>)}
           </ChipRow>
-          <div className="flex-1 space-y-1 overflow-auto p-2 pt-1">
-            {items.length === 0 && <p className="text-xs text-neutral-500">Nothing matches that filter.</p>}
+          <div className="min-h-0 flex-1 space-y-1 overflow-auto p-2 pt-1.5">
+            {items.length === 0 && <p className="px-0.5 text-[11.5px] text-muted">Nothing matches that filter.</p>}
             {items.map((c) => (
               <div
                 key={c.id}
                 draggable
                 onDragStart={(e) => e.dataTransfer.setData('text/floorplay-catalog', c.id)}
-                className={`flex cursor-grab items-center gap-2 p-2 transition-colors hover:border-emerald-600 ${ROW}`}
+                className="group flex cursor-grab items-center gap-2.5 rounded-md border border-line bg-raised p-2 transition-colors hover:border-accent/40"
               >
                 {/* The mark the plan will draw, in the colour it will draw it. */}
                 <ItemGlyph shape={c.shape} color={c.color} w={c.width} h={c.depth} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <span className="truncate text-xs text-neutral-100">{c.name}</span>
-                    {c.source === 'agent' && <span className="shrink-0 rounded bg-sky-900 px-1 text-[10px] text-sky-200">from agent</span>}
+                    <span className="truncate text-[12px] text-fg">{c.name}</span>
+                    {c.source === 'agent' && <span className="shrink-0 rounded bg-accent/15 px-1 text-[10px] text-accent">agent</span>}
                   </div>
-                  <div className="text-[11px] text-neutral-500">{c.width}×{c.depth}×{c.height} cm · ${c.price}</div>
+                  <div className={`text-[11px] text-muted ${NUM}`}>{c.width}×{c.depth}×{c.height} · ${c.price}</div>
                   {/* A few dots are enough to say "this one comes in other finishes". */}
                   {c.colors && c.colors.length > 0 && (
                     <div className="mt-1 flex gap-1">
-                      {c.colors.slice(0, 5).map((col) => <span key={col} className="inline-block h-2 w-2 rounded-full ring-1 ring-neutral-700" style={{ background: col }} />)}
+                      {c.colors.slice(0, 5).map((col) => <span key={col} className="inline-block h-2 w-2 rounded-full ring-1 ring-line" style={{ background: col }} />)}
                     </div>
                   )}
                 </div>
-                <button className={BTN_QUIET} onClick={() => place(c.id)}>Place</button>
+                <button className={BTN_SM} onClick={() => place(c.id)}>Place</button>
               </div>
             ))}
           </div>

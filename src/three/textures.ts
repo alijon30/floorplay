@@ -179,3 +179,31 @@ export function makeFloorTexture(finish: FloorFinish): THREE.CanvasTexture | nul
 export const FLOOR_FALLBACK: Record<FloorFinish, string> = {
   oak: '#c8b79a', walnut: '#6b4a32', ash: '#d6c6ac', grey: '#9a9a99', tile: '#cfd6da',
 };
+
+let groundFade: THREE.CanvasTexture | null | undefined;
+
+/**
+ * The soft pool of light the room stands in.
+ *
+ * Without it the floor ends at a hard rectangle and the room reads as a cutout floating in
+ * front of the background. One radial gradient, drawn once, sitting a millimetre under the
+ * floor and spilling well past it — light rather than shade, because a shadow on a near-black
+ * backdrop is a shadow nobody can see.
+ */
+export function makeGroundFadeTexture(): THREE.CanvasTexture | null {
+  if (groundFade !== undefined) return groundFade;
+  const made = newCanvas();
+  if (!made) { groundFade = null; return null; }
+  const { canvas, ctx } = made;
+  const half = SIZE / 2;
+  const g = ctx.createRadialGradient(half, half, SIZE * 0.14, half, half, half);
+  g.addColorStop(0, 'rgba(255,255,255,0.14)');
+  g.addColorStop(0.42, 'rgba(255,255,255,0.05)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, SIZE, SIZE);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  groundFade = tex;
+  return tex;
+}
