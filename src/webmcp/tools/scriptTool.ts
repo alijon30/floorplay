@@ -3,7 +3,7 @@ import type { ToolDef } from '../registry';
 import { ok, fail } from '../results';
 import { strProp } from '../schemas';
 import type { ToolContext } from './context';
-import { shortViolations } from './context';
+import { shortMetrics, shortViolations } from './context';
 import { placementsToOps, type Placement } from './placements';
 import { metricsDelta } from '../../engine/metrics';
 import type { Room } from '../../engine/types';
@@ -33,7 +33,9 @@ export function buildScriptTool(ctx: ToolContext): ToolDef {
       if (!mapped.ok) return fail(mapped.error, mapped.hint);
       const p = s.propose({ label: i['label'] as string, ops: mapped.ops });
       if (!p.ok) return fail(p.error, p.message);
-      return ok({ status: 'proposed', proposalId: p.proposal.id, placements: r.placements.length, delta: metricsDelta(p.proposal.metricsBefore, p.proposal.metricsAfter), violationsAfter: shortViolations(p.proposal.violationsAfter) });
+      // Same payload shape as `propose_layout`, plus the placement count, so every
+      // proposed result reads the same way to the agent.
+      return ok({ status: 'proposed', proposalId: p.proposal.id, label: p.proposal.label, delta: metricsDelta(p.proposal.metricsBefore, p.proposal.metricsAfter), violations: shortViolations(p.proposal.violationsAfter), metrics: shortMetrics(p.proposal.metricsAfter), placements: r.placements.length });
     },
   };
 }
