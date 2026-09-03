@@ -14,7 +14,7 @@ function setup() {
 describe('mutating tools', () => {
   it('exposes the documented tool names', () => {
     const { tools } = setup();
-    expect(Object.keys(tools).sort()).toEqual(['add_catalog_item', 'add_opening', 'apply_layout', 'apply_palette', 'clear_items', 'create_room', 'delete_room', 'fix_item', 'load_template', 'move_item', 'place_item', 'propose_layout', 'remove_item', 'remove_opening', 'rename_room', 'revert_to_entry', 'rotate_item', 'select_item', 'set_brief', 'set_camera', 'set_daylight_hour', 'set_finish', 'set_item_color', 'set_item_locked', 'set_room_shell', 'set_view', 'swap_item', 'switch_room', 'undo_last_action']);
+    expect(Object.keys(tools).sort()).toEqual(['add_catalog_item', 'add_opening', 'apply_layout', 'apply_palette', 'clear_items', 'create_room', 'delete_room', 'fix_item', 'load_template', 'move_item', 'move_opening', 'place_item', 'propose_layout', 'remove_item', 'remove_opening', 'rename_room', 'revert_to_entry', 'rotate_item', 'select_item', 'set_brief', 'set_camera', 'set_daylight_hour', 'set_finish', 'set_item_color', 'set_item_locked', 'set_room_shell', 'set_view', 'swap_item', 'switch_room', 'undo_last_action']);
     expect(tools['place_item']!.annotations).toBeUndefined();
   });
 
@@ -181,5 +181,24 @@ describe('mutating tools', () => {
     const u = await run('undo_last_action');
     expect(u).toMatchObject({ ok: true });
     expect(store.getState().current().items).toHaveLength(0);
+  });
+});
+
+describe('move_opening', () => {
+  it('moves a window by id, proposes under propose-first, and explains a bad offset', async () => {
+    const { store, run } = setup();
+    const win = store.getState().current().openings.find((o) => o.kind === 'window')!;
+    expect(await run('move_opening', { id: win.id, offset: win.offset + 30 })).toMatchObject({ ok: true, status: 'applied' });
+    expect(store.getState().current().openings.find((o) => o.id === win.id)?.offset).toBe(win.offset + 30);
+
+    const bad = await run('move_opening', { id: win.id, offset: 100000 });
+    expect(bad['ok']).toBe(false);
+    expect(String(bad['hint'] ?? bad['error'])).toMatch(/past the end/);
+    expect(await run('move_opening', { id: 'nope', offset: 10 })).toMatchObject({ ok: false, error: 'not_found' });
+
+    store.getState().setProposeFirst(true);
+    const proposed = await run('move_opening', { id: win.id, offset: win.offset });
+    expect(proposed['status']).toBe('proposed');
+    expect(store.getState().current().proposals).toHaveLength(1);
   });
 });

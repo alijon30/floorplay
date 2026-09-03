@@ -3,6 +3,7 @@ import { useState } from 'react';
 import Modal from './Modal';
 import { useRoom } from '../store';
 import { WALLS, type Wall } from '../engine/types';
+import type { Opening } from '../engine/types';
 import { newId } from '../engine/ids';
 import { Icon } from './icons';
 import { BTN_PRIMARY, BTN_QUIET, FOCUS, INPUT, LABEL, NUM } from './styles';
@@ -25,6 +26,12 @@ export default function ShellDialog({ onClose }: { onClose: () => void }) {
     setError(r.ok ? null : r.message);
   };
   const num = (v: string) => Math.max(1, Number(v) || 1);
+  const moveOpening = (o: Opening, value: string) => {
+    const offset = Math.round(Number(value));
+    if (!Number.isFinite(offset) || offset === o.offset) return;
+    const r = dispatch({ actor: 'human', ops: [{ type: 'moveOpening', id: o.id, wall: o.wall, offset }] });
+    setError(r.ok ? null : r.message);
+  };
   return (
     <Modal title="Room shell" onClose={onClose}>
       <div className={`mb-2 ${LABEL}`}>Size (cm)</div>
@@ -45,7 +52,22 @@ export default function ShellDialog({ onClose }: { onClose: () => void }) {
           <li key={o.id} className="flex items-center gap-2 px-2 py-1.5 text-[11.5px]">
             <Icon name={o.kind === 'door' ? 'room' : 'grid'} size={13} className="text-muted" />
             <span className="capitalize text-fg">{o.kind}</span>
-            <span className={`text-muted ${NUM}`}>{o.wall} · offset {o.offset} · width {o.width}</span>
+            <span className={`text-muted ${NUM}`}>{o.wall} ·</span>
+            <label className="flex items-center gap-1 text-muted">
+              offset
+              <input
+                key={`${o.id}:${o.offset}`}
+                className={`${INPUT} ${NUM} w-16 py-0.5`}
+                type="number"
+                defaultValue={o.offset}
+                disabled={!!o.doorwayId}
+                title={o.doorwayId ? 'A doorway between rooms moves from the Home plan' : 'Distance along the wall, in cm'}
+                aria-label={`Offset of the ${o.kind} on the ${o.wall} wall`}
+                onBlur={(e) => moveOpening(o, e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+              />
+            </label>
+            <span className={`text-muted ${NUM}`}>· width {o.width}</span>
             <button
               className={`ml-auto shrink-0 rounded p-0.5 text-muted transition-colors hover:bg-bad/12 hover:text-bad ${FOCUS}`}
               aria-label={`Remove ${o.kind} on the ${o.wall} wall`}

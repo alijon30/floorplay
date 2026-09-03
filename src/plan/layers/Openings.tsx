@@ -1,7 +1,7 @@
 // src/plan/layers/Openings.tsx
 import type { Opening, Room } from '../../engine/types';
 import { wallFacing } from '../../engine/geometry';
-import { ACCENT, INK, INK_DIM } from '../tokens';
+import { ACCENT, BAD, INK, INK_DIM } from '../tokens';
 import { wallBand } from './Shell';
 
 /**
@@ -59,6 +59,36 @@ function WindowGlyph({ room, o, u }: { room: Room; o: Opening; u: number }) {
   );
 }
 
-export default function Openings({ room, u }: { room: Room; u: number }) {
-  return <g>{room.openings.map((o) => (o.kind === 'door' ? <DoorGlyph key={o.id} room={room} o={o} /> : <WindowGlyph key={o.id} room={room} o={o} u={u} />))}</g>;
+export default function Openings({ room, u, onPointerDown, dragging }: {
+  room: Room;
+  u: number;
+  /** Given by the room plan, where an opening can be taken hold of and slid along its wall. */
+  onPointerDown?: (e: React.PointerEvent, o: Opening) => void;
+  dragging?: { id: string; ok: boolean } | null;
+}) {
+  return (
+    <g>
+      {room.openings.map((o) => (o.kind === 'door' ? <DoorGlyph key={o.id} room={room} o={o} /> : <WindowGlyph key={o.id} room={room} o={o} u={u} />))}
+      {/* The handle is the hole itself: the stretch of wall band the opening takes up. */}
+      {onPointerDown && room.openings.map((o) => {
+        const b = wallBand(room, o);
+        const fixed = !!o.doorwayId;
+        const held = dragging?.id === o.id;
+        return (
+          <rect
+            key={`hit-${o.id}`}
+            x={b.x} y={b.y} width={b.w} height={b.h}
+            fill={held && !dragging.ok ? BAD : ACCENT}
+            fillOpacity={held ? 0.35 : 0}
+            pointerEvents="all"
+            style={{ cursor: fixed ? 'default' : held ? 'grabbing' : 'grab' }}
+            aria-label={`${o.kind} on the ${o.wall} wall`}
+            onPointerDown={(e) => onPointerDown(e, o)}
+          >
+            <title>{fixed ? 'A doorway between rooms: remove it on the Home plan and cut it again where you want it' : `Drag to move this ${o.kind} along the wall`}</title>
+          </rect>
+        );
+      })}
+    </g>
+  );
 }

@@ -1,5 +1,5 @@
 // src/engine/ops.ts
-import type { Op, PlacedItem, Purchase, Room, RoomFinish, Wall } from './types';
+import type { Op, Opening, PlacedItem, Purchase, Room, RoomFinish, RoomShell, Wall } from './types';
 import { FLOOR_FINISHES, PURCHASE_STATUSES, WALLS } from './types';
 import { catalogFor, findCatalogItem } from './catalog';
 
@@ -53,6 +53,23 @@ function withPurchase(item: PlacedItem, purchase: Purchase | null): PlacedItem {
   return { ...item, purchase: clean };
 }
 
+/**
+ * Whether an opening sits within its wall and clear of the others on it.
+ *
+ * Checked when one is moved, by hand on the plan or by the agent, so a window can never be
+ * dragged off the end of the wall or through a door. `o` may be a changed copy of an opening
+ * the room already has; its own id is skipped when looking for a clash.
+ */
+export function openingFits(room: RoomShell & { openings: Opening[] }, o: Opening): { ok: true } | { ok: false; message: string } {
+  const length = o.wall === 'top' || o.wall === 'bottom' ? room.width : room.depth;
+  if (o.offset < 0 || o.offset + o.width > length) {
+    return { ok: false, message: `A ${o.width} cm ${o.kind} at ${o.offset} cm runs past the end of the ${o.wall} wall (${length} cm)` };
+  }
+  const clash = room.openings.find((x) => x.id !== o.id && x.wall === o.wall && x.offset < o.offset + o.width && x.offset + x.width > o.offset);
+  if (clash) return { ok: false, message: `It would overlap the ${clash.kind} at ${clash.offset} cm on the ${o.wall} wall` };
+  return { ok: true };
+}
+
 function applyOne(room: Room, op: Op): OneResult {
   switch (op.type) {
     case 'setShell': {
@@ -69,6 +86,15 @@ function applyOne(room: Room, op: Op): OneResult {
       const o = room.openings[at];
       if (!o) return fail('not_found', `No opening ${op.id}`);
       return { ok: true, room: { ...room, openings: room.openings.filter((x) => x.id !== op.id) }, inverse: [{ type: 'addOpening', opening: o, at }] };
+    }
+    case 'moveOpening': {
+      const o = room.openings.find((x) => x.id === op.id);
+      if (!o) return fail('not_found', `No opening ${op.id}`);
+      if (o.doorwayId) return fail('invalid', 'That door is a doorway between two rooms: remove it on the Home plan and cut it again where you want it');
+      const moved: Opening = { ...o, wall: op.wall, offset: op.offset };
+      const fit = openingFits(room, moved);
+      if (!fit.ok) return fail('invalid', fit.message);
+      return { ok: true, room: { ...room, openings: room.openings.map((x) => (x.id === op.id ? moved : x)) }, inverse: [{ type: 'moveOpening', id: op.id, wall: o.wall, offset: o.offset }] };
     }
     case 'setBrief':
       return { ok: true, room: { ...room, brief: op.brief }, inverse: [{ type: 'setBrief', brief: room.brief }] };
@@ -179,6 +205,7 @@ export function describeOps(room: Room, ops: Op[]): string {
       case 'setShell': return `Room set to ${op.width}x${op.depth} cm`;
       case 'addOpening': return `Added ${op.opening.kind} on ${op.opening.wall} wall`;
       case 'removeOpening': return `Removed opening ${op.id}`;
+      case 'moveOpening': return `Moved ${room.openings.find((x) => x.id === op.id)?.kind ?? 'opening'} to ${op.offset} cm on the ${op.wall} wall`;
       case 'setBrief': return `Brief updated (budget $${op.brief.budget})`;
       case 'place': return `Placed ${name(op.item.catalogId)} at (${op.item.x}, ${op.item.y})`;
       case 'move': return `Moved ${itemName(op.id)} to (${op.x}, ${op.y})`;

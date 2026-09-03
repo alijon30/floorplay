@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { makeDemoRoom } from '../rooms';
 import { placeTest } from '../validate';
-import { applyOps, describeOps } from '../ops';
+import { applyOps, describeOps, openingFits } from '../ops';
 import { nearestValid } from '../nearest';
 import { evaluateOps } from '../evaluate';
 import type { Op } from '../types';
@@ -170,5 +170,50 @@ describe('evaluateOps', () => {
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.analysis.metrics.budgetUsed).toBe(499);
     expect(room.items).toHaveLength(0);
+  });
+});
+
+describe('moveOpening', () => {
+  it('slides a window along its wall, and the inverse puts it back', () => {
+    const room = makeDemoRoom();
+    const win = room.openings.find((o) => o.kind === 'window')!;
+    const r = applyOps(room, [{ type: 'moveOpening', id: win.id, wall: win.wall, offset: win.offset + 40 }]);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.room.openings.find((o) => o.id === win.id)).toMatchObject({ wall: win.wall, offset: win.offset + 40, width: win.width });
+    const back = applyOps(r.room, r.inverse);
+    expect(back.ok && back.room.openings).toEqual(room.openings);
+    expect(describeOps(room, [{ type: 'moveOpening', id: win.id, wall: win.wall, offset: 200 }])).toBe(`Moved window to 200 cm on the ${win.wall} wall`);
+  });
+
+  it('carries a window to another wall', () => {
+    const room = makeDemoRoom();
+    const win = room.openings.find((o) => o.kind === 'window')!;
+    const other = win.wall === 'top' ? 'bottom' : 'top';
+    const r = applyOps(room, [{ type: 'moveOpening', id: win.id, wall: other, offset: 10 }]);
+    expect(r.ok, JSON.stringify(r)).toBe(true);
+  });
+
+  it('refuses to run past the end of the wall or through another opening', () => {
+    const room = makeDemoRoom();
+    const win = room.openings.find((o) => o.kind === 'window')!;
+    const length = win.wall === 'top' || win.wall === 'bottom' ? room.width : room.depth;
+    const off = applyOps(room, [{ type: 'moveOpening', id: win.id, wall: win.wall, offset: length - win.width + 1 }]);
+    expect(off.ok).toBe(false);
+    if (!off.ok) expect(off.message).toMatch(/past the end/);
+    const door = room.openings.find((o) => o.kind === 'door')!;
+    const clash = applyOps(room, [{ type: 'moveOpening', id: win.id, wall: door.wall, offset: door.offset }]);
+    expect(clash.ok).toBe(false);
+    if (!clash.ok) expect(clash.message).toMatch(/overlap the door/);
+    expect(openingFits(room, win).ok).toBe(true);
+  });
+
+  it('leaves a doorway half where it is', () => {
+    const room = makeDemoRoom();
+    const door = room.openings.find((o) => o.kind === 'door')!;
+    const joined = { ...room, openings: room.openings.map((o) => (o.id === door.id ? { ...o, doorwayId: 'dw1' } : o)) };
+    const r = applyOps(joined, [{ type: 'moveOpening', id: door.id, wall: door.wall, offset: door.offset + 20 }]);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.message).toMatch(/Home plan/);
   });
 });

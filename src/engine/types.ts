@@ -155,6 +155,8 @@ export type Op =
   /** `at` is an insert index; the opening is appended when absent. */
   | { type: 'addOpening'; opening: Opening; at?: number }
   | { type: 'removeOpening'; id: string }
+  /** Slides a door or window along its wall, or carries it to another; a doorway half refuses. */
+  | { type: 'moveOpening'; id: string; wall: Wall; offset: number }
   | { type: 'setBrief'; brief: Brief }
   /** `at` is an insert index; the item is appended when absent. */
   | { type: 'place'; item: PlacedItem; at?: number }

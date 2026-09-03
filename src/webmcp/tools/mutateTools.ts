@@ -154,6 +154,16 @@ export function buildMutateTools(ctx: ToolContext): ToolDef[] {
       execute: (i) => mutate(ctx, { tool: 'remove_opening', proposable: true, ops: [{ type: 'removeOpening', id: i['id'] as string }] }),
     },
     {
+      name: 'move_opening',
+      description: 'Move a door or window along its wall, or to another wall, by id (ids come from get_room). offset is measured from the left end of the top/bottom walls or the top end of the left/right walls. It must stay within the wall and clear of other openings. A door that is a doorway between two rooms cannot be moved this way: remove_doorway and cut_doorway instead.',
+      inputSchema: { type: 'object', properties: { id: idProp('Opening id'), offset: cm('New distance along the wall'), wall: { ...wallProp, description: 'Wall to carry it to; defaults to the wall it is on' } }, required: ['id', 'offset'] },
+      execute: (i) => {
+        const o = room().openings.find((x) => x.id === i['id']);
+        if (!o) return fail('not_found', 'Call get_room for opening ids');
+        return mutate(ctx, { tool: 'move_opening', proposable: true, ops: [{ type: 'moveOpening', id: o.id, wall: (i['wall'] as Wall | undefined) ?? o.wall, offset: num(i, 'offset') }] });
+      },
+    },
+    {
       name: 'set_brief',
       description: 'Update the design brief: budget in USD, needs (short phrases) and free-text notes. Omitted fields are kept.',
       inputSchema: { type: 'object', properties: { budget: numProp('Budget in USD', 0), needs: { type: 'array', description: 'What the room must support', items: strProp('Need') }, notes: strProp('Free text') } },

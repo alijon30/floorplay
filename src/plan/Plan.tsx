@@ -1,10 +1,11 @@
 // src/plan/Plan.tsx
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRoom } from '../store';
-import type { PlacedItem, Rotation, Wall } from '../engine/types';
+import type { PlacedItem, Rotation, Wall, Opening } from '../engine/types';
 import { WALLS } from '../engine/types';
 import { BLOCKING_KINDS, nearestValid } from '../engine/nearest';
 import { snapToWall, suggestPositions } from '../engine/anchors';
+import { openingFits } from '../engine/ops';
 import { itemViolations } from '../engine/validate';
 import { FLOOR_PLAN_FILL } from '../finishes';
 import Viewport from '../ui/Viewport';
@@ -31,7 +32,9 @@ const MAX_ZOOM = 4;
 
 type Drag =
   | { kind: 'item'; id: string; offX: number; offY: number; moved: boolean }
-  | { kind: 'ghost'; ghost: Ghost; offX: number; offY: number; moved: boolean };
+  | { kind: 'ghost'; ghost: Ghost; offX: number; offY: number; moved: boolean }
+  /** `grab` is where along the wall the pointer took hold, measured from the opening's offset. */
+  | { kind: 'opening'; id: string; grab: number; moved: boolean };
 
 /** Endpoints of the guide drawn along the inside face of `wall`. */
 function wallLine(wall: Wall, width: number, depth: number): { x1: number; y1: number; x2: number; y2: number } {
@@ -77,6 +80,7 @@ export default function Plan() {
   const [ghostPos, setGhostPos] = useState<{ key: string; x: number; y: number } | null>(null);
   const [fit, setFit] = useState<Fit>(null);
   const [snapWall, setSnapWall] = useState<Wall | null>(null);
+  const [openingPos, setOpeningPos] = useState<{ id: string; offset: number; ok: boolean } | null>(null);
 
   const ghosts = useMemo(() => {
     const list = ghostsFor(room, room.proposals, ui.hoveredProposalId);
@@ -94,6 +98,12 @@ export default function Plan() {
     return { box, u };
   }, [room.width, room.depth, zoom, size.w, size.h]);
   const u = view.u;
+  // While an opening is being dragged the shell and its glyph follow the pointer; the room
+  // itself changes only on the drop.
+  const drawn = useMemo(
+    () => (openingPos ? { ...room, openings: room.openings.map((o) => (o.id === openingPos.id ? { ...o, offset: openingPos.offset } : o)) } : room),
+    [room, openingPos],
+  );
 
   const toCm = useCallback((e: { clientX: number; clientY: number }) => {
     const svg = svgRef.current!;
@@ -118,9 +128,31 @@ export default function Plan() {
     setDrag({ kind: 'ghost', ghost, offX: ghost.x - p.x, offY: ghost.y - p.y, moved: false });
   };
 
+  // A door or window slides along its own wall and nowhere else: the pointer's position along
+  // that wall is all the drag reads, snapped to the same 5 cm the furniture uses.
+  const onOpeningDown = (e: React.PointerEvent, o: Opening) => {
+    e.stopPropagation();
+    select(null);
+    if (o.doorwayId) return;
+    const p = toCm(e);
+    (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+    const along = o.wall === 'top' || o.wall === 'bottom' ? p.x : p.y;
+    setDrag({ kind: 'opening', id: o.id, grab: along - o.offset, moved: false });
+  };
+
   const onMove = (e: React.PointerEvent) => {
     if (!drag) return;
     const p = toCm(e);
+    if (drag.kind === 'opening') {
+      const o = room.openings.find((x) => x.id === drag.id);
+      if (!o) return;
+      const horizontal = o.wall === 'top' || o.wall === 'bottom';
+      const length = horizontal ? room.width : room.depth;
+      const offset = Math.min(Math.max(0, snap((horizontal ? p.x : p.y) - drag.grab)), Math.max(0, length - o.width));
+      setOpeningPos({ id: o.id, offset, ok: openingFits(room, { ...o, offset }).ok });
+      setDrag({ ...drag, moved: true });
+      return;
+    }
     const x = snap(p.x + drag.offX), y = snap(p.y + drag.offY);
     if (drag.kind === 'item') {
       setDragPos({ id: drag.id, x, y });
@@ -150,6 +182,12 @@ export default function Plan() {
         }
       }
     }
+    if (drag.kind === 'opening' && drag.moved && openingPos) {
+      const o = room.openings.find((x) => x.id === drag.id);
+      if (o && openingPos.ok && openingPos.offset !== o.offset) {
+        dispatch({ actor: 'human', ops: [{ type: 'moveOpening', id: o.id, wall: o.wall, offset: openingPos.offset }] });
+      }
+    }
     if (drag.kind === 'ghost' && drag.moved && ghostPos) {
       const g = drag.ghost;
       const p = room.proposals.find((x) => x.id === g.proposalId);
@@ -157,7 +195,7 @@ export default function Plan() {
       if (op?.type === 'place') updateProposalOp(g.proposalId, g.opIndex, { type: 'place', item: { ...op.item, x: ghostPos.x, y: ghostPos.y } });
       if (op?.type === 'move') updateProposalOp(g.proposalId, g.opIndex, { ...op, x: ghostPos.x, y: ghostPos.y });
     }
-    setDrag(null); setDragPos(null); setGhostPos(null); setFit(null); setSnapWall(null);
+    setDrag(null); setDragPos(null); setGhostPos(null); setFit(null); setSnapWall(null); setOpeningPos(null);
   };
 
   const onKey = (e: React.KeyboardEvent) => {
@@ -256,8 +294,8 @@ export default function Plan() {
           <rect x={0} y={0} width={room.width} height={room.depth} fill={FLOOR_PLAN_FILL[room.finish.floor]} />
           {ui.showGrid && <Grid width={room.width} depth={room.depth} u={u} />}
           {ui.showDaylight && <Daylight d={analysis.daylight} />}
-          <Shell room={room} highlight={ui.highlightWall} />
-          <Openings room={room} u={u} />
+          <Shell room={drawn} highlight={ui.highlightWall} />
+          <Openings room={drawn} u={u} onPointerDown={onOpeningDown} dragging={openingPos} />
           <Items room={room} selectedId={ui.selectedItemId} dragPos={dragPos} fit={fit} u={u} onPointerDown={onItemDown} />
           {guide && <line x1={guide.x1} y1={guide.y1} x2={guide.x2} y2={guide.y2} stroke={ACCENT} strokeWidth={3} strokeLinecap="round" vectorEffect="non-scaling-stroke" pointerEvents="none" />}
           <Violations violations={analysis.violations} selectedId={ui.selectedItemId} u={u} />

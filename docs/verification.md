@@ -6,7 +6,7 @@
 - `npm run smoke -- <outDir>` boots Vite, drives the app with Playwright and writes 45 numbered
   screenshots plus `contact-sheet.png`. It exits non-zero on a page error or a failed assertion and
   prints a JSON summary; check that summary for `consoleErrors: []`, `pageErrors: []` and a static
-  tool count of 59.
+  tool count of 60.
   - Steps 1–31, screenshots `01`–`38` and the contact sheet, cover one room: the onboarding card,
     two proposals and accepting one, the wall snap, the Issues tab and `fix_item`, the daylight
     sweep, the catalog filters, 3D click-to-select, the camera presets, the dev panel, the eight
@@ -77,11 +77,11 @@ Start on a fresh profile (a private window, or clear site data and reload), then
 
 ## C. Chrome with the flag
 - Enable `chrome://flags/#enable-webmcp-testing`, restart, open the deployed URL.
-- DevTools → Application → WebMCP panel lists 59 tools with nothing selected; selecting an item adds four and deselecting removes them.
+- DevTools → Application → WebMCP panel lists 60 tools with nothing selected; selecting an item adds four and deselecting removes them.
 - Invoke `get_room` from the panel and confirm the JSON.
 
 ## D. ChatGPT in-app browser
-- Open the deployed URL in ChatGPT's browser. The agent chip turns green with 59 tools.
+- Open the deployed URL in ChatGPT's browser. The agent chip turns green with 60 tools.
 - Run the video script prompts below and confirm the plan updates live.
 
 ## E. Video script (under 3 minutes, with audio)

@@ -12,7 +12,7 @@ describe('installWebMCP', () => {
     const mc = new FakeModelContext();
     const { registry, isNative } = installWebMCP(store, mc);
     expect(isNative).toBe(false);
-    expect(mc.getTools()).toHaveLength(58);
+    expect(mc.getTools()).toHaveLength(59);
 
     const room = store.getState().current();
     store.getState().dispatch({ ops: [{ type: 'place', item: placeTest(room, 'wardrobe-100', 300, 100, 90, 'w') }], actor: 'human' });
@@ -31,7 +31,7 @@ describe('installWebMCP', () => {
 
     store.getState().select(null);
     expect(names()).not.toContain('move_selected');
-    expect(mc.getTools()).toHaveLength(58);
+    expect(mc.getTools()).toHaveLength(59);
   });
 
   it('proposal tools are always registered and apply atomically', async () => {

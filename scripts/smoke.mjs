@@ -92,6 +92,27 @@ async function main() {
     await page.getByRole('button', { name: 'Load the demo studio' }).click();
     await settle(600);
 
+    // 1a. a window slides along its wall by hand: take hold of the hole in the wall band and drag
+    const openingsBefore = (await toolJson('get_room', {})).room.openings;
+    const windowBefore = openingsBefore.find((o) => o.kind === 'window');
+    const handle = await page.locator(`rect[aria-label="window on the ${windowBefore.wall} wall"]`).boundingBox();
+    if (!handle) throw new Error('The window has no drag handle on the plan');
+    const hx = handle.x + handle.width / 2, hy = handle.y + handle.height / 2;
+    await page.mouse.move(hx, hy);
+    await page.mouse.down();
+    for (let i = 1; i <= 8; i++) await page.mouse.move(hx, hy - i * 12);
+    await page.mouse.up();
+    await settle(300);
+    const windowAfter = (await toolJson('get_room', {})).room.openings.find((o) => o.id === windowBefore.id);
+    findings.windowDrag = { wall: windowBefore.wall, from: windowBefore.offset, to: windowAfter?.offset ?? null };
+    if (!windowAfter || windowAfter.offset >= windowBefore.offset || windowAfter.wall !== windowBefore.wall) {
+      throw new Error(`Dragging the window did not slide it along its wall: ${JSON.stringify(findings.windowDrag)}`);
+    }
+    // Put it back so every later step sees the studio as its template draws it.
+    await toolJson('undo_last_action', {});
+    const restored = (await toolJson('get_room', {})).room.openings.find((o) => o.id === windowBefore.id);
+    if (restored?.offset !== windowBefore.offset) throw new Error(`Undo did not put the window back: ${JSON.stringify(restored)}`);
+
     // 2. two competing layout proposals from the agent
     await tool('propose_layout', {
       label: 'Bed by the window',
