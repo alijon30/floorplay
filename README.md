@@ -28,9 +28,10 @@ Floorplay is laid out like a drafting tool rather than a chat window.
 
 - **Top bar** — the brand mark, the room name, the room's size in centimetres, then undo, **My rooms** and the agent chip.
 - **Tool rail**, down the left edge — **Catalog** and **Room** at the top, **Style** and **Help** at the bottom. Each is an icon button with a tooltip and an accent bar while its surface is open.
+- **Properties column**, immediately right of the rail — **Catalog**, **Room**, **Style**, **Selection**, **Issues** and **Buy** tabs, with Issues carrying a count badge. Everything you press is down the left edge and everything you look at is to the right of it, so the plan never sits boxed in between two panels. Selecting anything anywhere switches to Selection and opens the column if it was shut.
 - **Plan viewport** — a drafting sheet: paper ground, a 10 cm fine grid over a 100 cm major grid, solid wall bands with doors and windows cut out of them, swing arcs, dimension lines with witness ticks, and outlined furniture with its own glyph. Its toolbar carries the north-wall control, the grid toggle, the daylight-overlay toggle and fit-to-view. The wheel zooms from 0.5x to 4x.
 - **3D viewport** — the same room in three.js, with its own orbit/walk, shadows and fit buttons. Clicking a piece here selects it everywhere.
-- **Properties column**, on the right — **Room**, **Selection** and **Issues** tabs, the last carrying a count badge. Selecting anything anywhere switches to Selection and opens the column if it was shut.
+- **Buy tab** — the room read back as a shopping list: one line per catalog id with a quantity, a line total, a status of To buy, Owned or Ordered, the shop it is coming from and a link, and a footer weighing what is still to buy against the budget. **Copy list** puts the whole thing on the clipboard as plain text.
 - **Ledger drawer** — one line showing the last action and the entry count, expanding to the full list with a **Revert** on every entry.
 - **Status strip** — six readings across the bottom (free floor, walkway, open area, budget, light at the selected item, issues), then the daylight hour slider and the **Propose first** switch.
 
@@ -98,13 +99,15 @@ Three viewport toggles turn the drawing down to plain geometry when you want it:
 
 All coordinates are integer centimeters from the room's top-left corner, items are placed by their center, and rotation is 0, 90, 180 or 270 degrees clockwise.
 
-There are 49 static tools plus 4 that appear only while an item is selected. Between them they cover everything a person can do in the app, so the agent is never stuck asking the user to click something. `run_layout_script` needs a real Web Worker for its sandbox, so it is registered only in a browser; the test harness's fake model context sees the other 48.
+There are 51 static tools plus 4 that appear only while an item is selected. Between them they cover everything a person can do in the app, so the agent is never stuck asking the user to click something. `run_layout_script` needs a real Web Worker for its sandbox, so it is registered only in a browser; the test harness's fake model context sees the other 50.
 
-Read-only tools: `get_room`, `get_catalog`, `suggest_positions`, `suggest_furniture`, `evaluate_layout`, `get_daylight`, `list_templates`, `suggest_palette`, `get_ledger`, `list_rooms`, `get_guide`.
+Read-only tools: `get_room`, `get_catalog`, `suggest_positions`, `suggest_furniture`, `evaluate_layout`, `get_daylight`, `list_templates`, `suggest_palette`, `get_ledger`, `list_rooms`, `get_shopping_list`, `get_guide`.
 
-Mutating tools: `set_room_shell`, `add_opening`, `remove_opening`, `set_brief`, `create_room`, `switch_room`, `rename_room`, `delete_room`, `place_item`, `move_item`, `rotate_item`, `fix_item`, `remove_item`, `swap_item`, `set_item_locked`, `select_item`, `clear_items`, `add_catalog_item`, `load_template`, `set_item_color`, `set_finish`, `apply_palette`, `propose_layout`, `apply_layout`, `apply_proposal`, `withdraw_proposal`, `apply_all_proposals`, `set_daylight_hour`, `set_camera`, `set_view`, `undo_last_action`, `revert_to_entry`, `run_layout_script`.
+Mutating tools: `set_room_shell`, `add_opening`, `remove_opening`, `set_brief`, `create_room`, `switch_room`, `rename_room`, `delete_room`, `place_item`, `move_item`, `rotate_item`, `fix_item`, `remove_item`, `swap_item`, `set_item_locked`, `select_item`, `clear_items`, `add_catalog_item`, `load_template`, `set_item_color`, `set_finish`, `apply_palette`, `propose_layout`, `apply_layout`, `apply_proposal`, `withdraw_proposal`, `apply_all_proposals`, `set_daylight_hour`, `set_camera`, `set_view`, `undo_last_action`, `revert_to_entry`, `set_purchase_status`, `run_layout_script`.
 
 `suggest_positions` ranks real positions for a catalog item against the walls, the door swing, the window and the daylight model, and returns each one with a reason and a score, so the agent asks the room where a bed goes instead of guessing coordinates. `place_item` and `move_item` snap a position within 15 cm of a wall flush against it and turn wall furniture to face the room, reporting `snapped: true` and which wall, so a rough coordinate still lands like a designer put it there. `fix_item` moves one item to the nearest position that clears its blocking violations.
+
+`get_shopping_list` and `set_purchase_status` divide the buyout between the two parties. The app knows what is in the room, how many of each and what the catalog thinks each is worth, so it hands over the whole list with a ready-made `searchQuery` per line and the room's brief. What it cannot know is which shop near this person has the thing this week, so the agent goes and looks and writes the shop and the link back onto every copy of that piece as one ledger entry. The app plans the buyout; the agent finds the sources.
 
 `run_layout_script` runs a small algorithm the agent writes, in a sandboxed Web Worker with no DOM access, and turns the returned placements into a proposal.
 

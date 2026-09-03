@@ -46,6 +46,7 @@ Start on a fresh profile (a private window, or clear site data and reload), then
 38. `revert_to_entry` with an id from `get_ledger` → everything recorded after it is undone in one go and the rewind is itself logged. Call it with the newest entry's id → `error: "nothing_to_revert"`.
 39. `select_item` `{"id":"<a bed id>"}` → the bed gets its selection outline in both views, the properties column switches to **Selection**, and the four selection-scoped tools appear. `select_item` `{"id":null}` → the selection clears.
 40. `set_view` `{"showDaylight":false,"showShadows":false}` → the daylight wash leaves the plan and the contact shadow leaves the 3D view, the same as pressing the sun button and **Shadows** by hand. Reload → both stay off.
+41. `get_shopping_list` → one line per catalog id rather than per placement, so two identical chairs read `qty: 2` with a doubled line total, plus a `searchQuery` per line and the room's brief. Open the **Buy** tab: the same list, with a status select, a store field and a link on every row, and a footer weighing what is still to buy against the budget. `set_purchase_status` `{"catalogId":"<one from the list>","status":"ordered","source":"IKEA"}` → every copy of that piece turns Ordered in the tab, the still-to-buy total drops by its line total, and the ledger gains **one** entry that a single **Undo** takes back. **Copy list** puts the whole list on the clipboard as plain text.
 
 ## C. Chrome with the flag
 - Enable `chrome://flags/#enable-webmcp-testing`, restart, open the deployed URL.
