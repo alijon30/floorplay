@@ -79,7 +79,7 @@ export type RightView = '3d' | 'wall';
  * plan pushed the drawing into a slot, and everything in the catalog is a property of the room
  * you are about to change anyway.
  */
-export type PropsTab = 'catalog' | 'room' | 'style' | 'selection' | 'issues';
+export type PropsTab = 'catalog' | 'room' | 'style' | 'selection' | 'issues' | 'buy';
 
 /** The panels both the top bar and the room panel can open. The brief lives in `RoomPanel`. */
 export type DialogName = 'shell';

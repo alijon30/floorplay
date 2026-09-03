@@ -6,6 +6,7 @@ import RoomPanel from './RoomPanel';
 import StylePanel from './StylePanel';
 import Inspector from './Inspector';
 import IssuesPanel from './IssuesPanel';
+import BuyPanel from './BuyPanel';
 import { Icon } from './icons';
 import { CLOSE, FOCUS } from './styles';
 
@@ -15,6 +16,7 @@ const TABS: { key: PropsTab; label: string }[] = [
   { key: 'style', label: 'Style' },
   { key: 'selection', label: 'Selection' },
   { key: 'issues', label: 'Issues' },
+  { key: 'buy', label: 'Buy' },
 ];
 
 /**
@@ -39,7 +41,7 @@ export default function PropertiesPanel() {
   return (
     <aside className="flex h-full w-[320px] shrink-0 flex-col border-r border-line bg-panel">
       <div className="flex h-10 shrink-0 items-center gap-1 border-b border-line pl-1.5 pr-2">
-        {/* Five tabs do not fit 320 px at every font size, so the strip scrolls rather than
+        {/* Six tabs do not fit 320 px at every font size, so the strip scrolls rather than
             wrapping to a second row and stealing height from the panel below it. */}
         <div role="tablist" aria-label="Properties" className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
           {TABS.map((t) => {
@@ -80,6 +82,7 @@ export default function PropertiesPanel() {
           <p className="p-3 text-[11.5px] text-muted">Nothing is selected. Click a piece on the plan or in the 3D view to see its size, finish and clearances here.</p>
         ))}
         {tab === 'issues' && <IssuesPanel />}
+        {tab === 'buy' && <BuyPanel />}
       </div>
     </aside>
   );

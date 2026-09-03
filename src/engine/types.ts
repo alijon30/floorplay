@@ -103,6 +103,14 @@ export interface CatalogItem {
   mountHeight?: number;
 }
 
+/** Where one placed piece stands between "still to find" and "already here". */
+export type PurchaseStatus = 'to-buy' | 'owned' | 'ordered';
+
+export const PURCHASE_STATUSES: PurchaseStatus[] = ['to-buy', 'owned', 'ordered'];
+
+/** A buying decision: what state it is in, and where it is coming from when that is known. */
+export interface Purchase { status: PurchaseStatus; source?: string; url?: string }
+
 export interface PlacedItem {
   id: string;
   catalogId: string;
@@ -119,6 +127,14 @@ export interface PlacedItem {
    * a desk is a placement decision, not a different product.
    */
   mountHeight?: number;
+  /**
+   * What is known about buying this piece. Absent means nobody has said, which reads as
+   * "to buy": a room drawn on screen is a room whose furniture has not been bought yet.
+   *
+   * It lives on the placement rather than the catalog because two of the same chair can be
+   * in different states — one already in the flat, one still to order.
+   */
+  purchase?: Purchase;
 }
 
 export interface Brief { budget: number; currency: 'USD'; needs: string[]; notes: string }
@@ -142,7 +158,9 @@ export type Op =
   | { type: 'removeCatalogItem'; id: string }
   /** `null` drops the override so the item goes back to its catalog color. */
   | { type: 'recolor'; id: string; color: string | null }
-  | { type: 'setFinish'; finish: RoomFinish };
+  | { type: 'setFinish'; finish: RoomFinish }
+  /** `null` drops the record so the item goes back to the unstated default, "to buy". */
+  | { type: 'setPurchase'; id: string; purchase: Purchase | null };
 
 export type ViolationKind = 'out_of_bounds' | 'overlap' | 'blocks_door' | 'blocks_window' | 'clearance' | 'unreachable' | 'over_budget';
 

@@ -1,6 +1,6 @@
 // src/engine/ops.ts
-import type { Op, PlacedItem, Room, RoomFinish, Wall } from './types';
-import { FLOOR_FINISHES, WALLS } from './types';
+import type { Op, PlacedItem, Purchase, Room, RoomFinish, Wall } from './types';
+import { FLOOR_FINISHES, PURCHASE_STATUSES, WALLS } from './types';
 import { catalogFor, findCatalogItem } from './catalog';
 
 export type ApplyResult =
@@ -32,6 +32,25 @@ function withColor(item: PlacedItem, color: string | null): PlacedItem {
     return rest;
   }
   return { ...item, color };
+}
+
+/**
+ * Set or drop an item's purchase record, the same way `withColor` handles a color override.
+ *
+ * The record is rebuilt key by key rather than spread, so an empty source or url is dropped
+ * instead of stored as `undefined` and undo gives back an item deeply equal to the one before.
+ */
+function withPurchase(item: PlacedItem, purchase: Purchase | null): PlacedItem {
+  if (purchase === null) {
+    const { purchase: _dropped, ...rest } = item;
+    return rest;
+  }
+  const clean: Purchase = {
+    status: purchase.status,
+    ...(purchase.source ? { source: purchase.source } : {}),
+    ...(purchase.url ? { url: purchase.url } : {}),
+  };
+  return { ...item, purchase: clean };
 }
 
 function applyOne(room: Room, op: Op): OneResult {
@@ -124,6 +143,16 @@ function applyOne(room: Room, op: Op): OneResult {
       const inverse: Op = { type: 'setFinish', finish: room.finish };
       return { ok: true, room: { ...room, finish }, inverse: [inverse] };
     }
+    case 'setPurchase': {
+      const item = room.items.find((i) => i.id === op.id);
+      if (!item) return fail('not_found', `No item ${op.id}`);
+      if (op.purchase !== null && !PURCHASE_STATUSES.includes(op.purchase.status)) {
+        return fail('invalid', `Unknown purchase status ${op.purchase.status}; one of ${PURCHASE_STATUSES.join(', ')}`);
+      }
+      // A lock protects where a piece stands, not whether it has been bought.
+      const inverse: Op = { type: 'setPurchase', id: op.id, purchase: item.purchase ?? null };
+      return { ok: true, room: { ...room, items: room.items.map((i) => (i.id === op.id ? withPurchase(i, op.purchase) : i)) }, inverse: [inverse] };
+    }
   }
 }
 
@@ -160,6 +189,7 @@ export function describeOps(room: Room, ops: Op[]): string {
       case 'removeCatalogItem': return `Removed catalog item ${op.id}`;
       case 'recolor': return op.color === null ? `Reset the color of ${itemName(op.id)}` : `Recolored ${itemName(op.id)} to ${op.color}`;
       case 'setFinish': return `Finish set to ${op.finish.floor} floor and ${op.finish.wall} walls`;
+      case 'setPurchase': return op.purchase === null ? `Cleared the buying status of ${itemName(op.id)}` : `Marked ${itemName(op.id)} ${op.purchase.status}`;
     }
   });
   return parts.length <= 2 ? parts.join('; ') : `${parts[0]} and ${parts.length - 1} more changes`;
