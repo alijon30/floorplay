@@ -58,6 +58,20 @@ describe('home templates', () => {
     }
   });
 
+  it('keeps no template door or window on a party wall, so nothing opens onto a neighbour', () => {
+    for (const t of HOME_TEMPLATES) {
+      const { home, rooms } = buildHomeFromTemplate(t.key);
+      const map = byId(rooms);
+      for (const room of rooms) {
+        const shared = sharedSegments(home, map, room.id);
+        for (const o of room.openings.filter((o) => !o.doorwayId)) {
+          const onParty = shared.find((s) => s.wall === o.wall && o.offset < s.end && o.offset + o.width > s.start);
+          expect(onParty, `${t.key}: ${room.name} ${o.kind} on ${o.wall} at ${o.offset}`).toBeUndefined();
+        }
+      }
+    }
+  });
+
   it('leaves every room reachable through the doorways from the entrance', () => {
     for (const t of HOME_TEMPLATES) {
       const { home, rooms } = buildHomeFromTemplate(t.key);

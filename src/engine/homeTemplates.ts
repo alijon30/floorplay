@@ -1,7 +1,7 @@
 // src/engine/homeTemplates.ts
 import type { Home, HomeRoomPlacement, Room, RoomKind, Wall } from './types';
 import { buildTemplateRoom } from './templates';
-import { doorwayOpenings } from './home';
+import { doorwayOpenings, sharedSegments } from './home';
 import { newId } from './ids';
 
 export type HomeTemplateKey = 'one-bedroom' | 'studio-hall';
@@ -104,6 +104,16 @@ export function buildHomeFromTemplate(key: HomeTemplateKey): { home: Home; rooms
     doorways: [],
     entranceRoomId: rooms[t.entrance ?? 0]!.id,
   };
+
+  // A room template carries its own door and windows for standing alone. Once the room is on a
+  // plan, any of them that falls on a party wall would open onto the neighbour's solid wall — a
+  // door to nowhere — so those go before the doorways are cut. The standalone template is untouched.
+  for (const room of rooms) {
+    const shared = sharedSegments(home, byId, room.id);
+    room.openings = room.openings.filter(
+      (o) => !shared.some((s) => s.wall === o.wall && o.offset < s.end && o.offset + o.width > s.start),
+    );
+  }
 
   for (const d of t.doorways) {
     const from = rooms[d.room]!;
