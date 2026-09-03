@@ -16,7 +16,7 @@ import * as THREE from 'three';
 import { Edges, useGLTF } from '@react-three/drei';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import type { CatalogItem } from '../engine/types';
-import { fitScale, modelFor, orientedSize, type ModelSpec } from './models';
+import { fitScale, modelFor, type ModelSpec } from './models';
 import { GHOST_BLUE, ghostMaterial } from './ghost';
 import { M } from './units';
 
@@ -140,18 +140,14 @@ function Piece({ spec, cat, color, ghost, removal }: PieceProps) {
 }
 
 /**
- * The selection silhouette: the catalog's footprint, tall enough to hold what is drawn inside it.
+ * The selection silhouette: the catalog's own box, which is also the rectangle the plan drew.
  *
- * Width and depth are the rectangle the plan drew, so the two views agree about where the piece
- * is. Height is whichever is taller, the catalog's or the model's: a bed is 45 cm to the planner
- * and 150 cm to the eye, and an outline that stopped at the mattress would look like a mistake
- * rather than a selection.
+ * Every fit mode either matches that box or shrinks to sit inside it, so an outline drawn on the
+ * catalog's numbers always contains what is drawn, and the plan and the 3D view agree about where
+ * the piece is and how much room it takes.
  */
-function Outline({ cat, spec }: { cat: CatalogItem; spec: ModelSpec }) {
-  const w = cat.width * M, d = cat.depth * M;
-  const box = orientedSize(spec);
-  const [, sy] = fitScale(box, { w, d, h: cat.height * M }, spec.fit);
-  const h = Math.max(cat.height * M, box.h * sy);
+function Outline({ cat }: { cat: CatalogItem }) {
+  const w = cat.width * M, h = cat.height * M, d = cat.depth * M;
   return (
     <mesh position={[0, h / 2, 0]} raycast={() => null}>
       <boxGeometry args={[w, h, d]} />
@@ -189,7 +185,7 @@ export default function ModelBody({ procedural, outlined, ...piece }: ModelBodyP
       <Suspense fallback={procedural}>
         <Piece {...piece} />
       </Suspense>
-      {outlined ? <Outline cat={piece.cat} spec={piece.spec} /> : null}
+      {outlined ? <Outline cat={piece.cat} /> : null}
     </Fallback>
   );
 }

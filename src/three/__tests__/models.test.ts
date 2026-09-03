@@ -3,10 +3,10 @@
 // The registry decides which catalog entries are drawn from a photographed model and how far
 // each one may be stretched onto a size it was not photographed at. Both are pure arithmetic on
 // the catalog's own numbers, so both are checked here rather than in a screenshot: a bad fit
-// rule shows up as a squashed sofa three steps later and a long way from its cause.
+// rule shows up as a squashed bookcase three steps later and a long way from its cause.
 import { describe, expect, it } from 'vitest';
 import { SEED_CATALOG } from '../../engine/catalog';
-import { fitScale, fitsCatalog, modelFor, orientedSize } from '../models';
+import { allModelFiles, fitScale, fitsCatalog, modelFor, orientedSize } from '../models';
 
 const byId = (id: string) => {
   const cat = SEED_CATALOG.find((c) => c.id === id);
@@ -26,18 +26,9 @@ describe('fitScale', () => {
   });
 
   it('keeps a familiar silhouette undistorted once the aspect drifts too far', () => {
-    // A quarter of distortion is allowed; a third is not, and shrinks to fit inside the box.
+    // A quarter of distortion is allowed; a half is not, and shrinks to fit inside the box.
     expect(fitScale({ w: 1, d: 1, h: 1 }, { w: 1.2, d: 1, h: 1 }, 'box')).toEqual([1.2, 1, 1]);
     expect(fitScale({ w: 1, d: 1, h: 1 }, { w: 1.5, d: 1, h: 1 }, 'box')).toEqual([1, 1, 1]);
-  });
-
-  it('drives height from the footprint, so a bed keeps its headboard', () => {
-    // 45 cm is the top of the mattress, not the top of the bed: matching it would flatten one.
-    const bed = { w: 1.493, d: 2.04, h: 1.534 };
-    const [sx, sy, sz] = fitScale(bed, want('bed-queen-160'), 'footprint');
-    expect(sx).toBeCloseTo(1.07, 2);
-    expect(sz).toBeCloseTo(0.98, 2);
-    expect(bed.h * sy).toBeGreaterThan(1.4);
   });
 
   it('lets foliage overhang its pot, but not by more than half', () => {
@@ -51,14 +42,14 @@ describe('fitScale', () => {
 
 describe('fitsCatalog', () => {
   it('refuses a stretch that would stop being a picture of the thing', () => {
-    const sofa = { w: 1.571, d: 0.658, h: 0.797 };
-    expect(fitsCatalog(sofa, want('sofa-3'), 'stretch')).toBe(true);
-    // A corner sofa is 180 cm deep: nearly three times the settee that was photographed.
-    expect(fitsCatalog(sofa, want('sofa-corner-260'), 'stretch')).toBe(false);
+    const shelf = { w: 10.974, d: 4.996, h: 21.392 };
+    expect(fitsCatalog(shelf, want('shelf-80'), 'stretch')).toBe(true);
+    // A shoe rack is 50 cm tall: a quarter of the shelving unit that was photographed.
+    expect(fitsCatalog(shelf, want('shoe-rack-80'), 'stretch')).toBe(false);
   });
 
   it('always accepts the modes that cannot go far wrong', () => {
-    const chair = { w: 0.43, d: 0.539, h: 0.956 };
+    const chair = { w: 0.434, d: 0.576, h: 0.973 };
     expect(fitsCatalog(chair, want('chair-kids-30'), 'box')).toBe(true);
     expect(fitsCatalog(chair, { w: 9, d: 0.1, h: 9 }, 'height')).toBe(true);
   });
@@ -66,24 +57,31 @@ describe('fitsCatalog', () => {
 
 describe('modelFor', () => {
   it('reads the most specific key first', () => {
-    // An armchair is a `sofa` by shape and would otherwise be drawn as a settee.
+    // An armchair is a `sofa` by shape; a nightstand and a dresser are plain boxes.
     expect(modelFor(byId('armchair-80'))?.file).toBe('/models/armchair.glb');
-    expect(modelFor(byId('sofa-2'))?.file).toBe('/models/sofa.glb');
-    // A nightstand is a plain box by shape, and a coffee table is a `table` like the dining ones.
     expect(modelFor(byId('nightstand-45'))?.file).toBe('/models/side-table.glb');
+    expect(modelFor(byId('sideboard-200'))?.file).toBe('/models/sideboard.glb');
+    // A coffee table is a `table` like the dining ones, and only the dining ones lack a model.
     expect(modelFor(byId('table-coffee-90'))?.file).toBe('/models/coffee-table.glb');
-    expect(modelFor(byId('table-dining-160'))?.file).toBe('/models/table.glb');
+    expect(modelFor(byId('chair-dining'))?.file).toBe('/models/chair.glb');
   });
 
-  it('leaves the shapes with no model to the procedural renderer', () => {
-    for (const id of ['rug-160x230', 'lamp-floor', 'tv-stand-160', 'counter-180', 'fridge-60', 'curtain-200', 'picture-60']) {
+  it('leaves every shape with no clean modern model to the procedural renderer', () => {
+    // Poly Haven's beds are Gothic, its sofas Victorian, its desks scratched steel and its
+    // mirrors gilt. A plain box is closer to a modern one than any of them.
+    for (const id of [
+      'bed-queen-160', 'sofa-3', 'desk-120', 'table-dining-160', 'bench-dining-140',
+      'mirror-rect-80', 'rug-160x230', 'lamp-floor', 'tv-stand-160', 'counter-180',
+      'fridge-60', 'curtain-200', 'picture-60', 'wall-clock-30',
+    ]) {
       expect(modelFor(byId(id))).toBeNull();
     }
   });
 
   it('declines the entries a model cannot honestly stand in for', () => {
-    // Too deep for the settee, too tall for the chest, and two beds where the model has one.
-    for (const id of ['sofa-corner-260', 'dresser-60', 'bed-bunk-90', 'shoe-rack-80']) {
+    // A bookcase squashed to a shoe rack, a tall cabinet flattened to a pantry — and the stools,
+    // which are `chair`s by shape and would otherwise be served a dining chair.
+    for (const id of ['shoe-rack-80', 'shelf-low-120', 'pantry-60', 'stool-bar-75', 'stool-step-40']) {
       expect(modelFor(byId(id))).toBeNull();
     }
   });
@@ -93,6 +91,11 @@ describe('modelFor', () => {
     expect(coffee.yaw).toBe(90);
     // The turn swaps width for depth: the long axis of that table is along z in the file.
     expect(orientedSize(coffee)).toEqual({ w: coffee.size.d, d: coffee.size.w, h: coffee.size.h });
+  });
+
+  it('claims at least one seed item for every model that ships', () => {
+    const claimed = new Set(SEED_CATALOG.map(modelFor).filter((s) => s !== null).map((s) => s.file));
+    expect([...claimed].sort()).toEqual(allModelFiles().sort());
   });
 
   it('fits every seed item it claims within a quarter of the footprint the plan drew', () => {

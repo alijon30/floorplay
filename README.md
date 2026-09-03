@@ -101,18 +101,25 @@ npm run models   # rebuild public/models from Poly Haven (the .glb files are com
 
 ## 3D models
 
-Beds, sofas, chairs, desks, tables, shelving, chests, stools, plants and a few more are drawn from
-photographed models rather than from boxes. They come from [Poly Haven](https://polyhaven.com/models),
-are published under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/), and are used here
-with thanks to the people who made them — Kirill Sannikov, James Ray Cock, Ulan Cabanilla, Kuutti
-Siitonen, Rico Cilliers, Amin, Vibrant Nordic, Patrik Pangerl, Serhii Khromov, Dairon Sanchez and
-Caspian Fortune. `public/models/LICENSES.md` credits each file individually.
+Armchairs, dining chairs, shelving, cabinets, sideboards, nightstands, coffee tables, poufs and
+plants are drawn from photographed models rather than from boxes. They come from
+[Poly Haven](https://polyhaven.com/models), are published under
+[CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/), and are used here with thanks to the
+people who made them — James Ray Cock, Ulan Cabanilla, Rico Cilliers, Amin, Vibrant Nordic, Patrik
+Pangerl and Caspian Fortune. `public/models/LICENSES.md` credits each file individually.
+
+Everything else — beds, sofas, desks, dining tables, stools, benches, rugs, lamps, kitchen units and
+everything that hangs on a wall — is drawn procedurally. That is a choice about style, not a gap:
+Poly Haven's furniture is largely period and salvage, and a Gothic four-poster or a Victorian settee
+would break a plan for a modern rental more than a plain box does. The models that survived are the
+short list Poly Haven itself files as `condition: clean` with modern or minimalist tags, so the two
+renderers read as one catalog.
 
 `npm run models` rebuilds them: it reads `scripts/models.manifest.json`, downloads the 1k glTF of
 each asset, and compresses it to 512 px WebP textures and meshopt-packed geometry, which brings
-nineteen models to about 2.5 MB in total. `src/three/models.ts` decides which catalog entries each
-one stands in for and how far it may be stretched onto a size it was not photographed at; anything
-outside that — rugs, lamps, kitchen units, a corner sofa three times deeper than the settee — keeps
-the procedural shape, which is built to the catalog's own dimensions and cannot be wrong about them.
+eleven models to about 1.6 MB in total. `src/three/models.ts` decides which catalog entries each one
+stands in for and how far it may be stretched onto a size it was not photographed at. `npm run smoke`
+photographs one of every model in a single room as `contact-sheet.png`, which is where a piece whose
+style, scale or orientation has drifted shows up.
 
 Built for the WebMCP Challenge, September 2026. MIT licensed.

@@ -10,7 +10,7 @@ import { footprint } from '../engine/geometry';
 import { makeFabricTexture, makeWoodTexture } from './textures';
 import { GHOST_BLUE, ghostMaterial } from './ghost';
 import ModelBody from './ModelPiece';
-import { fitScale, modelFor, orientedSize } from './models';
+import { modelFor } from './models';
 import { M } from './units';
 
 type Props = {
@@ -717,11 +717,6 @@ export default function Furniture({ item, cat, ghost, removal, selected, onSelec
    * a fully furnished room rather than a hole in it.
    */
   const model = modelFor(cat);
-  // How tall the piece actually stands. A label pinned to the catalog height would hang inside a
-  // four-poster bed, because a bed's 45 cm is the height of its mattress and not of its posts.
-  const standing = model
-    ? Math.max(h, orientedSize(model).h * fitScale(orientedSize(model), { w, d, h }, model.fit)[1])
-    : h;
   const drawn = model
     ? (
       <ModelBody
@@ -745,7 +740,7 @@ export default function Furniture({ item, cat, ghost, removal, selected, onSelec
     >
       <group position={[0, mountY, 0]}>{drawn}</group>
       {selected && interactive && (
-        <Html center distanceFactor={6} position={[0, mountY + standing + 0.3, 0]} pointerEvents="none" zIndexRange={[30, 0]}>
+        <Html center distanceFactor={6} position={[0, mountY + h + 0.3, 0]} pointerEvents="none" zIndexRange={[30, 0]}>
           <div className="whitespace-nowrap rounded-full border border-accent/50 bg-panel/90 px-2 py-0.5 font-mono text-[10.5px] uppercase tracking-[0.06em] text-fg shadow-xl">
             {cat.name}
           </div>

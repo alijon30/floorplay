@@ -6,7 +6,7 @@
 //
 // Prints a JSON summary (screenshots, tool count, findings, console/page errors) on
 // stdout and exits non-zero if the page threw or an assertion failed.
-import { mkdir, rm } from 'node:fs/promises';
+import { mkdir, readdir, rm } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
@@ -21,6 +21,8 @@ const STORAGE_KEY = 'floorplay.v1';
 const shots = [];
 const consoleErrors = [];
 const pageErrors = [];
+/** Every furniture model the page asked for, and what it got back. */
+const modelResponses = new Map();
 /** Facts worth reading in the summary: what the agent suggested, whether the wall snap fired. */
 const findings = {};
 
@@ -40,6 +42,10 @@ async function main() {
 
   page.on('console', (msg) => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
   page.on('pageerror', (err) => pageErrors.push(String(err?.stack ?? err)));
+  page.on('response', (r) => {
+    const file = /\/models\/([^/?]+\.glb)/.exec(r.url())?.[1];
+    if (file) modelResponses.set(file, r.status());
+  });
 
   let n = 0;
   const shot = async (name) => {
@@ -404,6 +410,49 @@ async function main() {
     await park();
     await settle(400);
     await shot('ledger-expanded');
+
+    // 31. the contact sheet: one of everything that has a photographed model, in one room.
+    //
+    // A room only reads as one catalog if the models in it belong to the same one, and that is
+    // not something the templates can show — each holds a handful of pieces and no template
+    // holds them all. This lays out a representative of every model in `src/three/models.ts`
+    // at once, so a piece whose style, scale or orientation is wrong has nowhere to hide.
+    //
+    // One id per model file. The assertion below closes the loop: if a model is added to the
+    // registry without a place here, or a file is left in `public/models` that nothing asks
+    // for, this step fails rather than quietly photographing eleven of twelve.
+    const SHEET = [
+      // The overview camera stands off the room's origin corner, so a high y is far away: the
+      // tall carcasses go at the back of the room and the low seating at the front, spaced so
+      // that nothing in this sheet is standing behind anything else.
+      ['shelf-80', 60, 440, 0], ['shelf-cube-147', 200, 440, 0], ['wardrobe-100', 350, 440, 0], ['plant-large', 465, 440, 0],
+      ['sideboard-200', 120, 260, 0], ['table-coffee-90', 290, 260, 0], ['nightstand-45', 390, 260, 0], ['plant-small', 465, 260, 0],
+      ['armchair-80', 70, 80, 0], ['chair-dining', 180, 80, 0], ['pouf-round-60', 280, 80, 0],
+    ];
+    await tool('set_room_shell', { width: 520, depth: 520, height: 260 });
+    const before = await toolJson('get_room', {});
+    for (const it of before.items ?? []) await tool('remove_item', { id: it.id });
+    for (const [catalogId, x, y, rotation] of SHEET) {
+      const placed = await toolJson('place_item', { catalogId, x, y, rotation });
+      if (placed.status !== 'applied') throw new Error(`contact sheet could not place ${catalogId}: ${JSON.stringify(placed)}`);
+    }
+    await tool('set_daylight_hour', { hour: 12 });
+    await tool('set_camera', { preset: 'overview' });
+    await park();
+    await settle(1500);
+    const sheetBox = await page.locator('section[aria-label="3D"]').boundingBox();
+    await page.screenshot({ path: resolve(outDir, 'contact-sheet.png'), clip: sheetBox });
+    shots.push(resolve(outDir, 'contact-sheet.png'));
+
+    const onDisk = (await readdir(resolve(root, 'public', 'models'))).filter((f) => f.endsWith('.glb')).sort();
+    const served = [...modelResponses.keys()].sort();
+    const bad = [...modelResponses.entries()].filter(([, status]) => status >= 400);
+    findings.models = { onDisk: onDisk.length, requested: served.length };
+    if (bad.length > 0) throw new Error(`models failed to load: ${JSON.stringify(bad)}`);
+    const missing = onDisk.filter((f) => !modelResponses.has(f));
+    if (missing.length > 0) {
+      throw new Error(`public/models holds files nothing asked for, so they ship for nothing: ${missing.join(', ')}`);
+    }
 
     const toolNames = await page.evaluate(() => globalThis.__floorplayFakeMC.getTools().map((t) => t.name));
     const toolCount = toolNames.length;

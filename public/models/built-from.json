@@ -1,0 +1,79 @@
+{
+  "plant": {
+    "slug": "potted_plant_02",
+    "res": "1k",
+    "textureSize": 512,
+    "simplifyRatio": 0.25,
+    "simplifyError": 0.001
+  },
+  "sideboard": {
+    "slug": "modern_wooden_cabinet",
+    "res": "1k",
+    "textureSize": 512,
+    "simplifyRatio": 0,
+    "simplifyError": 0.001
+  },
+  "plant-small": {
+    "slug": "potted_plant_04",
+    "res": "1k",
+    "textureSize": 512,
+    "simplifyRatio": 0.5,
+    "simplifyError": 0.001
+  },
+  "chair": {
+    "slug": "dining_chair_02",
+    "res": "1k",
+    "textureSize": 512,
+    "simplifyRatio": 0.5,
+    "simplifyError": 0.001
+  },
+  "armchair": {
+    "slug": "modern_arm_chair_01",
+    "res": "1k",
+    "textureSize": 512,
+    "simplifyRatio": 0,
+    "simplifyError": 0.001
+  },
+  "wardrobe": {
+    "slug": "drawer_cabinet",
+    "res": "1k",
+    "textureSize": 512,
+    "simplifyRatio": 0,
+    "simplifyError": 0.001
+  },
+  "pouf": {
+    "slug": "Ottoman_01",
+    "res": "1k",
+    "textureSize": 512,
+    "simplifyRatio": 0,
+    "simplifyError": 0.001
+  },
+  "side-table": {
+    "slug": "side_table_01",
+    "res": "1k",
+    "textureSize": 512,
+    "simplifyRatio": 0,
+    "simplifyError": 0.001
+  },
+  "shelf": {
+    "slug": "steel_frame_shelves_01",
+    "res": "1k",
+    "textureSize": 512,
+    "simplifyRatio": 0,
+    "simplifyError": 0.001
+  },
+  "cube-shelf": {
+    "slug": "wooden_display_shelves_01",
+    "res": "1k",
+    "textureSize": 512,
+    "simplifyRatio": 0,
+    "simplifyError": 0.001
+  },
+  "coffee-table": {
+    "slug": "modern_coffee_table_01",
+    "res": "1k",
+    "textureSize": 512,
+    "simplifyRatio": 0,
+    "simplifyError": 0.001
+  }
+}

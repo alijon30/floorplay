@@ -12,7 +12,7 @@
 // then hand the lot to gltf-transform to weld and dedup the geometry, drop the textures to 512
 // px WebP, and pack it all as meshopt-compressed .glb. That is what turns a 4 MB studio asset
 // into something a browser can pull down alongside twenty others.
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -21,6 +21,14 @@ import { spawn } from 'node:child_process';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const outDir = join(root, 'public', 'models');
+/**
+ * What each committed .glb was actually built from.
+ *
+ * Without this the only thing a rerun can check is whether the file exists, so swapping a model
+ * for a different one in the manifest leaves the old geometry in place and silently ships it.
+ * The recipe is written beside the outputs and compared before anything is skipped.
+ */
+const recipeFile = join(outDir, 'built-from.json');
 const API = 'https://api.polyhaven.com';
 /** Poly Haven's own cap, and well above what we ask of it: be a polite client anyway. */
 const CONCURRENCY = 4;
@@ -62,8 +70,18 @@ function gltfTransform(argv) {
  * resolution, and only then given up on, because one 3 MB sofa costs more than every
  * procedural fallback in the app put together.
  */
-async function build(entry, defaults) {
+/** Everything about an entry that changes its bytes. */
+const recipeOf = (entry, defaults) => ({
+  slug: entry.slug,
+  res: entry.res ?? '1k',
+  textureSize: entry.textureSize ?? defaults.textureSize,
+  simplifyRatio: entry.simplifyRatio ?? 0,
+  simplifyError: entry.simplifyError ?? 0.001,
+});
+
+async function build(entry, defaults, built) {
   const out = join(outDir, `${entry.name}.glb`);
+  const recipe = recipeOf(entry, defaults);
   const info = await getJson(`${API}/info/${entry.slug}`);
   const credit = {
     name: entry.name,
@@ -73,8 +91,9 @@ async function build(entry, defaults) {
     keys: entry.keys ?? [],
   };
 
-  if (existsSync(out) && !force) {
-    return { ...credit, bytes: (await stat(out)).size, skipped: true };
+  const same = JSON.stringify(built[entry.name]) === JSON.stringify(recipe);
+  if (existsSync(out) && same && !force) {
+    return { ...credit, bytes: (await stat(out)).size, recipe, skipped: true };
   }
 
   const files = await getJson(`${API}/files/${entry.slug}`);
@@ -110,7 +129,7 @@ async function build(entry, defaults) {
       const bytes = (await stat(out)).size;
       if (bytes <= defaults.maxBytes || attempt >= 1) {
         if (bytes > defaults.maxBytes) throw new Error(`${entry.name}: ${fmt(bytes)} exceeds the ${fmt(defaults.maxBytes)} cap even at ${size} px`);
-        return { ...credit, bytes, textureSize: size };
+        return { ...credit, bytes, recipe: { ...recipe, textureSize: size } };
       }
       size = Math.max(128, Math.round(size / 2));
     }
@@ -140,7 +159,8 @@ async function main() {
   if (wanted.length === 0) throw new Error(`nothing matched ${[...only].join(', ')}`);
   await mkdir(outDir, { recursive: true });
 
-  const rows = await pool(wanted, CONCURRENCY, (m) => build(m, defaults));
+  const built = existsSync(recipeFile) ? JSON.parse(await readFile(recipeFile, 'utf8')) : {};
+  const rows = await pool(wanted, CONCURRENCY, (m) => build(m, defaults, built));
   rows.sort((a, b) => b.bytes - a.bytes);
 
   const pad = Math.max(...rows.map((r) => r.name.length));
@@ -150,8 +170,18 @@ async function main() {
   }
   console.log(`  ${'total'.padEnd(pad)}  ${fmt(rows.reduce((s, r) => s + r.bytes, 0)).padStart(8)}  ${rows.length} models\n`);
 
-  const all = JSON.parse(await readFile(join(root, 'scripts', 'models.manifest.json'), 'utf8')).models;
-  if (wanted.length === all.length) await writeLicenses(rows);
+  for (const r of rows) built[r.name] = r.recipe;
+  // Anything the manifest no longer names has no business in the folder or in the record.
+  const keep = new Set(manifest.models.map((m) => m.name));
+  for (const name of Object.keys(built)) if (!keep.has(name)) delete built[name];
+  await writeFile(recipeFile, `${JSON.stringify(built, null, 2)}\n`);
+  const stale = (await readdir(outDir)).filter((f) => f.endsWith('.glb') && !keep.has(f.replace(/\.glb$/, '')));
+  for (const f of stale) {
+    await rm(join(outDir, f));
+    console.log(`  removed ${f}, which the manifest no longer names`);
+  }
+
+  if (wanted.length === manifest.models.length) await writeLicenses(rows);
 }
 
 async function writeLicenses(rows) {

@@ -12,29 +12,29 @@
     "Every asset is CC0. `res` is the Poly Haven texture resolution to download; the pipeline",
     "resizes to `textureSize` regardless, so 1k is plenty. `simplifyRatio` is the fraction of",
     "vertices to keep, and is only set for the models whose polycount would otherwise dominate",
-    "the payload (the plants, which are scanned foliage)."
+    "the payload (the plants, which are scanned foliage).",
+    "",
+    "What is *not* here matters as much as what is. Poly Haven's furniture is mostly period and",
+    "salvage: its beds are a Gothic four-poster and a rusted hospital frame, every sofa is a",
+    "Victorian settee, its desks are scratched steel, its stools are pub stools and its mirrors",
+    "are gilt. A planner for a modern rental has to look like one catalog, so those shapes keep",
+    "the procedural geometry, which is plain by construction. What survived is the short list of",
+    "assets Poly Haven itself files as `condition: clean` with modern or minimalist tags, plus",
+    "the two plants and the ottoman, whose forms carry no period at all."
   ],
   "textureSize": 512,
   "maxBytes": 1258291,
   "models": [
-    { "name": "bed", "slug": "GothicBed_01", "res": "1k", "keys": ["shape:bed"] },
-    { "name": "sofa", "slug": "Sofa_01", "res": "1k", "keys": ["shape:sofa"] },
     { "name": "armchair", "slug": "modern_arm_chair_01", "res": "1k", "keys": ["category:armchair"] },
-    { "name": "chair", "slug": "painted_wooden_chair_01", "res": "1k", "keys": ["shape:chair"] },
-    { "name": "stool", "slug": "bar_chair_round_01", "res": "1k", "keys": ["shape:stool", "id:stool-35", "id:stool-bar-65", "id:stool-bar-75", "id:stool-step-40"] },
-    { "name": "desk", "slug": "metal_office_desk", "res": "1k", "keys": ["shape:desk"] },
-    { "name": "table", "slug": "wooden_table_02", "res": "1k", "keys": ["shape:table"] },
+    { "name": "chair", "slug": "dining_chair_02", "res": "1k", "simplifyRatio": 0.5, "keys": ["shape:chair"] },
     { "name": "coffee-table", "slug": "modern_coffee_table_01", "res": "1k", "keys": ["id:table-coffee-90"] },
     { "name": "side-table", "slug": "side_table_01", "res": "1k", "keys": ["category:nightstand", "id:table-side-45", "id:table-nest-50", "id:candle-table-40"] },
     { "name": "shelf", "slug": "steel_frame_shelves_01", "res": "1k", "keys": ["shape:shelf"] },
     { "name": "cube-shelf", "slug": "wooden_display_shelves_01", "res": "1k", "keys": ["id:shelf-cube-147"] },
-    { "name": "dresser", "slug": "vintage_wooden_drawer_01", "res": "1k", "keys": ["category:dresser"] },
     { "name": "sideboard", "slug": "modern_wooden_cabinet", "res": "1k", "keys": ["id:dresser-160", "id:sideboard-200"] },
     { "name": "wardrobe", "slug": "drawer_cabinet", "res": "1k", "keys": ["shape:wardrobe"] },
     { "name": "plant", "slug": "potted_plant_02", "res": "1k", "simplifyRatio": 0.25, "keys": ["shape:plant"] },
     { "name": "plant-small", "slug": "potted_plant_04", "res": "1k", "simplifyRatio": 0.5, "keys": ["id:plant-small"] },
-    { "name": "pouf", "slug": "Ottoman_01", "res": "1k", "keys": ["id:pouf-50", "id:pouf-round-60", "id:ottoman-60"] },
-    { "name": "bench", "slug": "painted_wooden_bench", "res": "1k", "keys": ["shape:bench", "id:bench-100"] },
-    { "name": "mirror", "slug": "ornate_mirror_01", "res": "1k", "keys": ["id:mirror-rect-80"] }
+    { "name": "pouf", "slug": "Ottoman_01", "res": "1k", "keys": ["id:pouf-50", "id:pouf-round-60", "id:ottoman-60"] }
   ]
 }
