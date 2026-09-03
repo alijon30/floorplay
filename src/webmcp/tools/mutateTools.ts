@@ -1,6 +1,6 @@
 // src/webmcp/tools/mutateTools.ts
 import type { ToolDef } from '../registry';
-import { ok, fail, type ToolResult } from '../results';
+import { ok, fail, parseResult, type ToolResult } from '../results';
 import { COORDS_NOTE, HEX_COLOR, boolProp, categoryProp, cm, floorFinishProp, hexColorProp, idProp, intProp, numProp, placementSchema, rotationProp, strProp, wallProp } from '../schemas';
 import type { ToolContext } from './context';
 import { itemsSummary, roomSummary, shortMetrics, shortViolations } from './context';
@@ -98,10 +98,26 @@ const SHAPE_FOR: Record<Category, Shape> = {
 /** Categories whose items never block a window however tall they are. */
 const SEE_THROUGH: Category[] = ['lamp', 'plant', 'chair', 'decor', 'wall', 'other'];
 
+/** Smallest and largest room side `create_room` accepts, matching the new-room dialog. */
+const MIN_SIDE = 100;
+const MAX_SIDE = 3000;
+
 export function buildMutateTools(ctx: ToolContext): ToolDef[] {
   const state = () => ctx.store.getState();
   const room = () => state().current();
   const num = (i: Record<string, unknown>, k: string) => i[k] as number;
+
+  /**
+   * The result for a tool that changes which room is current, or creates one.
+   *
+   * Switching rooms writes no ledger entry — there is nothing to undo, and the ledger belongs
+   * to a room rather than to the session — so these results carry `violations` and `metrics`
+   * from the analysis as it stands, alongside the full summary of the room now in front of the user.
+   */
+  const appliedRoom = (extra: Record<string, unknown> = {}) => {
+    const s = state();
+    return ok({ status: 'applied', ...extra, room: roomSummary(ctx.store), violations: shortViolations(s.analysis.violations), metrics: shortMetrics(s.analysis.metrics) });
+  };
 
   return [
     {
@@ -254,6 +270,64 @@ export function buildMutateTools(ctx: ToolContext): ToolDef[] {
         const name = i['name'] as string | undefined;
         state().loadTemplate(key, name);
         return ok({ status: 'applied', template: key, room: roomSummary(ctx.store) });
+      },
+    },
+    {
+      name: 'create_room',
+      description: `Create a new empty room and switch to it. The current room is kept and can be returned to with switch_room. Sides must be between ${MIN_SIDE} and ${MAX_SIDE} cm. Creating a room writes no ledger entry, so the result reports status "applied" with the new room's own violations and metrics. Use load_template instead to start from a furnished layout.`,
+      inputSchema: { type: 'object', properties: { name: strProp('Room name'), width: cm('Room width (x)'), depth: cm('Room depth (y)'), height: cm('Ceiling height'), northWall: wallProp }, required: ['name', 'width', 'depth', 'height'] },
+      execute: (i) => {
+        const name = typeof i['name'] === 'string' ? i['name'].trim() : '';
+        if (!name) return fail('invalid_input', 'Give the room a name');
+        const dims = { width: num(i, 'width'), depth: num(i, 'depth'), height: num(i, 'height') };
+        for (const [k, v] of Object.entries(dims)) {
+          if (!Number.isFinite(v) || v < MIN_SIDE || v > MAX_SIDE) return fail('invalid_input', `${k} must be between ${MIN_SIDE} and ${MAX_SIDE} cm`);
+        }
+        state().createRoom({ name, ...dims });
+        // The new room always faces north from the top wall, so a different northWall is a
+        // change to a room that now exists — a setShell op, and the one ledger entry this makes.
+        if (i['northWall'] !== undefined) {
+          const r = mutate(ctx, { tool: 'create_room', proposable: false, ops: [{ type: 'setShell', ...dims, northWall: i['northWall'] as Wall }] });
+          const payload = parseResult(r);
+          if (payload['ok'] !== true) return r;
+          return appliedRoom({ ledgerId: payload['ledgerId'] });
+        }
+        return appliedRoom();
+      },
+    },
+    {
+      name: 'switch_room',
+      description: 'Make another room the current one, so get_room and every editing tool acts on it. Ids come from list_rooms. Nothing is lost: the room you leave keeps its items and its ledger. Writes no ledger entry, so the result reports status "applied" with the arriving room\'s violations and metrics.',
+      inputSchema: { type: 'object', properties: { id: idProp('Room id from list_rooms') }, required: ['id'] },
+      execute: (i) => {
+        const id = i['id'] as string;
+        if (!state().rooms[id]) return fail('not_found', 'Call list_rooms for current room ids');
+        state().switchRoom(id);
+        return appliedRoom();
+      },
+    },
+    {
+      name: 'rename_room',
+      description: 'Rename the current room. Writes no ledger entry, so the result reports status "applied" with the room\'s violations and metrics as they stand.',
+      inputSchema: { type: 'object', properties: { name: strProp('New room name') }, required: ['name'] },
+      execute: (i) => {
+        const name = typeof i['name'] === 'string' ? i['name'].trim() : '';
+        if (!name) return fail('invalid_input', 'Give the room a name');
+        state().renameRoom(name);
+        return appliedRoom();
+      },
+    },
+    {
+      name: 'delete_room',
+      description: 'Delete a room and everything in it, including its ledger. This cannot be undone, so confirm with the user first. The last remaining room cannot be deleted. Writes no ledger entry, so the result reports status "applied" with the room that is current afterwards.',
+      inputSchema: { type: 'object', properties: { id: idProp('Room id from list_rooms') }, required: ['id'] },
+      execute: (i) => {
+        const id = i['id'] as string;
+        const s = state();
+        if (!s.rooms[id]) return fail('not_found', 'Call list_rooms for current room ids');
+        if (Object.keys(s.rooms).length === 1) return fail('last_room', 'Create another room first');
+        s.deleteRoom(id);
+        return appliedRoom({ deleted: id });
       },
     },
     {

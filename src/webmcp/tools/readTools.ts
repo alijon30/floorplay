@@ -149,5 +149,44 @@ export function buildReadTools(ctx: ToolContext): ToolDef[] {
         return ok({ budget: (input['budget'] as number | undefined) ?? room.brief.budget, ...plan });
       },
     },
+    {
+      name: 'list_rooms',
+      description: 'Every room in this session, with its id, dimensions in cm and item count. The one flagged `current: true` is what get_room and every editing tool acts on. Use it before switch_room, delete_room or when the user names a room you have not seen.',
+      inputSchema: { type: 'object', properties: {} },
+      annotations: { readOnlyHint: true },
+      execute: () => {
+        const s = state();
+        return ok({
+          rooms: Object.values(s.rooms).map((r) => ({
+            id: r.id, name: r.name, width: r.width, depth: r.depth, height: r.height,
+            items: r.items.length, current: r.id === s.currentId,
+          })),
+        });
+      },
+    },
+    {
+      name: 'get_guide',
+      description: 'How to design a room with these tools: the recommended order of calls, the coordinate conventions, and the habits that avoid rework. Call it once at the start of a design task.',
+      inputSchema: { type: 'object', properties: {} },
+      annotations: { readOnlyHint: true },
+      execute: () => ok({
+        workflow: [
+          '1. get_room — read the shell, openings, brief, what is already placed, metrics and violations before changing anything.',
+          '2. suggest_furniture and suggest_positions — turn the brief and budget into a priced list, then ask where each large piece wants to go.',
+          '3. evaluate_layout — score a candidate set of changes privately and iterate on it, without the user seeing half-finished work.',
+          '4. propose_layout — call it once per option, with a short distinct label, so the user sees the choices side by side as ghosts with a metrics delta.',
+          '5. Wait for the user to accept on screen, or call apply_proposal when they name the one they want. Do not apply on their behalf before they choose.',
+          '6. fix_item and suggest_palette — clear whatever violations remain, then offer a color scheme once the layout has settled.',
+        ],
+        conventions: COORDS_NOTE,
+        tips: [
+          'Propose-first mode: when it is on, every editing tool returns status "proposed" instead of "applied" and the change waits for the user. Read `proposeFirst` in get_room and say so rather than trying to force the change through.',
+          'Wall snapping: place_item and move_item pull a position within 15 cm of a wall flush against it and turn wall furniture to face the room. The result reports `snapped` and the wall, so trust that over your own arithmetic.',
+          'Selection-scoped tools: when the user selects an item, move_selected, replace_selected, remove_selected and find_alternatives_for_selected appear and act on it with no id. Use select_item to point the user at what you are discussing.',
+          'Every editing result carries `violations` and `metrics`. Read them and act: call fix_item on a blocking violation rather than reporting it and moving on.',
+          'Batch related changes. apply_layout and propose_layout write one ledger entry, so a single undo or revert_to_entry takes the whole idea back.',
+        ],
+      }),
+    },
   ];
 }
