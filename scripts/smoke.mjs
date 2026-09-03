@@ -30,7 +30,10 @@ async function main() {
   await rm(outDir, { recursive: true, force: true });
   await mkdir(outDir, { recursive: true });
 
-  const server = await createServer({ root, configFile: resolve(root, 'vite.config.ts'), logLevel: 'warn', server: { port: 0 } });
+  // Its own dependency cache: sharing `node_modules/.vite` with a running `npm run dev` rewrites
+  // that server's pre-bundled chunks under it, and its open tabs then load two copies of
+  // react-three-fiber and crash the canvas.
+  const server = await createServer({ root, configFile: resolve(root, 'vite.config.ts'), logLevel: 'warn', cacheDir: resolve(root, 'node_modules/.vite-smoke'), server: { port: 0 } });
   await server.listen();
   const url = server.resolvedUrls?.local?.[0];
   if (!url) throw new Error('Vite did not report a local URL');
