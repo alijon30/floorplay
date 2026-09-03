@@ -57,7 +57,7 @@ The catalog holds 139 items in twenty categories: beds, sofas, armchairs, desks,
 
 Every color in the catalog is one of twenty-two named finishes: five woods, nine fabrics, three metals, three surfaces and two greens. The 3D view reads the hex back to decide how to shade a piece, so an oak table gets grain, a linen sofa gets a weave and a brass lamp gets metal.
 
-Sixty-three items list two to four alternative colors. The **Selection** tab shows them as swatches under **Finish**; the agent sets one with `set_item_color`. **Style** in the tool rail opens eight curated wall colors and five floors (oak, walnut, ash, grey, tile), which the agent sets with `set_finish`. `suggest_palette` reads the dominant tone of the furniture already in the room and returns three whole-room schemes, warm, cool and neutral, each with a wall color, a floor, three accents and the exact recolors that would carry it out. Applying one from the Style popover lands as a single ledger entry, so one undo takes the room back.
+Sixty-three items list two to four alternative colors. The **Selection** tab shows them as swatches under **Finish**; the agent sets one with `set_item_color`. **Style** in the tool rail turns the properties column to its Style tab: a mini plan you click to choose which wall you are painting, eleven regional palettes of six named paints each, and five floors (oak, walnut, ash, grey, tile), which the agent sets with `set_finish`, `set_wall_color` (by hex or by a "Japan/Aizome indigo" swatch name) and reads back with `get_style`. `suggest_palette` reads the dominant tone of the furniture already in the room and returns three whole-room schemes, warm, cool and neutral, each with a wall color, a floor, three accents and the exact recolors that would carry it out. Applying one from the Style tab lands as a single ledger entry, so one undo takes the room back.
 
 ## Walls
 
@@ -98,7 +98,7 @@ Three viewport toggles turn the drawing down to plain geometry when you want it:
 
 All coordinates are integer centimeters from the room's top-left corner, items are placed by their center, and rotation is 0, 90, 180 or 270 degrees clockwise.
 
-There are 48 static tools plus 4 that appear only while an item is selected. Between them they cover everything a person can do in the app, so the agent is never stuck asking the user to click something. `run_layout_script` needs a real Web Worker for its sandbox, so it is registered only in a browser; the test harness's fake model context sees the other 47.
+There are 49 static tools plus 4 that appear only while an item is selected. Between them they cover everything a person can do in the app, so the agent is never stuck asking the user to click something. `run_layout_script` needs a real Web Worker for its sandbox, so it is registered only in a browser; the test harness's fake model context sees the other 48.
 
 Read-only tools: `get_room`, `get_catalog`, `suggest_positions`, `suggest_furniture`, `evaluate_layout`, `get_daylight`, `list_templates`, `suggest_palette`, `get_ledger`, `list_rooms`, `get_guide`.
 

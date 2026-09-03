@@ -34,14 +34,14 @@ Start on a fresh profile (a private window, or clear site data and reload), then
 26. `set_item_color` `{"id":"<the bed's id>","color":"#8b6f52"}` → the bed repaints; the Selection tab's swatch ring follows. Call it with `{"color":null}` → back to the catalog color. Call it with `{"color":"nope"}` → a validation error and no change.
 27. `suggest_palette` → three schemes named warm, cool and neutral, each with a `wall` hex, a `floor` from oak/walnut/ash/grey/tile, three `accents` and a `recolor` list naming real item ids. The room is unchanged. Call it twice → identical output.
 28. `set_finish` `{"wall":"#c3cdb9","floor":"walnut"}` → the 2D floor fill, the 3D walls and the plank hue all change together. `set_finish` `{"floor":"tile"}` → the floor becomes a square grid and the wall color stays sage.
-29. **Style** at the foot of the tool rail → a popover with eight wall swatches, five floor buttons and the three suggested schemes with a blurb each. Click a wall swatch → the room repaints. Click **Apply** on a scheme → wall, floor and every recolor land as one ledger entry reading "Applied … palette"; one **Undo** takes all of it back.
+29. **Style** at the foot of the tool rail → the properties column turns to its **Style** tab: a mini plan of the room whose four walls carry their own paint, an **All walls** chip, the eleven regional palettes as cards with their six named swatches under them, five floor tiles drawn as plank and tile patterns, and the three suggested schemes with a blurb each. Click a wall in the mini plan → "Painting: east wall", and the next swatch paints only that one. Click **All walls**, then a swatch → the whole room repaints and the per-wall overrides clear. Click **Apply** on a scheme → wall, floor and every recolor land as one ledger entry reading "Applied … palette"; one **Undo** takes all of it back.
 30. Click **Shadows** in the 3D viewport's toolbar → the contact shadow goes, the scene still renders. Click the sun button in the plan's toolbar → the daylight wash leaves the drawing; click **Grid** → the grid goes. Reload → all three stay off.
 31. Wheel over the plan → it zooms between 0.5x and 4x with every stroke weight unchanged; **Fit to view** in the plan's toolbar puts the whole room back.
 32. Reload the page → the room is still there.
 33. `list_rooms` → one row per room with its dimensions and item count, the one you are in flagged `current: true`. `get_guide` → a six-step workflow, the coordinate conventions and the tips, and the room unchanged.
 34. `create_room` `{"name":"Loft","width":400,"depth":500,"height":260}` → a new empty room, switched to, with the old one still in **My rooms**. `switch_room` back to it by the id `list_rooms` gave → the plan and the 3D view rebuild with the furniture you left there. `rename_room` `{"name":"Guest room"}` → the name in the top bar changes. `delete_room` on the loft → it goes from **My rooms**; `delete_room` on the last remaining room → `error: "last_room"`.
 35. `apply_layout` with a move, a remove and a place in one call → all three land and the ledger gains **one** entry reading "Applied layout (3 changes)"; a single **Undo** takes all of it back.
-36. `apply_palette` `{"name":"cool"}` → the same result as pressing **Apply** on the cool scheme in the **Style** popover: wall, floor and every recolor as one ledger entry.
+36. `apply_palette` `{"name":"cool"}` → the same result as pressing **Apply** on the cool scheme in the **Style** tab: wall, floor and every recolor as one ledger entry.
 37. `clear_items` → the room empties in one entry. Lock an item first and call it again → the locked piece stays and the summary counts only what went; on an all-locked room → `error: "nothing_to_clear"`.
 38. `revert_to_entry` with an id from `get_ledger` → everything recorded after it is undone in one go and the rewind is itself logged. Call it with the newest entry's id → `error: "nothing_to_revert"`.
 39. `select_item` `{"id":"<a bed id>"}` → the bed gets its selection outline in both views, the properties column switches to **Selection**, and the four selection-scoped tools appear. `select_item` `{"id":null}` → the selection clears.
@@ -49,11 +49,11 @@ Start on a fresh profile (a private window, or clear site data and reload), then
 
 ## C. Chrome with the flag
 - Enable `chrome://flags/#enable-webmcp-testing`, restart, open the deployed URL.
-- DevTools → Application → WebMCP panel lists 48 tools with nothing selected; selecting an item adds four and deselecting removes them.
+- DevTools → Application → WebMCP panel lists 49 tools with nothing selected; selecting an item adds four and deselecting removes them.
 - Invoke `get_room` from the panel and confirm the JSON.
 
 ## D. ChatGPT in-app browser
-- Open the deployed URL in ChatGPT's browser. The agent chip turns green with 48 tools.
+- Open the deployed URL in ChatGPT's browser. The agent chip turns green with 49 tools.
 - Run the video script prompts below and confirm the plan updates live.
 
 ## E. Video script (under 3 minutes, with audio)
@@ -109,9 +109,10 @@ The agent swaps a piece; the budget reading goes black again.
 The camera walks to the doorway and the agent answers from the list of items the call returned,
 not from a guess.
 
-**2:20 — Style.** Click **Style** at the foot of the tool rail. The popover shows eight wall
-colors, five floors and the three schemes read from what is already in the room. Click **Apply** on
-**Warm**. Walls, floor and every recolored piece change together in 2D and 3D.
+**2:20 — Style.** Click **Style** at the foot of the tool rail. The column turns to its Style tab:
+a mini plan of the room, the regional palettes, five floors and the three schemes read from what is
+already in the room. Click **Apply** on **Warm**. Walls, floor and every recolored piece change
+together in 2D and 3D.
 
 **2:35 — Undo anything.** Expand the ledger drawer at the bottom. Every entry is marked with who
 did it, the person or the agent. Click **Revert** on one agent step; it comes straight back out of
