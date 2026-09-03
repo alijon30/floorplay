@@ -14,7 +14,7 @@ function setup() {
 describe('mutating tools', () => {
   it('exposes the documented tool names', () => {
     const { tools } = setup();
-    expect(Object.keys(tools).sort()).toEqual(['add_catalog_item', 'add_opening', 'create_room', 'delete_room', 'fix_item', 'load_template', 'move_item', 'place_item', 'propose_layout', 'remove_item', 'remove_opening', 'rename_room', 'rotate_item', 'set_brief', 'set_camera', 'set_daylight_hour', 'set_finish', 'set_item_color', 'set_item_locked', 'set_room_shell', 'swap_item', 'switch_room', 'undo_last_action']);
+    expect(Object.keys(tools).sort()).toEqual(['add_catalog_item', 'add_opening', 'apply_layout', 'apply_palette', 'clear_items', 'create_room', 'delete_room', 'fix_item', 'load_template', 'move_item', 'place_item', 'propose_layout', 'remove_item', 'remove_opening', 'rename_room', 'revert_to_entry', 'rotate_item', 'select_item', 'set_brief', 'set_camera', 'set_daylight_hour', 'set_finish', 'set_item_color', 'set_item_locked', 'set_room_shell', 'set_view', 'swap_item', 'switch_room', 'undo_last_action']);
     expect(tools['place_item']!.annotations).toBeUndefined();
   });
 

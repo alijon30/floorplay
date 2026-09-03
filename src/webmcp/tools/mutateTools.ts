@@ -16,6 +16,11 @@ import { snapToWall } from '../../engine/anchors';
 import { describeOps } from '../../engine/ops';
 import { metricsDelta } from '../../engine/metrics';
 import { CAMERA_PRESETS, cameraPreset, itemsInView, type CameraPreset } from '../../engine/camera';
+import { suggestPalettes, type Palette } from '../../engine/palette';
+
+type PaletteName = Palette['name'];
+/** The three schemes `suggest_palette` returns, and so the three `apply_palette` accepts. */
+const PALETTE_NAMES: PaletteName[] = ['warm', 'cool', 'neutral'];
 
 /**
  * The single write path for every mutating tool, and the one place that decides between
@@ -220,6 +225,21 @@ export function buildMutateTools(ctx: ToolContext): ToolDef[] {
       execute: (i) => mutate(ctx, { tool: 'remove_item', proposable: true, ops: [{ type: 'remove', id: i['id'] as string }] }),
     },
     {
+      name: 'clear_items',
+      description: 'Empty the room in one ledger entry, so a single undo puts everything back. Locked items are left where they are; the result lists what remains. Ask the user before calling it on a room they have worked on.',
+      inputSchema: { type: 'object', properties: {} },
+      execute: () => {
+        const all = room().items;
+        const loose = all.filter((x) => !x.locked);
+        if (loose.length === 0) return fail('nothing_to_clear', all.length ? 'Every item is locked; unlock one with set_item_locked first' : 'The room is already empty');
+        return mutate(ctx, {
+          tool: 'clear_items', proposable: true,
+          summary: `Cleared ${loose.length} item${loose.length === 1 ? '' : 's'}`,
+          ops: loose.map((x) => ({ type: 'remove', id: x.id })),
+        });
+      },
+    },
+    {
       name: 'swap_item',
       description: 'Replace an item with a different catalog item, keeping its position and rotation. Useful for cheaper or smaller alternatives.',
       inputSchema: { type: 'object', properties: { id: idProp('Item id'), catalogId: idProp('Replacement catalog id') }, required: ['id', 'catalogId'] },
@@ -365,6 +385,23 @@ export function buildMutateTools(ctx: ToolContext): ToolDef[] {
       },
     },
     {
+      name: 'apply_palette',
+      description: 'Carry out one of the schemes suggest_palette offers, in one ledger entry: the wall color, the floor finish and every item recolor together. Call suggest_palette first if the user should see the three options before you pick. Applies straight away rather than becoming a proposal, because color is easy to change back.',
+      inputSchema: { type: 'object', properties: { name: { type: 'string', description: 'Which scheme from suggest_palette', enum: [...PALETTE_NAMES] } }, required: ['name'] },
+      execute: (i) => {
+        const name = i['name'] as PaletteName;
+        if (!PALETTE_NAMES.includes(name)) return fail('invalid_input', `name must be one of ${PALETTE_NAMES.join(', ')}`);
+        const scheme = suggestPalettes(room()).find((p) => p.name === name);
+        if (!scheme) return fail('not_found', `No ${name} palette for this room; call suggest_palette`);
+        const ops: Op[] = [
+          { type: 'setFinish', finish: { wall: scheme.wall, floor: scheme.floor } },
+          ...scheme.recolor.map((r) => ({ type: 'recolor' as const, id: r.id, color: r.color })),
+        ];
+        const r = mutate(ctx, { tool: 'apply_palette', proposable: false, summary: `Applied ${name} palette`, ops });
+        return withExtras(r, { palette: { name, wall: scheme.wall, floor: scheme.floor, accents: scheme.accents, recolored: scheme.recolor.length } });
+      },
+    },
+    {
       name: 'propose_layout',
       description: `Propose a batch of changes as ghosts on the plan with a label, without applying them. The user sees a card with the metrics delta and can accept or reject. Call it several times with different labels to offer layout variants. ${COORDS_NOTE}`,
       inputSchema: { type: 'object', properties: { label: strProp('Short name for this option, e.g. "Bed by the window"'), placements: placementSchema }, required: ['label', 'placements'] },
@@ -374,6 +411,17 @@ export function buildMutateTools(ctx: ToolContext): ToolDef[] {
         const p = state().propose({ label: i['label'] as string, ops: mapped.ops });
         if (!p.ok) return fail(p.error, p.message);
         return ok({ status: 'proposed', proposalId: p.proposal.id, label: p.proposal.label, delta: metricsDelta(p.proposal.metricsBefore, p.proposal.metricsAfter), violations: shortViolations(p.proposal.violationsAfter), metrics: shortMetrics(p.proposal.metricsAfter) });
+      },
+    },
+    {
+      name: 'apply_layout',
+      description: `Apply a whole layout at once: places, moves, removes and swaps in the order given, as a single ledger entry, so one undo takes the whole idea back. Use propose_layout instead when the user should choose between options, and evaluate_layout first to check the result before anyone sees it. ${COORDS_NOTE}`,
+      inputSchema: { type: 'object', properties: { placements: placementSchema }, required: ['placements'] },
+      execute: (i) => {
+        const mapped = placementsToOps(room(), i['placements'] as Placement[]);
+        if (!mapped.ok) return fail(mapped.error, mapped.hint);
+        if (mapped.ops.length === 0) return fail('invalid_input', 'placements: give at least one change');
+        return mutate(ctx, { tool: 'apply_layout', proposable: true, summary: `Applied layout (${mapped.ops.length} changes)`, ops: mapped.ops });
       },
     },
     {
@@ -421,6 +469,53 @@ export function buildMutateTools(ctx: ToolContext): ToolDef[] {
         if (!r) return fail('nothing_to_undo', 'The ledger is empty');
         if (!r.ok) return fail(r.error, r.message);
         return ok({ status: 'applied', ledgerId: r.entry.id, summary: r.entry.summary, violations: shortViolations(r.analysis.violations), metrics: shortMetrics(r.analysis.metrics), items: itemsSummary(state().current(), r.analysis) });
+      },
+    },
+    {
+      name: 'revert_to_entry',
+      description: 'Rewind the room to how it stood just after one ledger entry, undoing everything after it in one go. Ids come from get_ledger. The rewind is itself recorded, so it can be undone in turn.',
+      inputSchema: { type: 'object', properties: { ledgerId: idProp('Ledger entry id from get_ledger') }, required: ['ledgerId'] },
+      execute: (i) => {
+        const id = i['ledgerId'] as string;
+        const ledger = room().ledger;
+        const idx = ledger.findIndex((e) => e.id === id);
+        // `revertTo` answers null for both a missing entry and the newest one, so the two are
+        // told apart here: one means the agent has a stale id, the other that there is nothing to do.
+        if (idx < 0) return fail('not_found', 'Call get_ledger for current entry ids');
+        if (idx === ledger.length - 1) return fail('nothing_to_revert', 'That is already the newest entry; use undo_last_action to go back further');
+        const r = state().revertTo(id, 'agent');
+        if (!r) return fail('nothing_to_revert', 'Nothing recorded after that entry');
+        if (!r.ok) return fail(r.error, r.error === 'locked' ? 'A locked item stands in the way; ask the user to unlock it' : r.message);
+        return ok({ status: 'applied', ledgerId: r.entry.id, summary: r.entry.summary, violations: shortViolations(r.analysis.violations), metrics: shortMetrics(r.analysis.metrics), items: itemsSummary(state().current(), r.analysis) });
+      },
+    },
+    {
+      name: 'select_item',
+      description: 'Select an item so the user sees it highlighted on the plan and in 3D with its properties open, or pass null to clear the selection. Use it to point at what you are talking about. Selecting also turns on the selection-scoped tools (move_selected, replace_selected, remove_selected, find_alternatives_for_selected). Writes no ledger entry, so the result reports status "applied" with the room\'s violations and metrics as they stand.',
+      inputSchema: { type: 'object', properties: { id: { ...idProp('Item id, or null to clear the selection'), nullable: true } } },
+      execute: (i) => {
+        const raw = i['id'];
+        // Omitting the field and sending null both mean "clear it", so an agent whose host
+        // cannot express null can still deselect.
+        if (raw !== undefined && raw !== null && typeof raw !== 'string') return fail('invalid_input', 'id must be an item id string, or null to clear the selection');
+        const id = raw === undefined || raw === null ? null : raw;
+        if (id !== null && !room().items.some((x) => x.id === id)) return fail('not_found', 'Call get_room for current ids');
+        state().select(id);
+        const s = state();
+        const selected = id === null ? null : itemsSummary(s.current(), s.analysis).find((x) => x.id === id) ?? null;
+        return ok({ status: 'applied', selected, violations: shortViolations(s.analysis.violations), metrics: shortMetrics(s.analysis.metrics) });
+      },
+    },
+    {
+      name: 'set_view',
+      description: 'Turn the daylight tint and the 3D shadows on or off. Switch the tint off when the user wants to read the plan itself, and the shadows off when the 3D view is slow. Omitted fields keep what is set. Writes no ledger entry, so the result reports status "applied" with the room\'s violations and metrics as they stand.',
+      inputSchema: { type: 'object', properties: { showDaylight: boolProp('Draw the daylight tint over the plan'), showShadows: boolProp('Cast and catch shadows in the 3D view') } },
+      execute: (i) => {
+        if (i['showDaylight'] === undefined && i['showShadows'] === undefined) return fail('invalid_input', 'Give showDaylight, showShadows or both');
+        if (i['showDaylight'] !== undefined) state().setShowDaylight(i['showDaylight'] as boolean);
+        if (i['showShadows'] !== undefined) state().setShowShadows(i['showShadows'] as boolean);
+        const s = state();
+        return ok({ status: 'applied', showDaylight: s.ui.showDaylight, showShadows: s.ui.showShadows, violations: shortViolations(s.analysis.violations), metrics: shortMetrics(s.analysis.metrics) });
       },
     },
   ];
