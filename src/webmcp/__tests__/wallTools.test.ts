@@ -97,11 +97,15 @@ describe('set_wall_color', () => {
     expect(s().current().finish.walls).toBeUndefined();
   });
 
-  it('applies rather than proposes, even in propose-first mode', async () => {
+  it('waits as a card in propose-first mode, since paint has no ghost to draw', async () => {
     const { call, s } = boot();
     s().setProposeFirst(true);
-    expect(await call('set_wall_color', { color: '#c37a5b' })).toMatchObject({ ok: true, status: 'applied' });
+    const r = await call('set_wall_color', { color: '#c37a5b' });
+    expect(r).toMatchObject({ ok: true, status: 'proposed' });
     expect(s().current().proposals).toHaveLength(0);
+    expect(s().pending).toHaveLength(1);
+    expect((await s().acceptAction(r['proposalId'] as string)).ok).toBe(true);
+    expect(s().current().finish.wall).toBe('#c37a5b');
   });
 
   it('is undoable in one press', async () => {

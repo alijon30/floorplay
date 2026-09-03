@@ -54,6 +54,7 @@ export function roomSummary(store: RoomStore) {
     selection: s.ui.selectedItemId,
     proposeFirst: s.ui.proposeFirst,
     proposals: room.proposals.map((p) => ({ id: p.id, label: p.label, changes: p.ops.length, delta: metricsDelta(p.metricsBefore, p.metricsAfter), violationsAfter: p.violationsAfter.length })),
+    pendingActions: s.pending.map((p) => ({ id: p.id, tool: p.tool, label: p.label })),
     metrics: shortMetrics(a.metrics),
     violations: shortViolations(a.violations),
   };

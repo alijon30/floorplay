@@ -6,7 +6,7 @@ import SplitPane from './ui/SplitPane';
 import DevPanel from './ui/DevPanel';
 import Plan from './plan/Plan';
 import HomePlan from './plan/HomePlan';
-import RightViewport from './elevation/RightViewport';
+import Scene from './three/Scene';
 import PropertiesPanel from './ui/PropertiesPanel';
 import ProposalStrip from './ui/ProposalStrip';
 import Ledger from './ui/Ledger';
@@ -57,7 +57,7 @@ export default function App() {
                 <Onboarding />
               </div>
             )}
-            right={<RightViewport />}
+            right={<Scene />}
           />
         </div>
       </div>

@@ -19,7 +19,6 @@ import Furniture from './Furniture';
 import { preloadModels } from './ModelPiece';
 import Sun from './Sun';
 import CameraRig, { orbitPosition } from './CameraRig';
-import ViewToggle from '../elevation/ViewToggle';
 import { makeGroundFadeTexture } from './textures';
 import type { Cutaway } from './cutaway';
 import { partyIntervals, type PartyIntervals } from './party';
@@ -200,7 +199,6 @@ export default function Scene() {
 
   const toolbar = (
     <>
-      <ViewToggle />
       <button
         className={walking ? ICON_BTN_ON : ICON_BTN}
         aria-label={walking ? 'Orbit view' : 'Walk through'}

@@ -29,7 +29,6 @@ const SCHEME_BLURB: Record<Palette['name'], string> = {
 export default function StylePanel() {
   const room = useRoom((s) => s.rooms[s.currentId]!);
   const dispatch = useRoom((s) => s.dispatch);
-  const setElevationWall = useRoom((s) => s.setElevationWall);
   const setHighlightWall = useRoom((s) => s.setHighlightWall);
   const palettes = useMemo(() => suggestPalettes(room), [room]);
   const [target, setTarget] = useState<PaintTarget>('all');
@@ -37,12 +36,7 @@ export default function StylePanel() {
 
   const activeHex = target === 'all' ? room.finish.wall : wallColor(room, target);
 
-  // Picking a wall here turns the elevation to it too, so the two never disagree about which
-  // wall is under discussion.
-  const pickTarget = (t: PaintTarget) => {
-    setTarget(t);
-    if (t !== 'all') setElevationWall(t);
-  };
+  const pickTarget = (t: PaintTarget) => setTarget(t);
 
   // The plan and the 3D view point at whatever this tab is painting, so nobody has to hold
   // "right wall" in their head while looking at a room. Cleared when the tab goes away.

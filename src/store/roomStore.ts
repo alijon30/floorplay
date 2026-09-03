@@ -11,6 +11,7 @@ import { buildTemplateRoom } from '../engine/templates';
 import { doorwayFits, doorwayOpenings, homeContaining, snapRoomPlacement } from '../engine/home';
 import { buildHomeFromTemplate, type HomeTemplateKey } from '../engine/homeTemplates';
 import { newId } from '../engine/ids';
+import { parseResult, type ToolResult } from '../webmcp/results';
 import { STORAGE_KEY } from '../config';
 import { createDebouncedStorage } from './persistence';
 
@@ -54,14 +55,6 @@ export interface UiState {
   /** The drafting grid under the plan. Off is for reading the drawing itself. */
   showGrid: boolean;
   /**
-   * What the right viewport shows: the room in 3D, or one wall drawn straight on.
-   *
-   * Not persisted, and neither is `elevationWall`. Both are where you happen to be looking
-   * right now rather than a preference, and a visit that opens on a wall elevation instead of
-   * the room would read as the app having lost its place.
-   */
-  rightView: RightView;
-  /**
    * What the plan viewport draws: the current room on its own, or the whole home it stands in.
    *
    * Not persisted. A home is a place you step back to look at rather than a setting, and a
@@ -71,18 +64,14 @@ export interface UiState {
   planView: PlanView;
   /** While on, clicking a wall two rooms share cuts a doorway through it. */
   doorwayMode: boolean;
-  /** Which wall the elevation draws. */
-  elevationWall: Wall;
   /**
-   * The wall the user is working on right now — picked in the Style tab or shown in the Wall
-   * view — so the plan and the 3D view can point at the same wall the paint is landing on.
+   * The wall the user is working on right now — picked in the Style tab — so the plan and the 3D view can point at the same wall the paint is landing on.
    * Null while nothing in particular is being worked on, or while "All walls" is the target.
    */
   highlightWall: Wall | null;
 }
 
 /** The two things the right viewport can be. */
-export type RightView = '3d' | 'wall';
 
 /** The two things the plan viewport can be: one room, or the home it belongs to. */
 export type PlanView = 'room' | 'home';
@@ -129,6 +118,17 @@ export type PlaceRoomResult =
   | { ok: false; error: string };
 export type CutDoorwayResult = { ok: true; doorway: Doorway } | { ok: false; error: string; hint?: string };
 
+/** One agent call waiting for the user's yes: the words on its card, and the call itself. */
+export interface PendingAction {
+  id: string;
+  tool: string;
+  label: string;
+  createdAt: number;
+  run: () => Promise<ToolResult> | ToolResult;
+  /** Why the last attempt to run it failed, when it did. */
+  error?: string;
+}
+
 export interface RoomState {
   rooms: Record<string, Room>;
   currentId: string;
@@ -140,6 +140,12 @@ export interface RoomState {
   ui: UiState;
   /** Last persistence failure, surfaced as a small warning. Never persisted. */
   persistError: string | null;
+  /**
+   * Agent changes waiting for the user from the tools that do not work in ops: paint, room
+   * size, a template, a home and its doorways. With Propose first on they land here instead of
+   * applying, as cards beside the ghost proposals. Not persisted: a card holds the call itself.
+   */
+  pending: PendingAction[];
   current(): Room;
   /** The home named by `currentHomeId`, or null. */
   currentHome(): Home | null;
@@ -147,6 +153,10 @@ export interface RoomState {
   propose(input: { label: string; ops: Op[] }): { ok: true; proposal: Proposal } | { ok: false; error: string; message: string };
   acceptProposal(id: string, actor?: 'human' | 'agent'): DispatchResult;
   rejectProposal(id: string): boolean;
+  queueAction(input: { tool: string; label: string; run: PendingAction['run'] }): PendingAction;
+  /** Runs one waiting call and drops its card. A call that fails keeps its card, with the reason on it. */
+  acceptAction(id: string): Promise<{ ok: true; result: ToolResult } | { ok: false; message: string }>;
+  rejectAction(id: string): boolean;
   updateProposalOp(proposalId: string, index: number, op: Op): void;
   undo(actor?: 'human' | 'agent'): DispatchResult | null;
   revertTo(entryId: string, actor?: 'human' | 'agent'): DispatchResult | null;
@@ -159,10 +169,8 @@ export interface RoomState {
   setPropsTab(tab: PropsTab): void;
   setLedgerOpen(open: boolean): void;
   setShowGrid(v: boolean): void;
-  setRightView(v: RightView): void;
   setPlanView(v: PlanView): void;
   setDoorwayMode(v: boolean): void;
-  setElevationWall(wall: Wall): void;
   setHighlightWall(wall: Wall | null): void;
   dismissOnboarding(): void;
   setCatalogOpen(open: boolean, filter?: UiState['catalogFilter']): void;
@@ -257,10 +265,8 @@ const defaultUi = (): UiState => ({
   propsTab: 'room',
   ledgerOpen: false,
   showGrid: true,
-  rightView: '3d',
   planView: 'room',
   doorwayMode: false,
-  elevationWall: 'top',
   highlightWall: null,
 });
 
@@ -364,6 +370,7 @@ export function createRoomStore(opts: { storage?: StateStorage; debounceMs?: num
       analysis: analyze(initialRoom),
       ui: defaultUi(),
       persistError: null,
+      pending: [],
 
       current() {
         const s = get();
@@ -407,6 +414,32 @@ export function createRoomStore(opts: { storage?: StateStorage; debounceMs?: num
         const room = get().current();
         if (!room.proposals.some((x) => x.id === id)) return false;
         setRoom({ ...room, proposals: room.proposals.filter((x) => x.id !== id) });
+        return true;
+      },
+
+      queueAction({ tool, label, run }) {
+        const action: PendingAction = { id: newId('act'), tool, label, createdAt: Date.now(), run };
+        set((s) => ({ pending: [...s.pending, action] }));
+        return action;
+      },
+
+      async acceptAction(id) {
+        const action = get().pending.find((a) => a.id === id);
+        if (!action) return { ok: false, message: 'That proposal is no longer open' };
+        const result = await action.run();
+        const payload = parseResult(result);
+        if (payload['ok'] === false) {
+          const message = String(payload['hint'] ?? payload['error'] ?? 'The change could not be applied');
+          set((s) => ({ pending: s.pending.map((a) => (a.id === id ? { ...a, error: message } : a)) }));
+          return { ok: false, message };
+        }
+        set((s) => ({ pending: s.pending.filter((a) => a.id !== id) }));
+        return { ok: true, result };
+      },
+
+      rejectAction(id) {
+        if (!get().pending.some((a) => a.id === id)) return false;
+        set((s) => ({ pending: s.pending.filter((a) => a.id !== id) }));
         return true;
       },
 
@@ -463,13 +496,10 @@ export function createRoomStore(opts: { storage?: StateStorage; debounceMs?: num
       setPropsTab(tab) { set((s) => ({ ui: { ...s.ui, propsTab: tab, roomPanelOpen: true, catalogFilter: tab === 'catalog' ? s.ui.catalogFilter : null } })); },
       setLedgerOpen(open) { set((s) => ({ ui: { ...s.ui, ledgerOpen: open } })); },
       setShowGrid(v) { set((s) => ({ ui: { ...s.ui, showGrid: v } })); },
-      setRightView(v) { set((s) => ({ ui: { ...s.ui, rightView: v } })); },
       // There is no home to draw when the current room stands alone, and cutting doorways is
       // something you do on the home plan, so leaving it puts the tool down.
       setPlanView(v) { set((s) => (v === 'home' && !s.currentHomeId ? s : { ui: { ...s.ui, planView: v, doorwayMode: v === 'home' ? s.ui.doorwayMode : false } })); },
       setDoorwayMode(v) { set((s) => ({ ui: { ...s.ui, doorwayMode: v } })); },
-      // Picking a wall is also what the elevation is for, so it opens on the way through.
-      setElevationWall(wall) { set((s) => ({ ui: { ...s.ui, elevationWall: wall, rightView: 'wall' } })); },
       setHighlightWall(wall) { set((s) => (s.ui.highlightWall === wall ? s : { ui: { ...s.ui, highlightWall: wall } })); },
       dismissOnboarding() { set((s) => ({ ui: { ...s.ui, onboardingDismissed: true } })); },
       // The catalog is a tab now, so opening it is opening the column on that tab. Closing it

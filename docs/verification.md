@@ -3,18 +3,18 @@
 ## A. Automated
 - `npm test` passes: 305 tests across the engine, store, webmcp, plan and three suites.
 - `npm run build` passes with no type errors.
-- `npm run smoke -- <outDir>` boots Vite, drives the app with Playwright and writes 49 numbered
+- `npm run smoke -- <outDir>` boots Vite, drives the app with Playwright and writes 45 numbered
   screenshots plus `contact-sheet.png`. It exits non-zero on a page error or a failed assertion and
   prints a JSON summary; check that summary for `consoleErrors: []`, `pageErrors: []` and a static
   tool count of 59.
-  - Steps 1–31, screenshots `01`–`42` and the contact sheet, cover one room: the onboarding card,
+  - Steps 1–31, screenshots `01`–`38` and the contact sheet, cover one room: the onboarding card,
     two proposals and accepting one, the wall snap, the Issues tab and `fix_item`, the daylight
     sweep, the catalog filters, 3D click-to-select, the camera presets, the dev panel, the eight
     room templates and the wizard, the three suggested palettes and the Style tab, per-wall paint
-    and a hung print read back through `get_elevation`, the shadow and daylight toggles, the room
+    and a hung print read back through `get_elevation`, a paint card under Propose first, the shadow and daylight toggles, the room
     panel, the ledger, the Buy tab, and one of every glTF model in a single room.
-  - Steps 32–39, screenshots `43-home-plan`, `44-home-doorway-cut`, `45-home-doorway-removed`,
-    `46-room-tab-home`, `47-homes-menu`, `48-home-3d` and `49-home-walk`, cover the home: build the
+  - Steps 32–39, screenshots `39-home-plan`, `40-home-doorway-cut`, `41-home-doorway-removed`,
+    `42-room-tab-home`, `43-homes-menu`, `44-home-3d` and `45-home-walk`, cover the home: build the
     one-bedroom flat from the wizard and assert `get_home` reads four rooms and three doorways;
     nudge the kitchen 12 cm and assert the 20 cm snap puts it back at `x: 650` with all three
     doorways still standing; cut a fourth hall → living door at offset 250 by clicking the shared

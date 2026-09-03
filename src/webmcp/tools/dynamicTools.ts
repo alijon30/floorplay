@@ -54,9 +54,16 @@ export function buildProposalTools(ctx: ToolContext): ToolDef[] {
       name: 'apply_proposal',
       description: 'Apply one open proposal by id, applying its ghosted changes to the room. Only call this when the user has explicitly chosen that option. Open proposals and their ids are listed by get_room.',
       inputSchema: { type: 'object', properties: { proposalId: idProp('Proposal id') }, required: ['proposalId'] },
-      execute: (i) => {
+      execute: async (i) => {
+        const id = i['proposalId'] as string;
+        const s = ctx.store.getState();
+        // A card from a gated tool applies through the tool itself, and answers as that tool would.
+        if (s.pending.some((a) => a.id === id)) {
+          const r = await s.acceptAction(id);
+          return r.ok ? r.result : fail('rejected', r.message);
+        }
         if (proposals().length === 0) return NO_PROPOSALS();
-        const r = ctx.store.getState().acceptProposal(i['proposalId'] as string, 'agent');
+        const r = s.acceptProposal(id, 'agent');
         if (!r.ok) return r.error === 'not_found' ? UNKNOWN_ID() : fail(r.error, r.message);
         return applied(ctx, r.entry.id, r.analysis);
       },
@@ -66,8 +73,10 @@ export function buildProposalTools(ctx: ToolContext): ToolDef[] {
       description: 'Withdraw one of your open proposals by id.',
       inputSchema: { type: 'object', properties: { proposalId: idProp('Proposal id') }, required: ['proposalId'] },
       execute: (i) => {
+        const id = i['proposalId'] as string;
+        if (ctx.store.getState().rejectAction(id)) return ok({ status: 'withdrawn' });
         if (proposals().length === 0) return NO_PROPOSALS();
-        return ctx.store.getState().rejectProposal(i['proposalId'] as string) ? ok({ status: 'withdrawn' }) : UNKNOWN_ID();
+        return ctx.store.getState().rejectProposal(id) ? ok({ status: 'withdrawn' }) : UNKNOWN_ID();
       },
     },
     {

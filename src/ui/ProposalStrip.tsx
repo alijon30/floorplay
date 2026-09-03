@@ -71,8 +71,9 @@ function Thumb({ room, proposal }: { room: Room; proposal: Proposal }) {
 export default function ProposalStrip() {
   const room = useRoom((s) => s.rooms[s.currentId]!);
   const hovered = useRoom((s) => s.ui.hoveredProposalId);
-  const { acceptProposal, rejectProposal, hoverProposal } = useRoom((s) => s);
-  if (room.proposals.length === 0) return null;
+  const pending = useRoom((s) => s.pending);
+  const { acceptProposal, rejectProposal, hoverProposal, acceptAction, rejectAction } = useRoom((s) => s);
+  if (room.proposals.length === 0 && pending.length === 0) return null;
 
   return (
     <div className="pointer-events-none absolute inset-x-0 top-9 z-20 flex justify-center px-3">
@@ -118,6 +119,20 @@ export default function ProposalStrip() {
             </article>
           );
         })}
+        {/* A change no ghost can draw — paint, size, a template, a home — waits as words. */}
+        {pending.map((a) => (
+          <article key={a.id} role="group" aria-label={a.label} className={`flex w-[268px] shrink-0 flex-col overflow-hidden ${CARD}`}>
+            <div className="flex flex-col gap-1 p-2.5">
+              <div className="text-[10.5px] uppercase tracking-[0.06em] text-muted">Agent asks</div>
+              <div className="text-[12.5px] font-medium leading-snug text-fg">{a.label}</div>
+              {a.error && <div className="text-[11px] text-bad">{a.error}</div>}
+            </div>
+            <div className="flex gap-1.5 border-t border-line p-2">
+              <button className={`flex-1 ${BTN_PRIMARY}`} title="Let the agent make this change. Undo takes it back." onClick={() => void acceptAction(a.id)}>Accept</button>
+              <button className={`flex-1 ${BTN_QUIET}`} title="Turn this change down. It is not kept." onClick={() => rejectAction(a.id)}>Reject</button>
+            </div>
+          </article>
+        ))}
       </div>
     </div>
   );

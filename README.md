@@ -35,7 +35,7 @@ Floorplay is laid out like a drafting tool rather than a chat window.
 - **Plan viewport** — a drafting sheet: paper ground, a 10 cm fine grid over a 100 cm major grid, solid wall bands with doors and windows cut out of them, swing arcs, dimension lines with witness ticks, and outlined furniture with its own glyph. Its toolbar carries a **Plan** / **Home** toggle, the north-wall control, the grid toggle, the daylight-overlay toggle and fit-to-view. The wheel zooms from 0.5x to 4x.
 - **3D viewport** — the same room in three.js, with its own orbit/walk, shadows and fit buttons. Clicking a piece here selects it everywhere. In Home view it draws the whole flat instead, as one dollhouse.
 - **Ledger drawer** — one line showing the last action and the entry count, expanding to the full list with a **Revert** on every entry.
-- **Status strip** — six readings across the bottom (free floor, walkway, open area, budget, light at the selected item, issues), then the daylight hour slider and the **Propose first** switch. In Home view the six become home, rooms, area, items, budget against the summed budgets, and which rooms you can reach from the front door.
+- **Status strip** — six readings across the bottom (free floor, walkway, open area, budget, light at the selected item, issues), then the daylight hour slider and the **Propose first** switch. With it on, every change the agent makes to the design waits for you: furniture and openings as ghosts on the plan, and paint, room size, templates, homes and doorways as cards you accept or reject. Looking, selecting, undoing and switching rooms never wait. In Home view the six become home, rooms, area, items, budget against the summed budgets, and which rooms you can reach from the front door.
 
 Proposals do not take a panel of their own. They float over the plan as cards, each with a thumbnail drawing the room's current footprints in grey and the proposal's ghosts as dashed outlines, its label, its three biggest deltas and **Accept** / **Reject**. Hovering one previews it on the drawing and in 3D underneath.
 
@@ -81,7 +81,7 @@ Sixty-three items list two to four alternative colors. The **Selection** tab sho
 
 ## Walls
 
-The plan says where furniture stands and the 3D view says what the room feels like; neither answers *how high, and how far along*. The **Wall** tab on the right viewport draws one wall straight on: its own paint, its doors and windows at their real sills, everything hanging on it, and the furniture standing in front of it as faint silhouettes, because a picture is hung relative to the sofa under it and not to the corner of the room. Pick a piece from the **Hang** strip and click the wall to hang it at its mount height; drag a hung piece along the wall and the whole slide lands as one undoable move. The N/E/S/W control switches walls.
+The plan says where furniture stands and the 3D view says what the room feels like; neither answers *how high, and how far along*. Wall pieces — pictures, mirrors, shelves, curtains, hooks, the TV — carry a mount height of their own, so dropping one against a wall on the plan hangs it there at that height and the 3D view shows it hung. The agent reads a wall straight on with `get_elevation`: its paint, its doors and windows at their real sills, everything hanging on it, and the furniture standing within a metre of it, because a picture is hung relative to the sofa under it and not to the corner of the room.
 
 Each wall can carry its own colour. **Style** opens eleven regional palettes — Japan, China, Europe, American, Italy, Egypt, Middle East, Scandinavia, Morocco, India, Mexico — of six named paints each, from shoji white and aizome indigo to Venetian red and Majorelle blue. A swatch paints the wall you are looking at; **Apply to all walls** takes the room back to a single colour. Four tools do the same for the agent: `get_elevation` reads one wall with its openings, its hung items and the furniture within a metre of it, `list_wall_palettes` returns the regions, `set_wall_color` paints one wall or all four, and `place_on_wall` hangs a wall-category item flush at a given offset.
 
@@ -151,7 +151,7 @@ npm install
 npm run dev      # http://localhost:5173
 npm test         # engine, store and tool tests
 npm run build    # typecheck and production build
-npm run smoke    # 50 screenshots plus a model contact sheet into ./smoke-out (first run downloads Chromium)
+npm run smoke    # 45 screenshots plus a model contact sheet into ./smoke-out (first run downloads Chromium)
 npm run models   # rebuild public/models from Poly Haven (the .glb files are committed; this is only for changing them)
 ```
 
