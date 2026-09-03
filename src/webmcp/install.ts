@@ -5,6 +5,7 @@ import type { RoomStore } from '../store/roomStore';
 import { buildReadTools } from './tools/readTools';
 import { buildMutateTools } from './tools/mutateTools';
 import { buildProposalTools, buildSelectionTools } from './tools/dynamicTools';
+import { buildWallTools } from './tools/wallTools';
 import { buildScriptTool } from './tools/scriptTool';
 import { findCatalogItem } from '../engine/catalog';
 
@@ -16,7 +17,7 @@ export function installWebMCP(store: RoomStore, mcOverride?: ModelContextLike): 
   // Proposal tools are static, not selection-scoped: spec 8.3 requires everything reachable
   // through a dynamic tool to also be reachable statically by id, and applying or withdrawing
   // a proposal has no other static route.
-  const staticTools = [...buildReadTools(ctx), ...buildMutateTools(ctx), ...buildProposalTools(ctx)];
+  const staticTools = [...buildReadTools(ctx), ...buildMutateTools(ctx), ...buildWallTools(ctx), ...buildProposalTools(ctx)];
   // `run_layout_script` needs a real Web Worker for its sandbox, so it is only offered where
   // one exists. The `mcOverride` guard keeps it out of the tests' fake model context, which
   // runs in Node with no Worker anyway.

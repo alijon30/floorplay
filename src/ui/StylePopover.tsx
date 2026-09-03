@@ -4,6 +4,7 @@ import { useRoom } from '../store';
 import { FLOOR_LABEL, FLOOR_SWATCH } from '../finishes';
 import { WALL_SWATCHES, suggestPalettes, type Palette } from '../engine/palette';
 import { FLOOR_FINISHES, type FloorFinish, type Op } from '../engine/types';
+import WallPalettePanel from '../elevation/WallPalettePanel';
 import { Icon } from './icons';
 import { BTN_SM, BTN_SM_ON, CARD, CLOSE, LABEL, TITLE } from './styles';
 
@@ -74,6 +75,8 @@ export default function StylePopover({ onClose, anchorRef, position = 'right-0 m
           />
         ))}
       </div>
+
+      <WallPalettePanel />
 
       <strong className={`mt-3.5 block ${LABEL}`}>Floor</strong>
       <div className="mt-1.5 flex flex-wrap gap-1.5">

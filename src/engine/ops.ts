@@ -1,6 +1,6 @@
 // src/engine/ops.ts
-import type { Op, PlacedItem, Room } from './types';
-import { FLOOR_FINISHES } from './types';
+import type { Op, PlacedItem, Room, RoomFinish, Wall } from './types';
+import { FLOOR_FINISHES, WALLS } from './types';
 import { catalogFor, findCatalogItem } from './catalog';
 
 export type ApplyResult =
@@ -113,8 +113,16 @@ function applyOne(room: Room, op: Op): OneResult {
     case 'setFinish': {
       if (!HEX.test(op.finish.wall)) return fail('invalid', `${op.finish.wall} is not a hex color like #aabbcc`);
       if (!FLOOR_FINISHES.includes(op.finish.floor)) return fail('invalid', `Unknown floor finish ${op.finish.floor}`);
+      // Per-wall overrides are validated the same way the default is, and an empty map is
+      // dropped rather than stored, so undoing back to "all walls the same" is deeply equal.
+      const overrides = Object.entries(op.finish.walls ?? {}).filter(([, v]) => v !== undefined) as [Wall, string][];
+      for (const [wall, hex] of overrides) {
+        if (!WALLS.includes(wall)) return fail('invalid', `Unknown wall ${wall}`);
+        if (!HEX.test(hex)) return fail('invalid', `${hex} is not a hex color like #aabbcc`);
+      }
+      const finish: RoomFinish = { wall: op.finish.wall, floor: op.finish.floor, ...(overrides.length ? { walls: Object.fromEntries(overrides) as Partial<Record<Wall, string>> } : {}) };
       const inverse: Op = { type: 'setFinish', finish: room.finish };
-      return { ok: true, room: { ...room, finish: { ...op.finish } }, inverse: [inverse] };
+      return { ok: true, room: { ...room, finish }, inverse: [inverse] };
     }
   }
 }

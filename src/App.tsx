@@ -5,7 +5,7 @@ import StatusStrip from './ui/StatusStrip';
 import SplitPane from './ui/SplitPane';
 import DevPanel from './ui/DevPanel';
 import Plan from './plan/Plan';
-import Scene from './three/Scene';
+import RightViewport from './elevation/RightViewport';
 import CatalogDrawer from './ui/CatalogDrawer';
 import PropertiesPanel from './ui/PropertiesPanel';
 import ProposalStrip from './ui/ProposalStrip';
@@ -50,7 +50,7 @@ export default function App() {
                 <Onboarding />
               </div>
             )}
-            right={<Scene />}
+            right={<RightViewport />}
           />
         </div>
         {propertiesOpen && <PropertiesPanel />}
