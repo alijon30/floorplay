@@ -287,9 +287,10 @@ export default function Elevation() {
           <div className="flex items-center gap-2">
             <strong className={LABEL}>Hang</strong>
             <span className="text-[11px] text-muted">
+              {/* The bare position reads as a sentence; the opening suffix belongs on a chip. */}
               {hangCat
-                ? `Click the ${wallLabel(room, wall).toLowerCase()} to hang the ${hangCat.name.toLowerCase()}.`
-                : `Pick a piece, then click the ${wallLabel(room, wall).toLowerCase()}.`}
+                ? `Click the ${wallPositionName(wall).toLowerCase()} wall to hang the ${hangCat.name.toLowerCase()}.`
+                : `Pick a piece, then click the ${wallPositionName(wall).toLowerCase()} wall.`}
             </span>
             {hangCat && <button className={BTN_SM} onClick={() => setHangId(null)}>Cancel</button>}
           </div>
