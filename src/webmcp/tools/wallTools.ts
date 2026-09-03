@@ -5,6 +5,7 @@ import { HEX_COLOR, cm, hexColorProp, idProp, strProp, wallProp } from '../schem
 import type { ToolContext } from './context';
 import { mutate } from './mutateTools';
 import { WALL_PALETTES } from '../../engine/wallPalettes';
+import { wallLabel, wallPositionName } from '../../engine/wallNames';
 import { wallColor, withAllWallsColor, withWallColor } from '../../engine/wallColor';
 import { elevationView, wallLength, wallPlacement, FLOOR_NEAR_CM, MOUNT_NEAR_CM } from '../../engine/elevation';
 import { wallFacing } from '../../engine/geometry';
@@ -60,6 +61,7 @@ export function buildWallTools(ctx: ToolContext): ToolDef[] {
       name: 'get_elevation',
       description:
         `One wall seen straight on: its paint, its length and height, the doors and windows in it, everything hanging on it with its offset and mount height, and the floor-standing furniture within ${FLOOR_NEAR_CM} cm of it. ` +
+        `Walls are named by where they sit on the plan — top, right, bottom, left — and that is how the user sees them on screen, so name them that way in your reply. \`facing\` gives the compass direction if you need it, but it moves whenever north moves and it is not what the user is looking at. \`describe\` is the label the app itself puts on this wall. ` +
         `Read this before hanging anything, so a picture goes above the sofa rather than through it. ${OFFSET_NOTE}`,
       inputSchema: { type: 'object', properties: { wall: wallProp }, required: ['wall'] },
       annotations: { readOnlyHint: true, untrustedContentHint: true },
@@ -70,6 +72,8 @@ export function buildWallTools(ctx: ToolContext): ToolDef[] {
         const view = elevationView(r, wall);
         return ok({
           wall,
+          describe: wallLabel(r, wall),
+          position: wallPositionName(wall).toLowerCase(),
           facing: COMPASS[wallFacing(wall, r.northWall)] ?? 'unknown',
           length: view.length,
           height: view.height,
@@ -116,7 +120,7 @@ export function buildWallTools(ctx: ToolContext): ToolDef[] {
     },
     {
       name: 'set_wall_color',
-      description: 'Paint the walls. With a wall named, only that wall changes and the other three keep whatever they had. Without one, every wall goes back to a single color and any per-wall overrides are cleared. Name the paint with swatch, as "Region/Name" from list_wall_palettes — "Japan/Aizome indigo" — or pass any hex as color.',
+      description: 'Paint the walls. Walls are named by where they sit on the plan — top, right, bottom, left — which is how the user sees them on screen, so ask for and confirm "the top wall", never "the north wall". With a wall named, only that wall changes and the other three keep whatever they had. Without one, every wall goes back to a single color and any per-wall overrides are cleared. Name the paint with swatch, as "Region/Name" from list_wall_palettes — "Japan/Aizome indigo" — or pass any hex as color.',
       inputSchema: { type: 'object', properties: { wall: wallProp, color: hexColorProp('Wall paint'), swatch: strProp('A named paint as "Region/Name", from list_wall_palettes or get_style. An alternative to color') } },
       execute: (input) => {
         const ref = input['swatch'] as string | undefined;

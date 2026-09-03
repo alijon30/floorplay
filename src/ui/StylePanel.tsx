@@ -1,12 +1,13 @@
 // src/ui/StylePanel.tsx
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRoom } from '../store';
 import { FLOOR_LABEL, FLOOR_SWATCH } from '../finishes';
 import { suggestPalettes, type Palette } from '../engine/palette';
 import { WALL_PALETTES } from '../engine/wallPalettes';
 import { wallColor, withAllWallsColor, withWallColor } from '../engine/wallColor';
 import type { FloorFinish, Op } from '../engine/types';
-import WallPicker, { wallFacingName, type PaintTarget } from './style/WallPicker';
+import WallPicker, { type PaintTarget } from './style/WallPicker';
+import { wallLabel } from '../engine/wallNames';
 import RegionPalette from './style/RegionPalette';
 import FloorTiles from './style/FloorTiles';
 import { BTN_SM_ON, LABEL } from './styles';
@@ -29,6 +30,7 @@ export default function StylePanel() {
   const room = useRoom((s) => s.rooms[s.currentId]!);
   const dispatch = useRoom((s) => s.dispatch);
   const setElevationWall = useRoom((s) => s.setElevationWall);
+  const setHighlightWall = useRoom((s) => s.setHighlightWall);
   const palettes = useMemo(() => suggestPalettes(room), [room]);
   const [target, setTarget] = useState<PaintTarget>('all');
   const [regionKey, setRegionKey] = useState(WALL_PALETTES[0]!.key);
@@ -42,9 +44,16 @@ export default function StylePanel() {
     if (t !== 'all') setElevationWall(t);
   };
 
+  // The plan and the 3D view point at whatever this tab is painting, so nobody has to hold
+  // "right wall" in their head while looking at a room. Cleared when the tab goes away.
+  useEffect(() => {
+    setHighlightWall(target === 'all' ? null : target);
+    return () => setHighlightWall(null);
+  }, [target, setHighlightWall]);
+
   const paint = (hex: string, name: string) => {
     const finish = target === 'all' ? withAllWallsColor(room.finish, hex) : withWallColor(room.finish, target, hex);
-    const where = target === 'all' ? 'every wall' : `the ${wallFacingName(room, target)} wall`;
+    const where = target === 'all' ? 'every wall' : `the ${wallLabel(room, target).toLowerCase()}`;
     dispatch({ actor: 'human', ops: [{ type: 'setFinish', finish }], summary: `Painted ${where} ${name}` });
   };
 

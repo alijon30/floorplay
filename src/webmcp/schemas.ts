@@ -11,7 +11,7 @@ export const strProp = (description: string): JsonSchemaProp => ({ type: 'string
 export const boolProp = (description: string): JsonSchemaProp => ({ type: 'boolean', description });
 export const idProp = (description: string): JsonSchemaProp => ({ type: 'string', description });
 export const rotationProp: JsonSchemaProp = { type: 'integer', description: 'Rotation in degrees clockwise', enum: [...ROTATIONS] };
-export const wallProp: JsonSchemaProp = { type: 'string', description: 'Which wall', enum: [...WALLS] };
+export const wallProp: JsonSchemaProp = { type: 'string', description: 'Which wall, named by where it sits on the plan: top, right, bottom or left. These are positions on the drawing the user is looking at, not compass directions — say "the top wall" back to them, not "the north wall"', enum: [...WALLS] };
 export const categoryProp: JsonSchemaProp = { type: 'string', description: 'Furniture category', enum: [...CATEGORIES] };
 export const roomKindProp: JsonSchemaProp = { type: 'string', description: 'Kind of room the item suits', enum: [...ROOM_KINDS] };
 export const floorFinishProp: JsonSchemaProp = { type: 'string', description: 'Floor material', enum: [...FLOOR_FINISHES] };

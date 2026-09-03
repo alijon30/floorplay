@@ -1,12 +1,10 @@
 // src/ui/style/WallPicker.tsx
+import { useState } from 'react';
 import { wallColor } from '../../engine/wallColor';
 import { FLOOR_PLAN_FILL } from '../../finishes';
-import { wallFacing } from '../../engine/geometry';
+import { wallChipLabel, wallCompassLetter, wallLabel, wallPositionName } from '../../engine/wallNames';
 import { WALLS, type Room, type Wall } from '../../engine/types';
 import { BTN_SM, BTN_SM_ON } from '../styles';
-
-/** What a wall faces once north is decided. The name people actually use for it. */
-const COMPASS: Record<number, string> = { 0: 'north', 90: 'east', 180: 'south', 270: 'west' };
 
 /** The thing being painted: one wall, or the room's four walls together. */
 export type PaintTarget = Wall | 'all';
@@ -15,11 +13,6 @@ const SIZE = 120;
 /** Room for the wall band and its highlight inside the 120 px box. */
 const PAD = 14;
 const STROKE = 9;
-
-/** "east" for the wall facing north-plus-90, whatever `top`/`right` happen to mean here. */
-export function wallFacingName(room: Room, wall: Wall): string {
-  return COMPASS[wallFacing(wall, room.northWall)] ?? wall;
-}
 
 /** The mini plan's geometry: the room drawn as large as it goes inside the box. */
 function layout(width: number, depth: number) {
@@ -55,15 +48,18 @@ function openingSegment(wall: Wall, offset: number, width: number, l: ReturnType
 /**
  * The four walls of the room, drawn small, in the paint they are actually wearing.
  *
- * Colour is a spatial decision — "the wall behind the bed", not "the top wall" — so the
- * picker is a picture of the room rather than a row of words. The door and window ticks are
- * there for the same reason: they are how you recognise which wall is which.
+ * This picture is the picker — hover a wall and it lights, click it and it is the one being
+ * painted. Colour is a spatial decision ("the wall behind the bed"), and the plan is the only
+ * thing on screen that can answer where a wall is. The chips beside it name the same walls by
+ * where they sit on that plan, with the compass letter kept as a caption rather than the name,
+ * because north is a setting most people never touch and every one of them can see "top".
  */
 export default function WallPicker({
   room, target, onTarget,
 }: { room: Room; target: PaintTarget; onTarget: (t: PaintTarget) => void }) {
   const l = layout(room.width, room.depth);
-  const name = target === 'all' ? 'all walls' : `${wallFacingName(room, target)} wall`;
+  const [hover, setHover] = useState<Wall | null>(null);
+  const name = target === 'all' ? 'all four walls' : wallLabel(room, target);
 
   return (
     <div>
@@ -77,8 +73,13 @@ export default function WallPicker({
         >
           {/* The floor in the same tint the plan draws it, so the two read as one room. */}
           <rect x={l.x0} y={l.y0} width={l.w} height={l.h} fill={FLOOR_PLAN_FILL[room.finish.floor]} />
-          {/* One wall gets a band behind it; all four get a ring around the room, because four
+          {/* The wall under the cursor lights faintly; the chosen one carries the full band.
+              One wall gets a band behind it; all four get a ring around the room, because four
               bands would swallow the colours the picker exists to show. */}
+          {hover !== null && hover !== target && (() => {
+            const e = wallEnds(hover, l);
+            return <line x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2} stroke="var(--accent)" strokeOpacity={0.45} strokeWidth={STROKE + 6} strokeLinecap="square" />;
+          })()}
           {target !== 'all' && (() => {
             const e = wallEnds(target, l);
             return <line x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2} stroke="var(--accent)" strokeWidth={STROKE + 6} strokeLinecap="square" />;
@@ -122,9 +123,13 @@ export default function WallPicker({
                 stroke="transparent" strokeWidth={PAD * 2} strokeLinecap="square"
                 role="button"
                 tabIndex={0}
-                aria-label={`Paint the ${wallFacingName(room, w)} wall`}
+                aria-label={`Paint the ${wallLabel(room, w).toLowerCase()}`}
                 aria-pressed={target === w}
                 className="cursor-pointer"
+                onPointerEnter={() => setHover(w)}
+                onPointerLeave={() => setHover((h) => (h === w ? null : h))}
+                onFocus={() => setHover(w)}
+                onBlur={() => setHover((h) => (h === w ? null : h))}
                 onClick={() => onTarget(w)}
                 onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onTarget(w); } }}
               />
@@ -136,6 +141,7 @@ export default function WallPicker({
           <button
             className={target === 'all' ? BTN_SM_ON : BTN_SM}
             aria-pressed={target === 'all'}
+            title="Paint all four walls the same colour"
             onClick={() => onTarget('all')}
           >All walls</button>
           <div className="mt-2 flex flex-wrap gap-1">
@@ -144,11 +150,15 @@ export default function WallPicker({
                 key={w}
                 className={target === w ? BTN_SM_ON : BTN_SM}
                 aria-pressed={target === w}
-                title={`The ${w} wall on the plan`}
+                aria-label={`Paint the ${wallLabel(room, w).toLowerCase()}`}
+                title={`The ${wallPositionName(w).toLowerCase()} wall on the plan, facing ${wallCompassLetter(room, w)}`}
+                onPointerEnter={() => setHover(w)}
+                onPointerLeave={() => setHover((h) => (h === w ? null : h))}
                 onClick={() => onTarget(w)}
               >
                 <span className="h-2.5 w-2.5 rounded-[2px] ring-1 ring-black/25" style={{ background: wallColor(room, w) }} />
-                {wallFacingName(room, w)}
+                {wallChipLabel(room, w)}
+                <span className="text-muted/70">{wallCompassLetter(room, w)}</span>
               </button>
             ))}
           </div>

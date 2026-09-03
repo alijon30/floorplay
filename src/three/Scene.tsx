@@ -181,7 +181,7 @@ export default function Scene() {
           <group position={[0, -0.02, 0]}>
             <GroundFade w={w} d={d} />
             <Floor width={room.width} depth={room.depth} finish={room.finish.floor} />
-            <Walls room={room} />
+            <Walls room={room} highlight={ui.highlightWall} />
             {shadows && <ContactShadows position={[0, 0.014, 0]} scale={[2 * w, 2 * d]} opacity={0.45} blur={2.2} far={2} resolution={1024} color="#3a3128" />}
             {room.items.map((item) => {
               const cat = findCatalogItem(room, item.catalogId);

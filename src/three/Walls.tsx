@@ -115,7 +115,31 @@ function skyPanel(room: RoomShell, wall: Wall, b: Box): { position: [number, num
   }
 }
 
-export default function Walls({ room }: { room: RoomShell & { openings: Opening[]; finish?: RoomFinish } }) {
+/** Accent used for the highlighted wall's base line, matching the plan's own accent. */
+const HIGHLIGHT = '#5b8cff';
+/** How thick and how tall the accent edge sits at the foot of the wall, in meters. */
+const EDGE_T = 0.018;
+const EDGE_H = 0.03;
+
+/**
+ * A thin bar of accent along the inside foot of one wall.
+ *
+ * Painting in the Style tab, or reading the Wall view, is about one wall at a time, and the
+ * 3D view is where you check whether that wall is the one you meant. A line at its base says
+ * so without repainting anything or covering what the wall is wearing.
+ */
+function highlightBar(room: RoomShell, wall: Wall): { position: [number, number, number]; args: [number, number, number] } {
+  const W = room.width * M, D = room.depth * M;
+  const y = EDGE_H / 2;
+  switch (wall) {
+    case 'top': return { position: [W / 2, y, EDGE_T / 2], args: [W, EDGE_H, EDGE_T] };
+    case 'bottom': return { position: [W / 2, y, D - EDGE_T / 2], args: [W, EDGE_H, EDGE_T] };
+    case 'left': return { position: [EDGE_T / 2, y, D / 2], args: [EDGE_T, EDGE_H, D] };
+    case 'right': return { position: [W - EDGE_T / 2, y, D / 2], args: [EDGE_T, EDGE_H, D] };
+  }
+}
+
+export default function Walls({ room, highlight }: { room: RoomShell & { openings: Opening[]; finish?: RoomFinish }; highlight?: Wall | null }) {
   /*
    * One paint per wall, read through `wallColor` so a wall with no override of its own falls
    * back to the room default and a room saved before per-wall colour existed still paints.
@@ -212,6 +236,15 @@ export default function Walls({ room }: { room: RoomShell & { openings: Opening[
               <meshStandardMaterial color={BASEBOARD_COLOR} roughness={0.6} metalness={0} />
             </mesh>
           ))}
+          {highlight === w && (() => {
+            const bar = highlightBar(room, w);
+            return (
+              <mesh position={bar.position}>
+                <boxGeometry args={bar.args} />
+                <meshBasicMaterial color={HIGHLIGHT} toneMapped={false} />
+              </mesh>
+            );
+          })()}
         </group>
         );
       })}

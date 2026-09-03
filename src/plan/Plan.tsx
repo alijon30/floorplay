@@ -284,7 +284,7 @@ export default function Plan() {
           <rect x={0} y={0} width={room.width} height={room.depth} fill={FLOOR_PLAN_FILL[room.finish.floor]} />
           {ui.showGrid && <Grid width={room.width} depth={room.depth} u={u} />}
           {ui.showDaylight && <Daylight d={analysis.daylight} />}
-          <Shell room={room} />
+          <Shell room={room} highlight={ui.highlightWall} />
           <Openings room={room} u={u} />
           <Items room={room} selectedId={ui.selectedItemId} dragPos={dragPos} fit={fit} u={u} onPointerDown={onItemDown} />
           {guide && <line x1={guide.x1} y1={guide.y1} x2={guide.x2} y2={guide.y2} stroke={ACCENT} strokeWidth={3} strokeLinecap="round" vectorEffect="non-scaling-stroke" pointerEvents="none" />}

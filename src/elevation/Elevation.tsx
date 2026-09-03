@@ -1,10 +1,11 @@
 // src/elevation/Elevation.tsx
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRoom } from '../store';
 import { catalogFor, findCatalogItem } from '../engine/catalog';
-import { rotatedDims, wallFacing } from '../engine/geometry';
+import { rotatedDims } from '../engine/geometry';
 import { elevationView, offsetOnWall, wallLength, wallPlacement, type ElevationItem } from '../engine/elevation';
 import { wallColor } from '../engine/wallColor';
+import { wallChipLabel, wallCompassLetter, wallLabel, wallPositionName } from '../engine/wallNames';
 import { newId } from '../engine/ids';
 import { WALLS, type Op, type Wall } from '../engine/types';
 import { Glyph, darken } from '../plan/glyphs';
@@ -12,9 +13,6 @@ import { ACCENT, GRID_MAJOR, INK, INK_DIM, PAPER } from '../plan/tokens';
 import Viewport from '../ui/Viewport';
 import { BTN_SM, BTN_SM_ON, LABEL, SEG, SEG_ITEM, SEG_ITEM_ON } from '../ui/styles';
 import ViewToggle from './ViewToggle';
-
-/** Compass letter for a facing in degrees, so a wall is named the way the plan names it. */
-const COMPASS: Record<number, string> = { 0: 'N', 90: 'E', 180: 'S', 270: 'W' };
 
 /** Margin around the wall, in the drawing's own centimetres. */
 const PAD = 34;
@@ -54,6 +52,7 @@ export default function Elevation() {
   const wall = useRoom((s) => s.ui.elevationWall);
   const selectedId = useRoom((s) => s.ui.selectedItemId);
   const setElevationWall = useRoom((s) => s.setElevationWall);
+  const setHighlightWall = useRoom((s) => s.setHighlightWall);
   const dispatch = useRoom((s) => s.dispatch);
   const select = useRoom((s) => s.select);
 
@@ -63,6 +62,13 @@ export default function Elevation() {
   /** Where the cursor is along the wall, so the hang ghost can follow it. */
   const [hover, setHover] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+
+  // Looking at a wall here points the plan and the 3D view at the same one, so "hang it on
+  // this wall" never needs a compass to settle which wall that is.
+  useEffect(() => {
+    setHighlightWall(wall);
+    return () => setHighlightWall(null);
+  }, [wall, setHighlightWall]);
 
   const view = useMemo(() => elevationView(room, wall), [room, wall]);
   const hangables = useMemo(() => catalogFor(room).filter((c) => c.category === 'wall'), [room]);
@@ -93,7 +99,7 @@ export default function Elevation() {
       type: 'place',
       item: { id: newId('item'), catalogId: hangCat.id, x: Math.round(p.x), y: Math.round(p.y), rotation: p.rotation, locked: false },
     };
-    const r = dispatch({ actor: 'human', ops: [op], summary: `Hung ${hangCat.name} on the ${wall} wall at ${offset} cm` });
+    const r = dispatch({ actor: 'human', ops: [op], summary: `Hung ${hangCat.name} on the ${wallPositionName(wall).toLowerCase()} wall at ${offset} cm` });
     if (r.ok) select(op.item.id);
   };
 
@@ -134,7 +140,7 @@ export default function Elevation() {
       if (latest === m.offset) return;
       const along = latest + span / 2;
       const next = horizontal(wall) ? { x: Math.round(along), y: item.y } : { x: item.x, y: Math.round(along) };
-      dispatch({ actor: 'human', ops: [{ type: 'move', id: m.id, x: next.x, y: next.y, rotation: item.rotation }], summary: `Slid ${cat.name} to ${latest} cm along the ${wall} wall` });
+      dispatch({ actor: 'human', ops: [{ type: 'move', id: m.id, x: next.x, y: next.y, rotation: item.rotation }], summary: `Slid ${cat.name} to ${latest} cm along the ${wallPositionName(wall).toLowerCase()} wall` });
     };
     el.addEventListener('pointermove', move);
     el.addEventListener('pointerup', up);
@@ -152,20 +158,23 @@ export default function Elevation() {
   return (
     <Viewport label="Wall" toolbar={toolbar} tone="light">
       <div className="flex h-full w-full flex-col" style={{ background: PAPER }}>
-        <div className="flex shrink-0 items-center gap-2 px-3 pb-1 pt-7">
+        <div className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 px-3 pb-1 pt-7">
           <div className={SEG} role="group" aria-label="Which wall">
             {WALLS.map((w) => {
               const on = w === wall;
-              const label = `${COMPASS[wallFacing(w, room.northWall)] ?? '?'} · ${w}`;
               return (
                 <button
                   key={w}
                   className={on ? SEG_ITEM_ON : SEG_ITEM}
                   aria-pressed={on}
                   aria-label={`Show the ${w} wall`}
-                  title={`${label} — ${wallLength(room, w)} cm long`}
+                  title={`The ${wallPositionName(w).toLowerCase()} wall on the plan — ${wallLength(room, w)} cm long, facing ${wallCompassLetter(room, w)}`}
                   onClick={() => setElevationWall(w)}
-                >{label}</button>
+                >
+                  {wallChipLabel(room, w)}
+                  {/* The compass is a caption, not the name: it moves when north moves. */}
+                  <span className="ml-1 opacity-55">{wallCompassLetter(room, w)}</span>
+                </button>
               );
             })}
           </div>
@@ -179,7 +188,7 @@ export default function Elevation() {
             viewBox={`${-PAD} ${-PAD} ${L + 2 * PAD} ${H + PAD + GROUND}`}
             preserveAspectRatio="xMidYMid meet"
             role="img"
-            aria-label={`Elevation of the ${wall} wall`}
+            aria-label={`Elevation of the ${wallLabel(room, wall).toLowerCase()}`}
             style={{ cursor: hangCat ? 'copy' : 'default' }}
             onPointerDown={onWallClick}
             onPointerMove={(e) => { const at = toWall(e); setHover(at ? at.u : null); }}
@@ -278,7 +287,9 @@ export default function Elevation() {
           <div className="flex items-center gap-2">
             <strong className={LABEL}>Hang</strong>
             <span className="text-[11px] text-muted">
-              {hangCat ? `Click the wall to hang the ${hangCat.name.toLowerCase()}.` : 'Pick a piece, then click the wall.'}
+              {hangCat
+                ? `Click the ${wallLabel(room, wall).toLowerCase()} to hang the ${hangCat.name.toLowerCase()}.`
+                : `Pick a piece, then click the ${wallLabel(room, wall).toLowerCase()}.`}
             </span>
             {hangCat && <button className={BTN_SM} onClick={() => setHangId(null)}>Cancel</button>}
           </div>
