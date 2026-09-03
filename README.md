@@ -15,12 +15,26 @@ Floorplay is a single-room furniture planner where a human and an AI agent edit 
 - Recolor a piece from its alternative finishes, repaint the walls, change the floor, or take one of three palettes derived from what is already in the room.
 - Drop furniture near a wall and watch it snap flush and turn to face the room, or ask the agent where a piece belongs.
 - See every problem as it happens: blocked doors, no walkway, an item in the dark, a blown budget, each with a one-click fix.
-- Get layout options from the agent as ghost furniture and variant cards, then accept, reject, or drag a ghost before accepting.
+- Get layout options from the agent as ghost furniture and floating cards, then accept, reject, or drag a ghost before accepting.
 - Watch daylight move through the room on a time slider, in 2D and in 3D.
 - Walk through the room in 3D, or ask the agent what it sees from the door.
 - Roll back any step from a ledger that records every action by either party.
 
 Everything is stored in your browser. Nothing leaves your machine.
+
+## The workspace
+
+Floorplay is laid out like a drafting tool rather than a chat window.
+
+- **Top bar** — the brand mark, the room name, the room's size in centimetres, then undo, **My rooms** and the agent chip.
+- **Tool rail**, down the left edge — **Catalog** and **Room** at the top, **Style** and **Help** at the bottom. Each is an icon button with a tooltip and an accent bar while its surface is open.
+- **Plan viewport** — a drafting sheet: paper ground, a 10 cm fine grid over a 100 cm major grid, solid wall bands with doors and windows cut out of them, swing arcs, dimension lines with witness ticks, and outlined furniture with its own glyph. Its toolbar carries the north-wall control, the grid toggle, the daylight-overlay toggle and fit-to-view. The wheel zooms from 0.5x to 4x.
+- **3D viewport** — the same room in three.js, with its own orbit/walk, shadows and fit buttons. Clicking a piece here selects it everywhere.
+- **Properties column**, on the right — **Room**, **Selection** and **Issues** tabs, the last carrying a count badge. Selecting anything anywhere switches to Selection and opens the column if it was shut.
+- **Ledger drawer** — one line showing the last action and the entry count, expanding to the full list with a **Revert** on every entry.
+- **Status strip** — six readings across the bottom (free floor, walkway, open area, budget, light at the selected item, issues), then the daylight hour slider and the **Propose first** switch.
+
+Proposals do not take a panel of their own. They float over the plan as cards, each with a thumbnail drawing the room's current footprints in grey and the proposal's ghosts as dashed outlines, its label, its three biggest deltas and **Accept** / **Reject**. Hovering one previews it on the drawing and in 3D underneath.
 
 ## Ready-made rooms
 
@@ -41,7 +55,9 @@ The agent reaches the same eight through `list_templates` and `load_template`, w
 
 The catalog holds 139 items in twenty categories: beds, sofas, armchairs, desks, chairs, tables, wardrobes, shelves, dressers, nightstands, rugs, lamps, plants, TVs, kitchen units, appliances, storage, decor, wall-mounted pieces and a catch-all. Each item carries the room kinds it suits, so the catalog drawer and `get_catalog` both filter by room as well as by category, price and footprint. Wall-mounted items hang at a real height and take no floor, so a picture may sit above a sofa and a mirror above a desk without either reading as a collision.
 
-Sixty-three items list two to four alternative colors. The inspector shows them as swatches under **Finish**; the agent sets one with `set_item_color`. The **Style** button in the top bar opens eight curated wall colors and five floors (oak, walnut, ash, grey, tile), which the agent sets with `set_finish`. `suggest_palette` reads the dominant tone of the furniture already in the room and returns three whole-room schemes, warm, cool and neutral, each with a wall color, a floor, three accents and the exact recolors that would carry it out. Applying one from the Style popover lands as a single ledger entry, so one undo takes the room back.
+Every color in the catalog is one of twenty-two named finishes: five woods, nine fabrics, three metals, three surfaces and two greens. The 3D view reads the hex back to decide how to shade a piece, so an oak table gets grain, a linen sofa gets a weave and a brass lamp gets metal.
+
+Sixty-three items list two to four alternative colors. The **Selection** tab shows them as swatches under **Finish**; the agent sets one with `set_item_color`. **Style** in the tool rail opens eight curated wall colors and five floors (oak, walnut, ash, grey, tile), which the agent sets with `set_finish`. `suggest_palette` reads the dominant tone of the furniture already in the room and returns three whole-room schemes, warm, cool and neutral, each with a wall color, a floor, three accents and the exact recolors that would carry it out. Applying one from the Style popover lands as a single ledger entry, so one undo takes the room back.
 
 ## Use it with an agent
 
@@ -55,9 +71,22 @@ Sixty-three items list two to four alternative colors. The inspector shows them 
    - "I'm over budget. Find cheaper storage."
    - "What do I see from the door?"
 
-**First run.** On an untouched room a card sits over the plan with the three steps above, a **Load the demo studio** button, a **Start empty** button, and three example prompts you can copy straight into the agent. It disappears once you place anything or ask the agent for something, and **Don't show again** retires it for good.
+**First run.** On an untouched room a card sits over the plan with the three steps above, a **Load the demo studio** button, a **Start empty** button, a **Ready-made rooms...** link into the wizard, and three example prompts each with a **Copy** button. It disappears once you place anything or ask the agent for something, and **Don't show again** retires it for good.
 
-The top-right chip shows whether an agent is connected and how many tools are registered. The **?** button next to it lists every keyboard shortcut. Two toggles turn the shading down when you want the plain geometry: the sun button beside the hour slider drops the daylight wash from the plan, and the **Shadows** checkbox over the 3D view drops the contact shadow. Both stick across reloads. Press **Ctrl+Shift+D** (Cmd+Shift+D on macOS) for a developer panel that lists every tool and lets you call it by hand.
+The chip in the top right says whether an agent is connected and how many tools are registered; hover it for the last tool called. **Help** at the foot of the tool rail lists every shortcut:
+
+| Key | What it does |
+| --- | --- |
+| Drag | Move an item on the plan. It snaps to walls and to the nearest 5 cm. |
+| Wheel | Zoom the plan. Fit to view puts the whole room back on screen. |
+| `R` | Rotate the selected item by 90 degrees. |
+| `L` | Lock or unlock the selected item. |
+| `Delete` | Remove the selected item (Backspace works too). |
+| `Esc` | Clear the selection. |
+| Cmd/Ctrl `Z` | Undo the last change, yours or the agent's. |
+| Cmd/Ctrl Shift `D` | Open the developer panel: every tool, callable by hand. |
+
+Three viewport toggles turn the drawing down to plain geometry when you want it: **Grid** and the sun button in the plan's toolbar drop the grid and the daylight wash, and **Shadows** over the 3D view drops the contact shadow. All three stick across reloads, along with the ledger drawer and the properties column.
 
 ## The WebMCP surface
 
@@ -88,16 +117,17 @@ npm install
 npm run dev      # http://localhost:5173
 npm test         # engine, store and tool tests
 npm run build    # typecheck and production build
-npm run smoke    # headless Playwright screenshots into ./smoke-out (first run downloads Chromium)
+npm run smoke    # 35 screenshots plus a model contact sheet into ./smoke-out (first run downloads Chromium)
 npm run models   # rebuild public/models from Poly Haven (the .glb files are committed; this is only for changing them)
 ```
 
 ## How it is built
 
-- `src/engine` is a pure TypeScript model: geometry, validation, a 10 cm occupancy grid for reachability, a daylight model, metrics, the eight room templates, the palette deriver, and invertible operations. It has no UI dependencies and is fully unit-tested, including a test that every template loads clean against the same validator the agent is scored by.
+- `src/engine` is a pure TypeScript model: geometry, validation, a 10 cm occupancy grid for reachability, a daylight model, metrics, the eight room templates, the palette deriver, the twenty-two named finishes, and invertible operations. It has no UI dependencies and is fully unit-tested, including a test that every template loads clean against the same validator the agent is scored by.
 - `src/store` is a Zustand store. UI and tools both dispatch operations to it; every change appends a ledger entry with its inverse.
-- `src/webmcp` registers tools with `document.modelContext`, re-registering selection- and proposal-scoped tools when the page state changes. A shim provides a fake model context so the dev panel works in any browser.
-- `src/plan` is the SVG plan. `src/three` is the three.js scene, with walls built as segments around real openings so sunlight comes through the window.
+- `src/webmcp` registers tools with `document.modelContext`, re-registering the selection-scoped group whenever the selection changes. Proposal tools stay static, so everything a dynamic tool can do is also reachable by id. A shim provides a fake model context so the dev panel works in any browser.
+- `src/plan` is the SVG drawing, with its own token palette kept separate from the interface palette so the sheet keeps printed contrast. `src/three` is the three.js scene: walls built as segments around real openings so sunlight comes through the window, procedural wood, fabric and plaster detail maps, and glTF models where the catalog's proportions allow.
+- `src/ui` is the workspace shell: the tool rail, the viewport frames, the properties column, the ledger drawer and the status strip, all drawing on one module of shared class strings and a single 16 px icon set.
 
 ## 3D models
 
