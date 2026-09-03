@@ -4,6 +4,7 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { Opening, RoomFinish, RoomShell, Wall } from '../engine/types';
 import { DEFAULT_FINISH, WALLS } from '../engine/types';
+import { wallColor } from '../engine/wallColor';
 import { finish } from '../engine/materials';
 import { makePlasterTexture } from './textures';
 import { M, WALL_T } from './units';
@@ -115,11 +116,27 @@ function skyPanel(room: RoomShell, wall: Wall, b: Box): { position: [number, num
 }
 
 export default function Walls({ room }: { room: RoomShell & { openings: Opening[]; finish?: RoomFinish } }) {
-  // Painted from the room's own finish. `wallSegments` is exported for tests that pass a bare
-  // shell, so the default keeps this component working on one of those too.
+  /*
+   * One paint per wall, read through `wallColor` so a wall with no override of its own falls
+   * back to the room default and a room saved before per-wall colour existed still paints.
+   *
+   * Painted plaster, not a flat fill: a wall is the biggest surface on screen and the one that
+   * gives the game away when the sun grazes it and finds nothing to catch. Four textures rather
+   * than one, keyed on the four colours, so a room whose walls all match still makes only the
+   * textures those colours need and a repaint of one wall leaves the other three alone.
+   */
+  const paints = useMemo(() => Object.fromEntries(WALLS.map((w) => [w, wallColor(room, w)])) as Record<Wall, string>, [room]);
+  const plasters = useMemo(() => {
+    const cache = new Map<string, ReturnType<typeof makePlasterTexture>>();
+    return Object.fromEntries(WALLS.map((w) => {
+      const hex = paints[w];
+      if (!cache.has(hex)) cache.set(hex, makePlasterTexture(hex));
+      return [w, cache.get(hex)!];
+    })) as Record<Wall, ReturnType<typeof makePlasterTexture>>;
+  }, [paints]);
+  // The corner posts belong to two walls at once, so they take the room default rather than
+  // either neighbour's override: a post painted like one of its walls reads as a mistake.
   const paint = room.finish?.wall ?? DEFAULT_FINISH.wall;
-  // Painted plaster, not a flat fill: a wall is the biggest surface on screen and the one
-  // that gives the game away when the sun grazes it and finds nothing to catch.
   const plaster = useMemo(() => makePlasterTexture(paint), [paint]);
   // Each wall spans only its own dimension, which leaves a WALL_T slit at every corner.
   const H = room.height * M;
@@ -165,7 +182,10 @@ export default function Walls({ room }: { room: RoomShell & { openings: Opening[
           <meshStandardMaterial map={plaster} color={plaster ? '#ffffff' : paint} roughness={0.95} metalness={0} />
         </mesh>
       ))}
-      {WALLS.map((w) => (
+      {WALLS.map((w) => {
+        const wallPaint = paints[w];
+        const wallPlaster = plasters[w];
+        return (
         <group key={w} ref={(g) => { wallRefs.current[w] = g; }}>
           {/* The daylight behind the glass, drawn first: it is opaque, so it lands in the
               opaque pass and the panes blend over it in the right order. */}
@@ -182,7 +202,7 @@ export default function Walls({ room }: { room: RoomShell & { openings: Opening[
             <mesh key={`s${i}`} position={[b.x, b.y, b.z]} castShadow={b.kind === 'wall'} receiveShadow>
               <boxGeometry args={[b.w, b.h, b.d]} />
               {b.kind === 'wall'
-                ? <meshStandardMaterial map={plaster} color={plaster ? '#ffffff' : paint} roughness={0.95} metalness={0} />
+                ? <meshStandardMaterial map={wallPlaster} color={wallPlaster ? '#ffffff' : wallPaint} roughness={0.95} metalness={0} />
                 : <meshPhysicalMaterial color="#dfe8f0" emissive="#cfdbe6" emissiveIntensity={0.7} transparent opacity={0.55} roughness={0.05} metalness={0} toneMapped={false} />}
             </mesh>
           ))}
@@ -193,7 +213,8 @@ export default function Walls({ room }: { room: RoomShell & { openings: Opening[
             </mesh>
           ))}
         </group>
-      ))}
+        );
+      })}
     </group>
   );
 }

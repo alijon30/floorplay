@@ -201,7 +201,7 @@ export default function Furniture({ item, cat, ghost, removal, selected, onSelec
   // A wall-mounted piece is built from its own bottom up, exactly like a floor-standing one,
   // and then lifted whole: the mount height is the only thing that differs.
   const mounted = isMounted(cat);
-  const mountY = (cat.mountHeight ?? 0) * M;
+  const mountY = (item.mountHeight ?? cat.mountHeight ?? 0) * M;
 
   // A picture hanging on a wall the dollhouse cutaway has taken away would otherwise float in
   // mid-air, so it steps out with the wall it is fixed to. The test matches the one in Walls.

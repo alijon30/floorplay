@@ -38,8 +38,14 @@ export const ROOM_KINDS: RoomKind[] = ['living', 'kitchen', 'bedroom', 'hall', '
 export type FloorFinish = 'oak' | 'walnut' | 'ash' | 'grey' | 'tile';
 export const FLOOR_FINISHES: FloorFinish[] = ['oak', 'walnut', 'ash', 'grey', 'tile'];
 
-/** Wall paint (hex) and floor material for a room. */
-export interface RoomFinish { wall: string; floor: FloorFinish }
+/**
+ * Wall paint (hex) and floor material for a room.
+ *
+ * `wall` is the default every wall takes. `walls` overrides it for named walls only, so a
+ * room saved before per-wall colour existed still reads correctly: it simply has no
+ * overrides. Always read a wall's colour through `wallColor`, never off `wall` directly.
+ */
+export interface RoomFinish { wall: string; floor: FloorFinish; walls?: Partial<Record<Wall, string>> }
 export const DEFAULT_FINISH: RoomFinish = { wall: '#efe9df', floor: 'oak' };
 
 /**
@@ -106,6 +112,13 @@ export interface PlacedItem {
   locked: boolean;
   /** Overrides the catalog item's `color` for this placement only. */
   color?: string;
+  /**
+   * Overrides the catalog item's `mountHeight` for this placement only, in cm from the floor.
+   *
+   * Only meaningful on a wall-mounted item; hanging the same print higher over a sofa than over
+   * a desk is a placement decision, not a different product.
+   */
+  mountHeight?: number;
 }
 
 export interface Brief { budget: number; currency: 'USD'; needs: string[]; notes: string }
