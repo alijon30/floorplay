@@ -258,7 +258,8 @@ async function main() {
     await shot('style-popover');
 
     // 21. apply the first suggested palette: one ledger entry repaints the room
-    await page.getByRole('dialog', { name: 'Style' }).getByRole('button', { name: 'Apply' }).first().click();
+    // `exact` matters: the Walls-by-region section also carries an "Apply to all walls".
+    await page.getByRole('dialog', { name: 'Style' }).getByRole('button', { name: 'Apply', exact: true }).first().click();
     await settle(900);
     await page.keyboard.press('Escape');
     await settle(600);
@@ -294,6 +295,65 @@ async function main() {
     }
     await settle(900);
     await shot('agent-colors');
+
+    // 22a. the wall elevation: one wall drawn straight on, all four of them in turn
+    await page.getByRole('button', { name: 'Wall', exact: true }).click();
+    await page.getByRole('group', { name: 'Which wall' }).waitFor({ timeout: 10_000 });
+    for (const wall of ['top', 'right', 'bottom', 'left']) {
+      await page.getByRole('button', { name: `Show the ${wall} wall` }).click();
+      await park();
+      await settle(400);
+      await shot(`wall-${wall}`);
+    }
+
+    // 22b. paint the east wall from the Japan palette, and leave the other three alone
+    const palettesByRegion = await toolJson('list_wall_palettes', {});
+    const japan = (palettesByRegion.palettes ?? []).find((p) => p.region === 'Japan');
+    if (!japan) throw new Error(`list_wall_palettes has no Japan: ${JSON.stringify(palettesByRegion).slice(0, 300)}`);
+    const indigo = japan.swatches.find((sw) => /indigo/i.test(sw.name)) ?? japan.swatches[2];
+    const painted = await toolJson('set_wall_color', { wall: 'right', color: indigo.hex });
+    findings.wallColor = { swatch: indigo, status: painted.status ?? null, error: painted.error ?? null };
+    if (painted.status !== 'applied') throw new Error(`set_wall_color did not apply: ${JSON.stringify(painted)}`);
+
+    // 22c. hang a print on it at 120 cm along, then read the wall back
+    const hung = await toolJson('place_on_wall', { catalogId: 'picture-60', wall: 'right', offset: 120 });
+    findings.placeOnWall = hung.placement ?? { status: hung.status ?? null, error: hung.error ?? null };
+    if (hung.status !== 'applied') throw new Error(`place_on_wall did not apply: ${JSON.stringify(hung)}`);
+    const elevation = await toolJson('get_elevation', { wall: 'right' });
+    findings.elevation = {
+      color: elevation.color ?? null,
+      openings: (elevation.openings ?? []).length,
+      mounted: (elevation.mounted ?? []).map((m) => ({ catalogId: m.catalogId, offset: m.offset, mountHeight: m.mountHeight })),
+      floorNearby: (elevation.floor ?? []).length,
+    };
+    if (elevation.color !== indigo.hex) throw new Error(`The east wall did not take the swatch: ${JSON.stringify(findings.elevation)}`);
+    // The bedroom template already hangs a curtain on this wall, so look for the print itself
+    // rather than counting: what matters is that what was hung is where it was hung.
+    const print = findings.elevation.mounted.find((m) => m.catalogId === 'picture-60');
+    if (!print || print.offset !== 120 || print.mountHeight !== 110) {
+      throw new Error(`get_elevation does not see the hung print at 120 cm: ${JSON.stringify(findings.elevation)}`);
+    }
+    await page.getByRole('button', { name: 'Show the right wall' }).click();
+    await park();
+    await settle(500);
+    await shot('wall-painted-hung');
+
+    // 22d. and the same wall in 3D: only that one is indigo
+    await page.getByRole('button', { name: '3D', exact: true }).click();
+    await park();
+    await settle(1200);
+    await shot('3d-recolored-wall');
+    findings.perWallFinish = await page.evaluate((key) => {
+      const r = JSON.parse(localStorage.getItem(key) ?? '{}');
+      const s = r?.state;
+      return s?.rooms?.[s?.currentId]?.finish ?? null;
+    }, STORAGE_KEY);
+    if (findings.perWallFinish?.walls?.right !== indigo.hex) {
+      throw new Error(`Per-wall paint did not persist: ${JSON.stringify(findings.perWallFinish)}`);
+    }
+    if (findings.perWallFinish?.wall === indigo.hex) {
+      throw new Error(`Painting one wall changed the room default: ${JSON.stringify(findings.perWallFinish)}`);
+    }
 
     // 23. shadows off: the 3D view keeps rendering, just flat
     await page.getByRole('button', { name: 'Shadows', exact: true }).click();

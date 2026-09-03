@@ -59,6 +59,12 @@ Every color in the catalog is one of twenty-two named finishes: five woods, nine
 
 Sixty-three items list two to four alternative colors. The **Selection** tab shows them as swatches under **Finish**; the agent sets one with `set_item_color`. **Style** in the tool rail opens eight curated wall colors and five floors (oak, walnut, ash, grey, tile), which the agent sets with `set_finish`. `suggest_palette` reads the dominant tone of the furniture already in the room and returns three whole-room schemes, warm, cool and neutral, each with a wall color, a floor, three accents and the exact recolors that would carry it out. Applying one from the Style popover lands as a single ledger entry, so one undo takes the room back.
 
+## Walls
+
+The plan says where furniture stands and the 3D view says what the room feels like; neither answers *how high, and how far along*. The **Wall** tab on the right viewport draws one wall straight on: its own paint, its doors and windows at their real sills, everything hanging on it, and the furniture standing in front of it as faint silhouettes, because a picture is hung relative to the sofa under it and not to the corner of the room. Pick a piece from the **Hang** strip and click the wall to hang it at its mount height; drag a hung piece along the wall and the whole slide lands as one undoable move. The N/E/S/W control switches walls.
+
+Each wall can carry its own colour. **Style** opens eleven regional palettes — Japan, China, Europe, American, Italy, Egypt, Middle East, Scandinavia, Morocco, India, Mexico — of six named paints each, from shoji white and aizome indigo to Venetian red and Majorelle blue. A swatch paints the wall you are looking at; **Apply to all walls** takes the room back to a single colour. Four tools do the same for the agent: `get_elevation` reads one wall with its openings, its hung items and the furniture within a metre of it, `list_wall_palettes` returns the regions, `set_wall_color` paints one wall or all four, and `place_on_wall` hangs a wall-category item flush at a given offset.
+
 ## Use it with an agent
 
 1. Open the live URL in ChatGPT's in-app browser, or in Google Chrome with `chrome://flags/#enable-webmcp-testing` enabled.

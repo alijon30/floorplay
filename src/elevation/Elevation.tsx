@@ -17,13 +17,22 @@ import ViewToggle from './ViewToggle';
 const COMPASS: Record<number, string> = { 0: 'N', 90: 'E', 180: 'S', 270: 'W' };
 
 /** Margin around the wall, in the drawing's own centimetres. */
-const PAD = 45;
+const PAD = 34;
 /** How much floor the drawing shows below the wall, so the room has a ground to stand on. */
-const GROUND = 55;
+const GROUND = 46;
 /** Baseboard height in cm — the same 8 cm the 3D view uses. */
 const BASEBOARD = 8;
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+
+/**
+ * Smallest box the marks inside a glyph still fit in, in cm.
+ *
+ * A rug is one centimetre tall, so seen from the side it is a line on the floor and its glyph's
+ * inset would be wider than the box it sits in. Below this the rectangle is drawn and the mark
+ * is not, which is also the honest reading: there is nothing there to see.
+ */
+const GLYPH_MIN_CM = 14;
 
 /** The wall the item sits on runs along x for top and bottom, along y for left and right. */
 const horizontal = (wall: Wall) => wall === 'top' || wall === 'bottom';
@@ -181,7 +190,7 @@ export default function Elevation() {
             {/* the wall itself, in its own paint */}
             <rect x={0} y={0} width={L} height={H} fill={paint} stroke={INK} strokeOpacity={0.35} strokeWidth={1} />
             {/* skirting, interrupted below by any door drawn over it */}
-            <rect x={0} y={yOf(BASEBOARD)} width={L} height={BASEBOARD} fill={INK} fillOpacity={0.32} />
+            <rect x={0} y={yOf(BASEBOARD)} width={L} height={BASEBOARD} fill={INK} fillOpacity={0.45} />
 
             {/* openings: a door is a hole to the floor, a window sits on its sill */}
             {view.openings.map((o) => (
@@ -197,19 +206,28 @@ export default function Elevation() {
                     <line x1={o.offset} y1={yOf(o.sill + o.height / 2)} x2={o.offset + o.width} y2={yOf(o.sill + o.height / 2)} stroke={INK} strokeOpacity={0.25} strokeWidth={1} />
                   </>
                 )}
-                <text x={o.offset + o.width / 2} y={yOf(o.top) - 6} textAnchor="middle" fill={INK_DIM} style={{ fontSize: 13 }}>
-                  {o.kind === 'window' ? `sill ${o.sill}` : 'door'}
+                {/* the label sits in the margin above the wall, not on it: a name written on
+                    the paint disappears the moment someone paints the wall indigo */}
+                <text x={o.offset + o.width / 2} y={-12} textAnchor="middle" fill={INK_DIM} style={{ fontSize: 14 }}>
+                  {o.kind === 'window' ? `window · sill ${o.sill}` : `door · ${o.width}`}
                 </text>
+                <line x1={o.offset + o.width / 2} y1={-8} x2={o.offset + o.width / 2} y2={yOf(o.top)} stroke={INK_DIM} strokeWidth={0.8} strokeDasharray="3 4" />
               </g>
             ))}
 
             {/* furniture standing in front of the wall, as silhouettes to hang things against */}
-            {view.floor.map((f) => (
-              <g key={f.id} opacity={clamp(0.26 - f.distance / 800, 0.08, 0.26)}>
-                <rect x={f.offset} y={yOf(f.top)} width={f.width} height={f.height} rx={2} fill={f.color} stroke={darken(f.color)} strokeWidth={1} />
-                <Glyph shape={f.shape} cx={f.offset + f.width / 2} cy={yOf(f.top) + f.height / 2} w={f.width} h={f.height} color={darken(f.color)} />
-              </g>
-            ))}
+            {view.floor.map((f) => {
+              // A rug stands 1 cm tall, so it draws as the line on the floor that it is.
+              const h = Math.max(2, f.height);
+              return (
+                <g key={f.id} opacity={clamp(0.34 - f.distance / 500, 0.1, 0.34)}>
+                  <rect x={f.offset} y={yOf(f.top)} width={f.width} height={h} rx={2} fill={f.color} stroke={darken(f.color)} strokeWidth={1.5} strokeDasharray="7 5" />
+                  {Math.min(f.width, h) >= GLYPH_MIN_CM && (
+                    <Glyph shape={f.shape} cx={f.offset + f.width / 2} cy={yOf(f.top) + h / 2} w={f.width} h={h} color={darken(f.color)} />
+                  )}
+                </g>
+              );
+            })}
 
             {/* the floor line, over the silhouettes so the room still has a ground */}
             <line x1={-PAD} y1={yOf(0)} x2={L + PAD} y2={yOf(0)} stroke={INK} strokeOpacity={0.65} strokeWidth={1.5} />
@@ -228,8 +246,10 @@ export default function Elevation() {
                   style={{ cursor: m.locked ? 'not-allowed' : 'ew-resize' }}
                   onPointerDown={(e) => startDrag(e, m)}
                 >
-                  <rect x={offset} y={yOf(m.top)} width={m.width} height={m.height} rx={2} fill={m.color} stroke={ink} strokeWidth={1.5} />
-                  <Glyph shape={m.shape} cx={offset + m.width / 2} cy={yOf(m.top) + m.height / 2} w={m.width} h={m.height} color={ink} />
+                  <rect x={offset} y={yOf(m.top)} width={m.width} height={Math.max(2, m.height)} rx={2} fill={m.color} stroke={ink} strokeWidth={1.5} />
+                  {Math.min(m.width, m.height) >= GLYPH_MIN_CM && (
+                    <Glyph shape={m.shape} cx={offset + m.width / 2} cy={yOf(m.top) + m.height / 2} w={m.width} h={m.height} color={ink} />
+                  )}
                   {on && <rect x={offset - 4} y={yOf(m.top) - 4} width={m.width + 8} height={m.height + 8} rx={4} fill="none" stroke={ACCENT} strokeWidth={2} />}
                   {/* the drop from the floor to its underside: the number decoration is really about */}
                   {on && (

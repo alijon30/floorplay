@@ -21,6 +21,7 @@ The hardest moment in a planner is the empty rectangle, so the wizard opens on e
 - Take a whole palette derived from what is already placed, walls, floor and recolors, in one undoable step.
 - Ask what the room looks like from the door and get an answer from the real camera view.
 - Turn on Propose first so the agent can only suggest, and accept each change yourself.
+- Turn the right viewport to a wall, paint it aizome indigo from the Japan palette, and hang a print on it at the height you actually want — by hand, or by asking the agent to read the elevation first.
 
 ## Implementation
 
