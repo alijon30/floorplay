@@ -38,14 +38,22 @@ Start on a fresh profile (a private window, or clear site data and reload), then
 30. Click **Shadows** in the 3D viewport's toolbar → the contact shadow goes, the scene still renders. Click the sun button in the plan's toolbar → the daylight wash leaves the drawing; click **Grid** → the grid goes. Reload → all three stay off.
 31. Wheel over the plan → it zooms between 0.5x and 4x with every stroke weight unchanged; **Fit to view** in the plan's toolbar puts the whole room back.
 32. Reload the page → the room is still there.
+33. `list_rooms` → one row per room with its dimensions and item count, the one you are in flagged `current: true`. `get_guide` → a six-step workflow, the coordinate conventions and the tips, and the room unchanged.
+34. `create_room` `{"name":"Loft","width":400,"depth":500,"height":260}` → a new empty room, switched to, with the old one still in **My rooms**. `switch_room` back to it by the id `list_rooms` gave → the plan and the 3D view rebuild with the furniture you left there. `rename_room` `{"name":"Guest room"}` → the name in the top bar changes. `delete_room` on the loft → it goes from **My rooms**; `delete_room` on the last remaining room → `error: "last_room"`.
+35. `apply_layout` with a move, a remove and a place in one call → all three land and the ledger gains **one** entry reading "Applied layout (3 changes)"; a single **Undo** takes all of it back.
+36. `apply_palette` `{"name":"cool"}` → the same result as pressing **Apply** on the cool scheme in the **Style** popover: wall, floor and every recolor as one ledger entry.
+37. `clear_items` → the room empties in one entry. Lock an item first and call it again → the locked piece stays and the summary counts only what went; on an all-locked room → `error: "nothing_to_clear"`.
+38. `revert_to_entry` with an id from `get_ledger` → everything recorded after it is undone in one go and the rewind is itself logged. Call it with the newest entry's id → `error: "nothing_to_revert"`.
+39. `select_item` `{"id":"<a bed id>"}` → the bed gets its selection outline in both views, the properties column switches to **Selection**, and the four selection-scoped tools appear. `select_item` `{"id":null}` → the selection clears.
+40. `set_view` `{"showDaylight":false,"showShadows":false}` → the daylight wash leaves the plan and the contact shadow leaves the 3D view, the same as pressing the sun button and **Shadows** by hand. Reload → both stay off.
 
 ## C. Chrome with the flag
 - Enable `chrome://flags/#enable-webmcp-testing`, restart, open the deployed URL.
-- DevTools → Application → WebMCP panel lists 32 tools with nothing selected; selecting an item adds four and deselecting removes them.
+- DevTools → Application → WebMCP panel lists 44 tools with nothing selected; selecting an item adds four and deselecting removes them.
 - Invoke `get_room` from the panel and confirm the JSON.
 
 ## D. ChatGPT in-app browser
-- Open the deployed URL in ChatGPT's browser. The agent chip turns green with 32 tools.
+- Open the deployed URL in ChatGPT's browser. The agent chip turns green with 44 tools.
 - Run the video script prompts below and confirm the plan updates live.
 
 ## E. Video script (under 3 minutes, with audio)
