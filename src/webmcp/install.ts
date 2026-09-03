@@ -11,6 +11,7 @@ import { findCatalogItem } from '../engine/catalog';
 export function installWebMCP(store: RoomStore, mcOverride?: ModelContextLike): { registry: ToolRegistry; isNative: boolean } {
   const { mc, isNative } = mcOverride ? { mc: mcOverride, isNative: false } : getModelContext();
   const registry = new ToolRegistry(mc);
+  if (typeof console !== 'undefined') console.info(`[floorplay] WebMCP context: ${isNative ? 'native document.modelContext' : 'fake shim (no agent browser detected)'}`);
   const ctx = { store };
   // Proposal tools are static, not selection-scoped: spec 8.3 requires everything reachable
   // through a dynamic tool to also be reachable statically by id, and applying or withdrawing
