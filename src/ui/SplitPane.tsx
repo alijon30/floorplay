@@ -9,7 +9,7 @@ import { useRef, useState, type ReactNode } from 'react';
  * other, back to even.
  */
 export default function SplitPane({ left, right }: { left: ReactNode; right: ReactNode }) {
-  const [split, setSplit] = useState(0.56);
+  const [split, setSplit] = useState(0.42);
   const [dragging, setDragging] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const onDown = (e: React.PointerEvent) => {
