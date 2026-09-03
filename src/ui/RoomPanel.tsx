@@ -13,6 +13,7 @@ export default function RoomPanel() {
   const room = useRoom((s) => s.rooms[s.currentId]!);
   const dispatch = useRoom((s) => s.dispatch);
   const openDialog = useRoom((s) => s.openDialog);
+  const setPropsTab = useRoom((s) => s.setPropsTab);
 
   const [size, setSize] = useState({ width: room.width, depth: room.depth, height: room.height });
   const [budget, setBudget] = useState(String(room.brief.budget));
@@ -129,7 +130,7 @@ export default function RoomPanel() {
 
       <section className="flex flex-wrap gap-4 border-t border-line pt-3">
         <button className={LINK} onClick={() => openDialog('shell')}>Doors &amp; windows…</button>
-        <button className={LINK} onClick={() => openDialog('style')}>Style…</button>
+        <button className={LINK} onClick={() => setPropsTab('style')}>Style…</button>
       </section>
     </div>
   );

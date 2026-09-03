@@ -2,6 +2,7 @@
 import { useRoom } from '../store';
 import type { PropsTab } from '../store';
 import RoomPanel from './RoomPanel';
+import StylePanel from './StylePanel';
 import Inspector from './Inspector';
 import IssuesPanel from './IssuesPanel';
 import { Icon } from './icons';
@@ -9,6 +10,7 @@ import { CLOSE, FOCUS } from './styles';
 
 const TABS: { key: PropsTab; label: string }[] = [
   { key: 'room', label: 'Room' },
+  { key: 'style', label: 'Style' },
   { key: 'selection', label: 'Selection' },
   { key: 'issues', label: 'Issues' },
 ];
@@ -61,6 +63,7 @@ export default function PropertiesPanel() {
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {tab === 'room' && <RoomPanel />}
+        {tab === 'style' && <StylePanel />}
         {tab === 'selection' && (selectedId ? <Inspector /> : (
           <p className="p-3 text-[11.5px] text-muted">Nothing is selected. Click a piece on the plan or in the 3D view to see its size, finish and clearances here.</p>
         ))}

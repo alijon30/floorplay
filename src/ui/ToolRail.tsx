@@ -2,7 +2,6 @@
 import { useRef, useState } from 'react';
 import { useRoom } from '../store';
 import HelpPopover from './HelpPopover';
-import StylePopover from './StylePopover';
 import { Icon, type IconName } from './icons';
 import { FOCUS } from './styles';
 
@@ -39,20 +38,18 @@ function RailButton({
  *
  * Everything here toggles a surface rather than changing the room: the catalog panel beside
  * it, the properties column on the far side, and the two popovers that fly out of the rail.
- * Style and Help live here and nowhere else — one control, one place.
+ * Style opens the properties column on its own tab rather than a fly-out, because paint needs
+ * a picture of the room beside it; Help is still a popover, because a page of text is not.
  */
 export default function ToolRail() {
   const ui = useRoom((s) => s.ui);
   const setCatalogOpen = useRoom((s) => s.setCatalogOpen);
   const setRoomPanelOpen = useRoom((s) => s.setRoomPanelOpen);
   const setPropsTab = useRoom((s) => s.setPropsTab);
-  const openDialog = useRoom((s) => s.openDialog);
-  const closeDialog = useRoom((s) => s.closeDialog);
   const [help, setHelp] = useState(false);
-  const style = ui.dialog === 'style';
-  const styleAnchor = useRef<HTMLDivElement>(null);
   const helpAnchor = useRef<HTMLDivElement>(null);
   const roomShown = ui.roomPanelOpen && ui.propsTab === 'room';
+  const styleShown = ui.roomPanelOpen && ui.propsTab === 'style';
 
   return (
     <nav aria-label="Tools" className="flex w-10 shrink-0 flex-col items-center gap-1 border-r border-line bg-panel py-2">
@@ -73,16 +70,13 @@ export default function ToolRail() {
 
       <span className="flex-1" />
 
-      <div className="relative" ref={styleAnchor}>
-        <RailButton
-          icon="palette"
-          label="Style"
-          hint="Style"
-          on={style}
-          onClick={() => (style ? closeDialog() : openDialog('style'))}
-        />
-        {style && <StylePopover onClose={closeDialog} anchorRef={styleAnchor} position="left-[calc(100%+8px)] bottom-0" />}
-      </div>
+      <RailButton
+        icon="palette"
+        label="Style"
+        hint="Style"
+        on={styleShown}
+        onClick={() => (styleShown ? setRoomPanelOpen(false) : setPropsTab('style'))}
+      />
       <div className="relative" ref={helpAnchor}>
         <RailButton
           icon="help"

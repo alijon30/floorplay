@@ -213,8 +213,6 @@ describe('roomStore', () => {
       expect(a.getState().ui.dialog).toBeNull();
       a.getState().openDialog('shell');
       expect(a.getState().ui.dialog).toBe('shell');
-      a.getState().openDialog('style');
-      expect(a.getState().ui.dialog).toBe('style');
       a.getState().closeDialog();
       expect(a.getState().ui.dialog).toBeNull();
       // An open dialog is this session's business, so a reload starts with the rail clear.

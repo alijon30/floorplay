@@ -63,10 +63,10 @@ export interface UiState {
 export type RightView = '3d' | 'wall';
 
 /** The three tabs of the properties column. */
-export type PropsTab = 'room' | 'selection' | 'issues';
+export type PropsTab = 'room' | 'style' | 'selection' | 'issues';
 
 /** The panels both the top bar and the room panel can open. The brief lives in `RoomPanel`. */
-export type DialogName = 'shell' | 'style';
+export type DialogName = 'shell';
 
 export type DispatchInput = { ops: Op[]; actor: 'human' | 'agent'; summary?: string; tool?: string };
 export type DispatchResult =
