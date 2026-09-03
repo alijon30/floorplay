@@ -3,7 +3,8 @@ import { useMemo, useState } from 'react';
 import Modal from './Modal';
 import { useRoom } from '../store';
 import { PRESETS } from '../engine/rooms';
-import { TEMPLATES, buildTemplateRoom } from '../engine/templates';
+import { TEMPLATES, buildTemplateRoom, templateFor } from '../engine/templates';
+import { HOME_TEMPLATES } from '../engine/homeTemplates';
 import { findCatalogItem, isMounted, itemColor } from '../engine/catalog';
 import { footprint } from '../engine/geometry';
 import { budgetUsed } from '../engine/validate';
@@ -41,6 +42,30 @@ function buildCards(): Card[] {
   });
 }
 
+/**
+ * A ready-made home as the plan would draw it: one outline per room, at its offset.
+ *
+ * Drawn from the template's own numbers rather than by building the home, because the wizard
+ * is a picture of what a click would make and building four furnished rooms to draw four
+ * rectangles is a price nobody sees.
+ */
+function HomeThumb({ rooms }: { rooms: Rect[] }) {
+  const maxX = Math.max(...rooms.map((r) => r.x + r.w), 1);
+  const maxY = Math.max(...rooms.map((r) => r.y + r.h), 1);
+  const scale = (THUMB - 6) / Math.max(maxX, maxY);
+  const w = maxX * scale, h = maxY * scale;
+  return (
+    <svg width={THUMB} height={THUMB} viewBox={`0 0 ${THUMB} ${THUMB}`} className="shrink-0 rounded" aria-hidden>
+      <rect x={0} y={0} width={THUMB} height={THUMB} rx={4} fill={PAPER} />
+      <g transform={`translate(${(THUMB - w) / 2} ${(THUMB - h) / 2}) scale(${scale})`}>
+        {rooms.map((r, i) => (
+          <rect key={i} x={r.x} y={r.y} width={r.w} height={r.h} fill={INK_SOFT} fillOpacity={0.12} stroke={INK} strokeWidth={1 / scale} />
+        ))}
+      </g>
+    </svg>
+  );
+}
+
 /** The template as the plan would draw it: paper, an outline, and the footprints inside. */
 function Thumb({ card }: { card: Card }) {
   const scale = (THUMB - 6) / Math.max(card.width, card.depth);
@@ -61,12 +86,37 @@ function Thumb({ card }: { card: Card }) {
 export default function RoomWizard({ onClose }: { onClose: () => void }) {
   const createRoom = useRoom((s) => s.createRoom);
   const loadTemplate = useRoom((s) => s.loadTemplate);
+  const createHomeFromTemplate = useRoom((s) => s.createHomeFromTemplate);
   const [name, setName] = useState('My room');
   const [dims, setDims] = useState({ width: 360, depth: 520, height: 260 });
   const cards = useMemo(buildCards, []);
+  // The rooms of each ready-made home, as rectangles on its shared plan.
+  const homeCards = useMemo(() => HOME_TEMPLATES.map((t) => {
+    const rects = t.rooms.map((r) => { const rt = templateFor(r.key); return { x: r.x, y: r.y, w: rt.width, h: rt.depth }; });
+    return { ...t, rects, areaM2: Math.round(rects.reduce((sum, r) => sum + r.w * r.h, 0) / 100) / 100 };
+  }), []);
   const submit = () => { createRoom({ name, ...dims }); onClose(); };
   return (
-    <Modal title="New room" onClose={onClose}>
+    <Modal title="New room or home" onClose={onClose}>
+      <strong className={`mb-2 block ${LABEL}`}>Ready-made homes</strong>
+      <div aria-label="Ready-made homes" className="mb-5 grid grid-cols-2 gap-1.5">
+        {homeCards.map((t) => (
+          <button
+            key={t.key}
+            title={t.blurb}
+            onClick={() => { createHomeFromTemplate(t.key); onClose(); }}
+            className={`flex items-center gap-2.5 rounded-md border border-line bg-raised p-2 text-left transition-colors hover:border-accent/50 ${FOCUS}`}
+          >
+            <HomeThumb rooms={t.rects} />
+            <div className="min-w-0">
+              <div className="truncate text-[12px] text-fg">{t.name}</div>
+              <div className={`text-[10.5px] text-muted ${NUM}`}>{t.rooms.length} rooms · {t.areaM2} m²</div>
+              <div className={`text-[10.5px] text-muted ${NUM}`}>{t.doorways.length} doorway{t.doorways.length === 1 ? '' : 's'} cut</div>
+            </div>
+          </button>
+        ))}
+      </div>
+
       <strong className={`mb-2 block ${LABEL}`}>Ready-made rooms</strong>
       <div aria-label="Ready-made rooms" className="mb-5 grid grid-cols-2 gap-1.5">
         {cards.map((c) => (

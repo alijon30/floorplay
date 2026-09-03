@@ -2,7 +2,7 @@
 import { useRoom } from '../store';
 import { APP_NAME } from '../config';
 import AgentChip from './AgentChip';
-import RoomsMenu from './RoomsMenu';
+import HomesMenu from './HomesMenu';
 import { Icon } from './icons';
 import { ICON_BTN, NUM } from './styles';
 
@@ -52,7 +52,7 @@ export default function TopBar() {
           title="Undo the last change (Cmd/Ctrl+Z)"
           onClick={() => undo()}
         ><Icon name="undo" /></button>
-        <RoomsMenu />
+        <HomesMenu />
         <span aria-hidden="true" className="mx-0.5 h-4 w-px shrink-0 bg-line" />
         <AgentChip />
         {persistError && (

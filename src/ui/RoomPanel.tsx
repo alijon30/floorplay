@@ -1,6 +1,7 @@
 // src/ui/RoomPanel.tsx
 import { useEffect, useState } from 'react';
 import { useRoom } from '../store';
+import HomeSection from './HomeSection';
 import { BTN_PRIMARY, INPUT, LABEL, LINK, NUM } from './styles';
 
 /**
@@ -61,7 +62,9 @@ export default function RoomPanel() {
 
   return (
     <div className="flex flex-col gap-3 p-3">
-      <section>
+      <HomeSection />
+
+      <section className="border-t border-line pt-3">
         <div className={`mb-1.5 ${LABEL}`}>Dimensions</div>
         <div className="grid grid-cols-3 gap-1.5">
           {(['width', 'depth', 'height'] as const).map((k) => (

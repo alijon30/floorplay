@@ -5,6 +5,7 @@ import StatusStrip from './ui/StatusStrip';
 import SplitPane from './ui/SplitPane';
 import DevPanel from './ui/DevPanel';
 import Plan from './plan/Plan';
+import HomePlan from './plan/HomePlan';
 import RightViewport from './elevation/RightViewport';
 import PropertiesPanel from './ui/PropertiesPanel';
 import ProposalStrip from './ui/ProposalStrip';
@@ -36,6 +37,10 @@ export default function App() {
   const dialog = useRoom((s) => s.ui.dialog);
   const closeDialog = useRoom((s) => s.closeDialog);
   const propertiesOpen = useRoom((s) => s.ui.roomPanelOpen);
+  // Which drawing the left viewport is: this room, or the whole home it stands in. The store
+  // will not hold `home` while the current room is on no plan, so one flag settles it.
+  const planView = useRoom((s) => s.ui.planView);
+  const inHome = useRoom((s) => s.currentHome() !== null);
 
   return (
     <div className="flex h-full flex-col bg-bg text-fg">
@@ -47,7 +52,7 @@ export default function App() {
           <SplitPane
             left={(
               <div className="relative h-full w-full">
-                <Plan />
+                {planView === 'home' && inHome ? <HomePlan /> : <Plan />}
                 <ProposalStrip />
                 <Onboarding />
               </div>

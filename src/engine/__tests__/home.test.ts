@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { Home, Opening, Room } from '../types';
 import { makeEmptyRoom } from '../rooms';
 import {
-  doorwayOpenings, homeBounds, homeContaining, homeReachability, homeTotals,
+  doorwayFits, doorwayOpenings, homeBounds, homeContaining, homeReachability, homeTotals,
   roomRectInHome, sharedSegments, snapRoomPlacement,
 } from '../home';
 
@@ -171,6 +171,45 @@ describe('doorwayOpenings', () => {
     expect(ok.ok).toBe(true);
     const wrong = doorwayOpenings(home, rooms, { roomId: 'a', wall: 'right', offset: 100, width: 80, kind: 'door', otherRoomId: 'c' });
     expect(wrong).toMatchObject({ ok: false });
+  });
+});
+
+describe('doorwayFits', () => {
+  /** A doorway between A and B, and the plan it was cut on. */
+  function cut() {
+    const rooms = { a: room('a', 300, 400), b: room('b', 200, 400) };
+    const home: Home = {
+      id: 'h', name: 'Pair', doorways: [],
+      rooms: [{ roomId: 'a', x: 0, y: 0 }, { roomId: 'b', x: 300, y: 0 }],
+    };
+    const r = doorwayOpenings(home, rooms, { roomId: 'a', wall: 'right', offset: 100, width: 80, kind: 'door' });
+    if (!r.ok) throw new Error(r.error);
+    return { home: { ...home, doorways: [r.doorway] }, rooms, doorway: r.doorway };
+  }
+
+  const withB = (home: Home, x: number, y: number): Home =>
+    ({ ...home, rooms: home.rooms.map((p) => (p.roomId === 'b' ? { roomId: 'b', x, y } : p)) });
+
+  it('holds while the two rooms still meet at the same place', () => {
+    const { home, rooms, doorway } = cut();
+    expect(doorwayFits(home, rooms, doorway)).toBe(true);
+  });
+
+  it('fails once the neighbour is no longer against that wall', () => {
+    const { home, rooms, doorway } = cut();
+    expect(doorwayFits(withB(home, 320, 0), rooms, doorway)).toBe(false);
+    expect(doorwayFits(withB(home, 300, 400), rooms, doorway)).toBe(false);
+  });
+
+  it('fails when the wall is still shared but the two halves have slid past each other', () => {
+    const { home, rooms, doorway } = cut();
+    // B drops 40 cm: both offsets still lie on the shared stretch, 40 cm apart on the plan.
+    expect(doorwayFits(withB(home, 300, 40), rooms, doorway)).toBe(false);
+  });
+
+  it('fails for a room that has left the plan', () => {
+    const { home, rooms, doorway } = cut();
+    expect(doorwayFits({ ...home, rooms: home.rooms.filter((p) => p.roomId !== 'b') }, rooms, doorway)).toBe(false);
   });
 });
 

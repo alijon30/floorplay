@@ -285,8 +285,8 @@ describe('roomStore homes', () => {
     const b = s.getState().createRoom({ name: 'B', width: 200, depth: 400, height: 250 });
     const home = s.getState().createHome({ name: 'Flat 3' });
     expect(s.getState().homes[home.id]).toMatchObject({ name: 'Flat 3', rooms: [], doorways: [] });
-    expect(s.getState().addRoomToHome(home.id, a.id, 0, 0)).toEqual({ ok: true, x: 0, y: 0, snapped: false });
-    expect(s.getState().addRoomToHome(home.id, b.id, 312, 14)).toEqual({ ok: true, x: 300, y: 0, snapped: true });
+    expect(s.getState().addRoomToHome(home.id, a.id, 0, 0)).toEqual({ ok: true, x: 0, y: 0, snapped: false, removedDoorways: [] });
+    expect(s.getState().addRoomToHome(home.id, b.id, 312, 14)).toEqual({ ok: true, x: 300, y: 0, snapped: true, removedDoorways: [] });
     expect(s.getState().homes[home.id]!.rooms).toEqual([{ roomId: a.id, x: 0, y: 0 }, { roomId: b.id, x: 300, y: 0 }]);
     // The current room is on the plan now, so the store knows which home it is looking at.
     expect(s.getState().currentHomeId).toBe(home.id);
@@ -307,9 +307,47 @@ describe('roomStore homes', () => {
 
   it('moves a room on the plan, snapping, and refuses a move that overlaps', () => {
     const { s, home, b } = pair();
-    expect(s.getState().moveRoom(b.id, 306, 14)).toEqual({ ok: true, x: 300, y: 0, snapped: true });
+    expect(s.getState().moveRoom(b.id, 306, 14)).toEqual({ ok: true, x: 300, y: 0, snapped: true, removedDoorways: [] });
     expect(s.getState().moveRoom(b.id, 100, 0)).toMatchObject({ ok: false });
     expect(s.getState().homes[home.id]!.rooms[1]).toEqual({ roomId: b.id, x: 300, y: 0 });
+  });
+
+  it('keeps the doorways a move leaves standing and takes out the ones it breaks', () => {
+    // Three rooms in a row: A | B | C, with a doorway through each shared wall.
+    const s = store();
+    const a = s.getState().createRoom({ name: 'A', width: 300, depth: 400, height: 250 });
+    const b = s.getState().createRoom({ name: 'B', width: 200, depth: 400, height: 250 });
+    const c = s.getState().createRoom({ name: 'C', width: 250, depth: 400, height: 250 });
+    const home = s.getState().createHome({ name: 'Flat 3' });
+    s.getState().addRoomToHome(home.id, a.id, 0, 0);
+    s.getState().addRoomToHome(home.id, b.id, 300, 0);
+    s.getState().addRoomToHome(home.id, c.id, 500, 0);
+    const ab = s.getState().cutDoorway({ roomId: a.id, wall: 'right', offset: 100, width: 80 });
+    const bc = s.getState().cutDoorway({ roomId: b.id, wall: 'right', offset: 100, width: 80 });
+    expect(ab.ok && bc.ok).toBe(true);
+    if (!ab.ok || !bc.ok) return;
+
+    // A nudge that snaps back flush changes nothing, so nothing is taken down.
+    expect(s.getState().moveRoom(c.id, 508, 6)).toMatchObject({ ok: true, x: 500, y: 0, removedDoorways: [] });
+    expect(s.getState().homes[home.id]!.doorways).toHaveLength(2);
+
+    // Sliding C down its own wall keeps it flush and keeps both halves inside the shared part,
+    // but they no longer meet: that is two holes, not one doorway, so it goes.
+    const slid = s.getState().moveRoom(c.id, 500, 120);
+    expect(slid).toMatchObject({ ok: true, x: 500, y: 120, removedDoorways: [bc.doorway.id] });
+    // Only the moved room's doorways are re-read; the one between A and B is untouched.
+    expect(s.getState().homes[home.id]!.doorways.map((d) => d.id)).toEqual([ab.doorway.id]);
+    for (const id of [b.id, c.id]) {
+      expect(s.getState().rooms[id]!.openings.map((o) => o.doorwayId).filter(Boolean)).not.toContain(bc.doorway.id);
+      expect(s.getState().rooms[id]!.ledger.at(-1)!.summary).toMatch(/^Removed doorway to /);
+    }
+    expect(s.getState().rooms[a.id]!.openings.map((o) => o.doorwayId)).toEqual([ab.doorway.id]);
+
+    // Pulling B clear of A takes the last doorway with it, out of both rooms.
+    expect(s.getState().moveRoom(b.id, 300, 150)).toMatchObject({ ok: true, removedDoorways: [ab.doorway.id] });
+    expect(s.getState().homes[home.id]!.doorways).toEqual([]);
+    expect(s.getState().rooms[a.id]!.openings).toEqual([]);
+    expect(s.getState().rooms[b.id]!.openings).toEqual([]);
   });
 
   it('cuts a doorway, writing one ledger entry and one opening in each room', () => {

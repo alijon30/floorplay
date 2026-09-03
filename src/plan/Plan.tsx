@@ -8,7 +8,8 @@ import { snapToWall, suggestPositions } from '../engine/anchors';
 import { itemViolations } from '../engine/validate';
 import { FLOOR_PLAN_FILL } from '../finishes';
 import Viewport from '../ui/Viewport';
-import { Icon } from '../ui/icons';
+import Tool from './Tool';
+import PlanViewToggle from './PlanViewToggle';
 import { ghostsFor, type Ghost } from './ghosts';
 import { ACCENT, PAPER } from './tokens';
 import Grid from './layers/Grid';
@@ -56,36 +57,6 @@ function useSize(ref: React.RefObject<HTMLElement | null>) {
     return () => ro.disconnect();
   }, [ref]);
   return size;
-}
-
-/**
- * One of the plan's own tools.
- *
- * `text` is the word beside the mark. It appears once the viewport itself is 600 px wide —
- * a window past about 1280 px with the side panels shut — because below that the toolbar and
- * the drawing compete for the same width and the drawing wins. On a wide screen there is no
- * reason to make anyone learn four pictograms. Measured on the viewport rather than the
- * window, so opening the catalog puts the tools back to marks instead of over the label.
- */
-function Tool({ on, label, hint, text, icon, onClick, disabled }: {
-  on?: boolean; label: string; hint?: string; text?: string; icon: Parameters<typeof Icon>[0]['name']; onClick: () => void; disabled?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      aria-pressed={on === undefined ? undefined : on}
-      title={hint ?? label}
-      disabled={disabled}
-      onClick={onClick}
-      className={`inline-flex h-7 min-w-7 items-center justify-center gap-1.5 rounded-md border px-1.5 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent disabled:opacity-40 disabled:pointer-events-none ${
-        on ? 'border-accent/50 bg-[var(--accent-fill)] text-accent' : 'border-black/8 bg-white/70 text-[var(--plan-ink-soft)] hover:bg-white hover:text-[var(--plan-ink)]'
-      }`}
-    >
-      <Icon name={icon} />
-      {text && <span className="hidden pr-0.5 text-[11.5px] @[600px]:inline">{text}</span>}
-    </button>
-  );
 }
 
 /** How the north selector names each wall. The letter is the plan's own shorthand for it. */
@@ -231,6 +202,7 @@ export default function Plan() {
 
   const toolbar = (
     <>
+      <PlanViewToggle />
       <label className="inline-flex h-7 items-center gap-1.5 rounded-md border border-black/8 bg-white/70 pl-2 pr-1" title={NORTH_HINT}>
         <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--plan-dim)]">North</span>
         <select

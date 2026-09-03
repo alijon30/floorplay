@@ -104,6 +104,33 @@ export function sharedSegments(home: Home, rooms: Rooms, roomId: string): Shared
   return out;
 }
 
+/**
+ * Whether a doorway is still one hole through one wall.
+ *
+ * Asked after a room has been dragged: placements move, offsets do not, and a door whose
+ * neighbour has slid out from behind it is an opening onto nothing. Two things have to hold.
+ * Each side's full interval must lie on a stretch the two rooms still share — checked from
+ * both ends, so half a doorway is never enough. And the two sides must still land on the same
+ * point of the plan: a room nudged along its own wall leaves both halves inside the shared
+ * part while sliding them past each other, which would draw as two holes rather than one.
+ */
+export function doorwayFits(home: Home, rooms: Rooms, doorway: Doorway): boolean {
+  const aRect = rectOf(home, rooms, doorway.a.roomId);
+  const bRect = rectOf(home, rooms, doorway.b.roomId);
+  if (!aRect || !bRect) return false;
+
+  const onSharedWall = (side: DoorwaySide, otherRoomId: string): boolean =>
+    sharedSegments(home, rooms, side.roomId).some((s) =>
+      s.wall === side.wall
+      && s.otherRoomId === otherRoomId
+      && side.offset >= s.start - SAME
+      && side.offset + doorway.width <= s.end + SAME);
+  if (!onSharedWall(doorway.a, doorway.b.roomId) || !onSharedWall(doorway.b, doorway.a.roomId)) return false;
+
+  const along = (side: DoorwaySide, rect: Rect): number => (isVertical(side.wall) ? rect.y : rect.x) + side.offset;
+  return same(along(doorway.a, aRect), along(doorway.b, bRect));
+}
+
 export interface SnapResult { x: number; y: number; snapped: boolean; overlaps: string[] }
 
 /**

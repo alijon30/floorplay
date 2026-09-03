@@ -313,7 +313,7 @@ export function buildHomeTools(ctx: ToolContext): ToolDef[] {
       name: 'move_room',
       description:
         `Move a room to another offset on the floor plan it already stands on. ${PLAN_NOTE} An overlap is refused with the room it ran into named and an offset that would work. ` +
-        'Doorways keep the offsets they were cut at, so a room moved away from its neighbour can be left with a door onto a blank wall: check get_home afterwards and re-cut any doorway that no longer lines up.',
+        'Doorways keep the offsets they were cut at, so any doorway the move pulls out of line is taken out of both rooms and named in removedDoorways; cut_doorway puts one back at the new offsets.',
       inputSchema: {
         type: 'object',
         properties: { roomId: idProp('Room id, from get_home or list_rooms'), x: cm("The room's left edge on the plan"), y: cm("The room's top edge on the plan") },
@@ -334,10 +334,10 @@ export function buildHomeTools(ctx: ToolContext): ToolDef[] {
         if (snap.overlaps.length) return fail('overlap', overlapMessage(home, s0.rooms, room.name, room.width, room.depth, snap.overlaps));
         const moved = state().moveRoom(roomId, x, y);
         if (!moved.ok) return fail('invalid_input', moved.error);
-        const doorways = home.doorways.filter((d) => d.a.roomId === roomId || d.b.roomId === roomId).length;
+        const gone = moved.removedDoorways.length;
         return applied(home.id, {
-          roomId, x: moved.x, y: moved.y, snapped: moved.snapped,
-          ...(doorways ? { warning: `${room.name} has ${doorways} doorway${doorways === 1 ? '' : 's'} cut at the offsets it had before the move. Check them in get_home and re-cut any that no longer meet the room next door.` } : {}),
+          roomId, x: moved.x, y: moved.y, snapped: moved.snapped, removedDoorways: moved.removedDoorways,
+          ...(gone ? { warning: `The move took ${gone} doorway${gone === 1 ? '' : 's'} with it: an opening only joins two rooms while both halves meet on the wall they share. Cut them again at the offsets ${room.name} has now.` } : {}),
         });
       },
     },

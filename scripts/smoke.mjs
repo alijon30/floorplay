@@ -220,7 +220,7 @@ async function main() {
     }
 
     // 17. the same eight as cards in the new-room wizard
-    await page.getByRole('button', { name: 'My rooms' }).click();
+    await page.getByRole('button', { name: 'My homes' }).click();
     await page.getByRole('button', { name: 'New room', exact: true }).click();
     await page.getByText('Ready-made rooms').waitFor({ timeout: 10_000 });
     await settle(400);
@@ -540,6 +540,116 @@ async function main() {
     const missing = onDisk.filter((f) => !modelResponses.has(f));
     if (missing.length > 0) {
       throw new Error(`public/models holds files nothing asked for, so they ship for nothing: ${missing.join(', ')}`);
+    }
+
+    // 32. a whole flat: four furnished rooms edge to edge on one plan, with the doors already
+    // cut between them. Everything after this is about the home rather than a single room.
+    await page.getByRole('button', { name: 'My homes' }).click();
+    await page.getByRole('button', { name: 'New room', exact: true }).click();
+    await page.getByText('Ready-made homes').waitFor({ timeout: 10_000 });
+    await page.locator('[aria-label="Ready-made homes"]').getByRole('button', { name: /^One-bedroom flat/ }).click();
+    await page.locator('svg[data-home-plan]').waitFor({ timeout: 10_000 });
+    await park();
+    await settle(1200);
+    await shot('home-plan');
+
+    // Home centimetres to screen pixels, straight off the drawing's own transform. Every click
+    // below is a place on the plan rather than a guess at where a room ended up on screen.
+    const toScreen = (x, y) => page.evaluate(([cx, cy]) => {
+      const svg = document.querySelector('svg[data-home-plan]');
+      const p = svg.createSVGPoint();
+      p.x = cx; p.y = cy;
+      const s = p.matrixTransform(svg.getScreenCTM());
+      return { x: s.x, y: s.y };
+    }, [x, y]);
+
+    const homeNow = async () => {
+      const h = await toolJson('get_home', {});
+      return h.home ?? {};
+    };
+    const placementX = (home, name) => (home.rooms ?? []).find((r) => r.name === name)?.x ?? null;
+
+    const built = await homeNow();
+    findings.home = { rooms: (built.rooms ?? []).length, doorways: (built.doorways ?? []).length, unreachable: built.unreachable ?? null, totals: built.totals ?? null };
+    if (findings.home.rooms !== 4 || findings.home.doorways !== 3) {
+      throw new Error(`the one-bedroom home did not build four rooms and three doorways: ${JSON.stringify(findings.home)}`);
+    }
+    const kitchenX = placementX(built, 'Kitchen');
+    if (kitchenX === null) throw new Error(`no Kitchen on the plan: ${JSON.stringify(built.rooms)}`);
+
+    // 33. nudge the kitchen off its wall and let go: the 20 cm snap has to pull it back flush,
+    // which means the offset the plan holds afterwards is the one it held before.
+    const origin = await toScreen(0, 0);
+    const metre = await toScreen(100, 0);
+    const px = (metre.x - origin.x) / 100;
+    const grab = await toScreen(kitchenX + 190, 210);
+    await page.mouse.move(grab.x, grab.y);
+    await page.mouse.down();
+    await page.mouse.move(grab.x + 12 * px, grab.y, { steps: 6 });
+    await page.mouse.up();
+    await settle(500);
+    const afterDrag = await homeNow();
+    findings.kitchenSnapBack = { before: kitchenX, after: placementX(afterDrag, 'Kitchen'), doorways: (afterDrag.doorways ?? []).length };
+    if (findings.kitchenSnapBack.after !== kitchenX) {
+      throw new Error(`a 12 cm nudge did not snap the kitchen back flush: ${JSON.stringify(findings.kitchenSnapBack)}`);
+    }
+    if (findings.kitchenSnapBack.doorways !== 3) {
+      throw new Error(`a nudge that changed nothing still cost a doorway: ${JSON.stringify(findings.kitchenSnapBack)}`);
+    }
+
+    // 34. the doorway tool: a second door between the hall and the living room, further down
+    // the wall they share than the one the template cut.
+    await page.getByRole('button', { name: 'Cut a doorway' }).click();
+    await settle(300);
+    const cutAt = await toScreen(200, 290);
+    await page.mouse.click(cutAt.x, cutAt.y);
+    await settle(500);
+    const afterCut = await homeNow();
+    findings.cutDoorway = {
+      doorways: (afterCut.doorways ?? []).length,
+      offsets: (afterCut.doorways ?? []).filter((d) => d.a?.wall === 'right').map((d) => d.a?.offset),
+    };
+    if (findings.cutDoorway.doorways !== 4) {
+      throw new Error(`clicking the shared wall did not cut a fourth doorway: ${JSON.stringify(afterCut.doorways)}`);
+    }
+    await park();
+    await settle(400);
+    await shot('home-doorway-cut');
+
+    // 35. and the × on that doorway takes it back out of both rooms
+    await page.mouse.move(cutAt.x, cutAt.y);
+    await settle(200);
+    await page.mouse.click(cutAt.x, cutAt.y);
+    await settle(500);
+    const afterRemove = await homeNow();
+    findings.removeDoorway = { doorways: (afterRemove.doorways ?? []).length };
+    if (findings.removeDoorway.doorways !== 3) {
+      throw new Error(`the doorway × did not remove it: ${JSON.stringify(afterRemove.doorways)}`);
+    }
+    await park();
+    await settle(400);
+    await shot('home-doorway-removed');
+
+    // 36. the Room tab's Home section: the plan read back as a list, beside the drawing
+    await page.getByRole('button', { name: 'Cut a doorway' }).click();
+    await page.getByRole('tab', { name: 'Room' }).click();
+    await page.getByLabel('Home name').waitFor({ timeout: 10_000 });
+    await park();
+    await settle(400);
+    await shot('room-tab-home');
+    findings.homeSection = (await page.getByLabel('Home name').inputValue()).trim();
+
+    // 37. the whole document in one list: the home with its rooms under it, then the rooms
+    // that stand on no plan at all.
+    await page.getByRole('button', { name: 'My homes' }).click();
+    await page.getByText('Standalone rooms').waitFor({ timeout: 10_000 });
+    await settle(400);
+    await shot('homes-menu');
+    await page.keyboard.press('Escape');
+    await settle(300);
+
+    if (findings.homeSection !== 'One-bedroom flat') {
+      throw new Error(`the Home section named the home ${JSON.stringify(findings.homeSection)}`);
     }
 
     const toolNames = await page.evaluate(() => globalThis.__floorplayFakeMC.getTools().map((t) => t.name));

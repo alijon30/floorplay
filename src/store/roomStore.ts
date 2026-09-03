@@ -8,7 +8,7 @@ import { applyOps, describeOps } from '../engine/ops';
 import { evaluateOps } from '../engine/evaluate';
 import { makeDemoRoom, makeEmptyRoom } from '../engine/rooms';
 import { buildTemplateRoom } from '../engine/templates';
-import { doorwayOpenings, homeContaining, snapRoomPlacement } from '../engine/home';
+import { doorwayFits, doorwayOpenings, homeContaining, snapRoomPlacement } from '../engine/home';
 import { buildHomeFromTemplate, type HomeTemplateKey } from '../engine/homeTemplates';
 import { newId } from '../engine/ids';
 import { STORAGE_KEY } from '../config';
@@ -117,7 +117,16 @@ export interface CutDoorwayInput {
   tool?: string;
 }
 
-export type PlaceRoomResult = { ok: true; x: number; y: number; snapped: boolean } | { ok: false; error: string };
+/**
+ * Where a room came to rest on the plan, and what the move cost.
+ *
+ * `removedDoorways` names the doorways the move broke: a room dragged away from its neighbour
+ * keeps openings at offsets that no longer meet anything, so they are taken out of both rooms
+ * rather than left as holes onto nothing. Empty on every move that keeps its walls.
+ */
+export type PlaceRoomResult =
+  | { ok: true; x: number; y: number; snapped: boolean; removedDoorways: string[] }
+  | { ok: false; error: string };
 export type CutDoorwayResult = { ok: true; doorway: Doorway } | { ok: false; error: string; hint?: string };
 
 export interface RoomState {
@@ -318,9 +327,16 @@ export function createRoomStore(opts: { storage?: StateStorage; debounceMs?: num
       }
       const placement = { roomId: room.id, x: snap.x, y: snap.y };
       const already = home.rooms.some((p) => p.roomId === room.id);
-      setHome({ ...home, rooms: already ? home.rooms.map((p) => (p.roomId === room.id ? placement : p)) : [...home.rooms, placement] });
+      const moved: Home = { ...home, rooms: already ? home.rooms.map((p) => (p.roomId === room.id ? placement : p)) : [...home.rooms, placement] };
+      // A doorway is only a doorway while both its sides still stand on a wall the two rooms
+      // share. The ones this move pulled apart come out of both rooms here, so the plan never
+      // carries a door onto a room that has walked away from it.
+      const broken = moved.doorways.filter(
+        (d) => (d.a.roomId === room.id || d.b.roomId === room.id) && !doorwayFits(moved, get().rooms, d),
+      );
+      setHome(broken.length ? dropDoorways(moved, broken, 'human') : moved);
       set((s) => (s.currentId === room.id ? { currentHomeId: home.id } : {}));
-      return { ok: true, x: snap.x, y: snap.y, snapped: snap.snapped };
+      return { ok: true, x: snap.x, y: snap.y, snapped: snap.snapped, removedDoorways: broken.map((d) => d.id) };
     };
 
     /** The patch every "now look at this room" action shares. A standalone room has no home view. */

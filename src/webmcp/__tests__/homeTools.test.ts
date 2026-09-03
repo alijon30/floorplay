@@ -175,16 +175,21 @@ describe('add_room_to_home', () => {
 });
 
 describe('move_room', () => {
-  it('moves a room, snaps it to its new neighbour and warns about the doorways it left behind', async () => {
+  it('moves a room, snaps it to its new neighbour and takes the doorways the move broke', async () => {
     const { call, s } = boot();
     const { living, kitchen } = await pair(call);
-    await call('cut_doorway', { roomId: living.id, wall: 'right', offset: 100 });
+    const cut = await call('cut_doorway', { roomId: living.id, wall: 'right', offset: 100 });
+    const doorwayId = String((cut['doorway'] as Record<string, unknown>)['id']);
 
     const r = await call('move_room', { roomId: kitchen.id, x: 6, y: 556 });
-    expect(r).toMatchObject({ ok: true, status: 'applied', roomId: kitchen.id, x: 0, y: 550, snapped: true });
+    expect(r).toMatchObject({ ok: true, status: 'applied', roomId: kitchen.id, x: 0, y: 550, snapped: true, removedDoorways: [doorwayId] });
     expect(roomNamed(homeOf(r), 'Kitchen')).toMatchObject({ x: 0, y: 550 });
     expect(String(r['warning'])).toContain('doorway');
     expect(s().homes[homeOf(r).id]!.rooms[1]).toEqual({ roomId: kitchen.id, x: 0, y: 550 });
+    // The opening went with it, out of both rooms rather than one.
+    expect(s().homes[homeOf(r).id]!.doorways).toEqual([]);
+    expect(s().rooms[kitchen.id]!.openings.some((o) => o.doorwayId === doorwayId)).toBe(false);
+    expect(s().rooms[living.id]!.openings.some((o) => o.doorwayId === doorwayId)).toBe(false);
   });
 
   it('refuses a move onto another room, and a room that is on no plan', async () => {

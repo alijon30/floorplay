@@ -18,4 +18,4 @@ export const roomStore = createRoomStore({ storage: safeLocalStorage() });
 export function useRoom<T>(selector: (s: RoomState) => T): T {
   return useStore(roomStore, selector);
 }
-export type { RoomState, RoomStore, UiState, DialogName, PropsTab, RightView, DispatchResult } from './roomStore';
+export type { RoomState, RoomStore, UiState, DialogName, PropsTab, RightView, PlanView, DispatchResult, PlaceRoomResult } from './roomStore';

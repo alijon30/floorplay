@@ -12,7 +12,8 @@ import type { ReactElement, SVGProps } from 'react';
 export type IconName =
   | 'undo' | 'palette' | 'help' | 'catalog' | 'room' | 'sun' | 'sunOff' | 'cube' | 'walk'
   | 'orbit' | 'shadows' | 'plus' | 'minus' | 'close' | 'chevron' | 'chevronRight' | 'user' | 'bot'
-  | 'lock' | 'unlock' | 'trash' | 'swap' | 'wand' | 'fit' | 'grid' | 'warning' | 'rooms' | 'dev';
+  | 'lock' | 'unlock' | 'trash' | 'swap' | 'wand' | 'fit' | 'grid' | 'warning' | 'rooms' | 'dev'
+  | 'home' | 'doorway' | 'roomAdd';
 
 const PATHS: Record<IconName, ReactElement> = {
   undo: (
@@ -162,6 +163,28 @@ const PATHS: Record<IconName, ReactElement> = {
     <>
       <path d="M5.6 4.6 2.2 8l3.4 3.4M10.4 4.6 13.8 8l-3.4 3.4" />
       <path d="M9.2 2.8 6.8 13.2" />
+    </>
+  ),
+  /** Several rooms on one plan: the home the Plan/Home toggle steps out to. */
+  home: (
+    <>
+      <rect x="2.2" y="2.6" width="11.6" height="10.8" rx="1" />
+      <path d="M7.4 2.6v10.8M7.4 8h6.4" />
+    </>
+  ),
+  /** A room with a plus beside it: one more on the plan. */
+  roomAdd: (
+    <>
+      <rect x="1.7" y="3.4" width="7.6" height="9.2" rx="1" />
+      <path d="M12.3 5.9v4.6M10 8.2h4.6" />
+    </>
+  ),
+  /** A door leaf standing open in a wall, the mark for cutting one. */
+  doorway: (
+    <>
+      <path d="M2.4 13.2h2.2M11.4 13.2h2.2" />
+      <path d="M4.6 13.2V4.4l5-2v12.8z" />
+      <path d="M11.4 13.2V4.4" />
     </>
   ),
 };
