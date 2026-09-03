@@ -482,12 +482,21 @@ async function main() {
     if (typeof firstLine.searchQuery !== 'string' || firstLine.searchQuery.length === 0) {
       throw new Error(`a shopping line carried no searchQuery: ${JSON.stringify(firstLine)}`);
     }
-    const marked = await toolJson('set_purchase_status', { catalogId: firstLine.catalogId, status: 'ordered', source: 'IKEA' });
+    if (typeof shopping.unsourced !== 'number') {
+      throw new Error(`get_shopping_list carried no unsourced count: ${JSON.stringify(shopping)}`);
+    }
+    // The sourcing is the agent's, not the user's: nothing here types into the panel. The tool
+    // names the shop and the listing, and the tab has to read them back with a live Open link.
+    const marked = await toolJson('set_purchase_status', { catalogId: firstLine.catalogId, status: 'ordered', source: 'IKEA', url: 'https://example.com/listing' });
     if (marked.status !== 'applied') throw new Error(`set_purchase_status did not apply: ${JSON.stringify(marked)}`);
-    findings.shoppingList = { lines: shopping.lines.length, toBuy: shopping.toBuy, budget: shopping.budget, searchQuery: firstLine.searchQuery };
+    findings.shoppingList = { lines: shopping.lines.length, toBuy: shopping.toBuy, budget: shopping.budget, unsourced: shopping.unsourced, searchQuery: firstLine.searchQuery };
     await page.getByRole('tab', { name: /^Buy/ }).click();
     await park();
     await settle(400);
+    const sourced = page.getByRole('link', { name: 'Open' }).first();
+    if (!(await sourced.isVisible())) throw new Error('the Buy tab showed no Open link after set_purchase_status recorded one');
+    const href = await sourced.getAttribute('href');
+    if (href !== 'https://example.com/listing') throw new Error(`the Open link pointed at ${href}`);
     await shot('properties-buy');
 
     // 31. the contact sheet: one of everything that has a photographed model, in one room.

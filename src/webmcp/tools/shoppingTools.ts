@@ -4,7 +4,7 @@ import { ok, fail } from '../results';
 import { idProp, strProp } from '../schemas';
 import type { ToolContext } from './context';
 import { mutate } from './mutateTools';
-import { shoppingList } from '../../engine/shopping';
+import { searchQueryFor, shoppingList } from '../../engine/shopping';
 import { findCatalogItem } from '../../engine/catalog';
 import { PURCHASE_STATUSES, type Op, type Purchase, type PurchaseStatus } from '../../engine/types';
 
@@ -18,11 +18,6 @@ import { PURCHASE_STATUSES, type Op, type Purchase, type PurchaseStatus } from '
  * the agent goes and looks, and `set_purchase_status` writes the answer back onto the room.
  */
 
-/** A query an agent can paste into a shop or a search engine and get the right thing back. */
-function searchQuery(name: string, width: number, depth: number, price: number): string {
-  return `${name.toLowerCase()} ${width}x${depth} cm under $${Math.max(1, Math.round(price * 1.15))}`;
-}
-
 const STATUS_NOTE = `status is one of ${PURCHASE_STATUSES.join(', ')}. Absent means to-buy: everything in a freshly drawn room is still to buy.`;
 
 export function buildShoppingTools(ctx: ToolContext): ToolDef[] {
@@ -33,7 +28,8 @@ export function buildShoppingTools(ctx: ToolContext): ToolDef[] {
       name: 'get_shopping_list',
       description:
         'Everything placed in the room, grouped by catalog id into the list you would take shopping: quantity, unit price, line total, whether it is still to buy, and where it is coming from when someone has said. ' +
-        `Every line carries a searchQuery you can hand straight to a shop or a search, and the room brief is included so you can respect the budget and the notes. Write your findings back with set_purchase_status. ${STATUS_NOTE}`,
+        'Sourcing is your job, not the user\'s: for every line without a source, search for the piece — online or near where the user lives, asking for their city if you need it — and record the shop and the listing with set_purchase_status, passing the catalogId. ' +
+        `unsourced counts the lines still waiting for that. Every line carries a searchQuery you can hand straight to a shop or a search, and the room brief is included so you can respect the budget and the notes. ${STATUS_NOTE}`,
       inputSchema: { type: 'object', properties: {} },
       annotations: { readOnlyHint: true },
       execute: () => {
@@ -44,7 +40,7 @@ export function buildShoppingTools(ctx: ToolContext): ToolDef[] {
             const cat = findCatalogItem(r, l.catalogId);
             return {
               ...l,
-              searchQuery: searchQuery(l.name, cat?.width ?? 0, cat?.depth ?? 0, l.unitPrice),
+              searchQuery: searchQueryFor(r, l),
               ...(cat ? { width: cat.width, depth: cat.depth, height: cat.height } : {}),
             };
           }),
@@ -54,6 +50,9 @@ export function buildShoppingTools(ctx: ToolContext): ToolDef[] {
           ordered: list.ordered,
           budget: list.budget,
           remaining: list.remaining,
+          // How much sourcing is left. A line the user marked owned needs no shop, so it is not
+          // counted: the number is the size of the errand, not the size of the room.
+          unsourced: list.lines.filter((l) => !l.source && l.status !== 'owned').length,
           brief: r.brief,
           note: 'Prices are the catalog\'s guess, not a real quote. Replace them with what you actually find, by naming the shop and the link in set_purchase_status.',
         });

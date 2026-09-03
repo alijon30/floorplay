@@ -113,3 +113,17 @@ export function shoppingListText(room: Room): string {
     `Still to buy: $${list.toBuy} of a $${list.budget} budget (${list.remaining >= 0 ? `$${list.remaining} left` : `$${-list.remaining} over`}).`,
   ].join('\n');
 }
+
+/**
+ * The search string an agent takes to a shop for one line.
+ *
+ * It lives here, beside the list, because the Buy tab shows the user the very query the agent
+ * will run — "agent query:" under each row is a promise, and a second copy of this formula in
+ * the tool layer would eventually break it. Width and depth come from the catalog rather than
+ * the line, so the query is specific enough to reject a chair of the wrong size; the ceiling is
+ * the catalog's price with a little headroom, since a real shop is rarely a guess to the dollar.
+ */
+export function searchQueryFor(room: Room, line: Pick<ShoppingLine, 'catalogId' | 'name' | 'unitPrice'>): string {
+  const cat = findCatalogItem(room, line.catalogId);
+  return `${line.name.toLowerCase()} ${cat?.width ?? 0}x${cat?.depth ?? 0} cm under $${Math.max(1, Math.round(line.unitPrice * 1.15))}`;
+}
