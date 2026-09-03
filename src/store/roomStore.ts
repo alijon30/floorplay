@@ -47,7 +47,20 @@ export interface UiState {
   ledgerOpen: boolean;
   /** The drafting grid under the plan. Off is for reading the drawing itself. */
   showGrid: boolean;
+  /**
+   * What the right viewport shows: the room in 3D, or one wall drawn straight on.
+   *
+   * Not persisted, and neither is `elevationWall`. Both are where you happen to be looking
+   * right now rather than a preference, and a visit that opens on a wall elevation instead of
+   * the room would read as the app having lost its place.
+   */
+  rightView: RightView;
+  /** Which wall the elevation draws. */
+  elevationWall: Wall;
 }
+
+/** The two things the right viewport can be. */
+export type RightView = '3d' | 'wall';
 
 /** The three tabs of the properties column. */
 export type PropsTab = 'room' | 'selection' | 'issues';
@@ -84,6 +97,8 @@ export interface RoomState {
   setPropsTab(tab: PropsTab): void;
   setLedgerOpen(open: boolean): void;
   setShowGrid(v: boolean): void;
+  setRightView(v: RightView): void;
+  setElevationWall(wall: Wall): void;
   dismissOnboarding(): void;
   setCatalogOpen(open: boolean, filter?: UiState['catalogFilter']): void;
   setWizardOpen(open: boolean): void;
@@ -142,6 +157,8 @@ const defaultUi = (): UiState => ({
   propsTab: 'room',
   ledgerOpen: false,
   showGrid: true,
+  rightView: '3d',
+  elevationWall: 'top',
 });
 
 export function createRoomStore(opts: { storage?: StateStorage; debounceMs?: number } = {}): RoomStore {
@@ -259,6 +276,9 @@ export function createRoomStore(opts: { storage?: StateStorage; debounceMs?: num
       setPropsTab(tab) { set((s) => ({ ui: { ...s.ui, propsTab: tab, roomPanelOpen: true } })); },
       setLedgerOpen(open) { set((s) => ({ ui: { ...s.ui, ledgerOpen: open } })); },
       setShowGrid(v) { set((s) => ({ ui: { ...s.ui, showGrid: v } })); },
+      setRightView(v) { set((s) => ({ ui: { ...s.ui, rightView: v } })); },
+      // Picking a wall is also what the elevation is for, so it opens on the way through.
+      setElevationWall(wall) { set((s) => ({ ui: { ...s.ui, elevationWall: wall, rightView: 'wall' } })); },
       dismissOnboarding() { set((s) => ({ ui: { ...s.ui, onboardingDismissed: true } })); },
       setCatalogOpen(open, filter = null) { set((s) => ({ ui: { ...s.ui, catalogOpen: open, catalogFilter: filter } })); },
       setWizardOpen(open) { set((s) => ({ ui: { ...s.ui, wizardOpen: open } })); },
