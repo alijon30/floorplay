@@ -183,3 +183,54 @@ describe('place_on_wall', () => {
     }
   });
 });
+
+describe('get_style', () => {
+  it('resolves all four walls, naming the paint when it is a named one', async () => {
+    const { call, s } = boot();
+    const japan = WALL_PALETTES.find((p) => p.key === 'japan')!;
+    const indigo = japan.swatches.find((sw) => sw.name === 'Aizome indigo')!;
+    await call('set_wall_color', { wall: 'left', color: indigo.hex });
+
+    const style = await call('get_style') as {
+      finish: { wall: string; floor: string; walls: Record<string, string> };
+      wallsResolved: Record<string, { hex: string; swatch?: { region: string; name: string } }>;
+      floors: { key: string }[];
+      regions: { key: string }[];
+    };
+    expect(style.finish).toMatchObject({ wall: s().current().finish.wall, floor: s().current().finish.floor });
+    expect(style.finish.walls).toEqual({ left: indigo.hex });
+    expect(style.wallsResolved['left']).toEqual({ hex: indigo.hex, swatch: { region: 'Japan', name: 'Aizome indigo' } });
+    // The other three still wear the room default, which is not one of the regional paints.
+    for (const wall of ['top', 'right', 'bottom'] as const) {
+      expect(style.wallsResolved[wall], wall).toEqual({ hex: s().current().finish.wall });
+    }
+    expect(style.floors.map((f) => f.key)).toEqual(['oak', 'walnut', 'ash', 'grey', 'tile']);
+    expect(style.regions).toHaveLength(WALL_PALETTES.length);
+  });
+});
+
+describe('set_wall_color by name', () => {
+  it('takes a "Region/Name" swatch and reports the hex it resolved to', async () => {
+    const { call, s } = boot();
+    const morocco = WALL_PALETTES.find((p) => p.key === 'morocco')!;
+    const zellige = morocco.swatches.find((sw) => sw.name === 'Zellige blue')!;
+    // Case is ignored, because an agent repeating a colour back rarely repeats its capitals.
+    const r = await call('set_wall_color', { wall: 'top', swatch: 'morocco/zellige blue' });
+    expect(r).toMatchObject({ ok: true, status: 'applied', color: zellige.hex, swatch: 'Morocco Zellige blue' });
+    expect(wallColor(s().current(), 'top')).toBe(zellige.hex);
+    expect(s().current().ledger.at(-1)!.summary).toContain('Morocco Zellige blue');
+
+    // Without a wall it repaints everything and drops the overrides.
+    await call('set_wall_color', { swatch: 'Japan/Shoji white' });
+    expect(s().current().finish.walls).toBeUndefined();
+    for (const wall of WALLS) expect(wallColor(s().current(), wall), wall).toBe('#f2efe6');
+  });
+
+  it('refuses an unknown region, an unknown paint, a bare name and nothing at all', async () => {
+    const { call } = boot();
+    expect(await call('set_wall_color', { swatch: 'Atlantis/Sea green' })).toMatchObject({ ok: false, error: 'invalid_input' });
+    expect(await call('set_wall_color', { swatch: 'Japan/Chartreuse' })).toMatchObject({ ok: false, error: 'invalid_input' });
+    expect(await call('set_wall_color', { swatch: 'Aizome indigo' })).toMatchObject({ ok: false, error: 'invalid_input' });
+    expect(await call('set_wall_color', {})).toMatchObject({ ok: false, error: 'invalid_input' });
+  });
+});

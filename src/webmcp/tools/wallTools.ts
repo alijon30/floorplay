@@ -1,7 +1,7 @@
 // src/webmcp/tools/wallTools.ts
 import type { ToolDef } from '../registry';
 import { ok, fail } from '../results';
-import { HEX_COLOR, cm, hexColorProp, idProp, wallProp } from '../schemas';
+import { HEX_COLOR, cm, hexColorProp, idProp, strProp, wallProp } from '../schemas';
 import type { ToolContext } from './context';
 import { mutate } from './mutateTools';
 import { WALL_PALETTES } from '../../engine/wallPalettes';
@@ -10,7 +10,8 @@ import { elevationView, wallLength, wallPlacement, FLOOR_NEAR_CM, MOUNT_NEAR_CM 
 import { wallFacing } from '../../engine/geometry';
 import { findCatalogItem } from '../../engine/catalog';
 import { newId } from '../../engine/ids';
-import { WALLS, type Wall } from '../../engine/types';
+import { FLOOR_FINISHES, WALLS, type Wall } from '../../engine/types';
+import { FLOOR_LABEL } from '../../finishes';
 
 /**
  * How an offset is measured on every tool here, quoted in the descriptions so an agent never
@@ -20,6 +21,35 @@ const OFFSET_NOTE =
   'offset is the distance along the wall to the near edge of the thing, measured from the left end of the top and bottom walls and from the top end of the left and right walls — the same ruler add_opening uses.';
 
 const COMPASS: Record<number, string> = { 0: 'north', 90: 'east', 180: 'south', 270: 'west' };
+
+/** The named paint a hex happens to be, when it is one. Exact match, case ignored. */
+function swatchForHex(hex: string): { region: string; name: string } | undefined {
+  const want = hex.toLowerCase();
+  for (const p of WALL_PALETTES) {
+    const hit = p.swatches.find((sw) => sw.hex.toLowerCase() === want);
+    if (hit) return { region: p.region, name: hit.name };
+  }
+  return undefined;
+}
+
+/**
+ * A "Region/name" swatch reference resolved to its hex.
+ *
+ * Names are how people talk about paint — "Japan/Aizome indigo", not "#3b4f6b" — so the tool
+ * takes the name and does the lookup, rather than making the agent copy a hex out of
+ * list_wall_palettes and risk transcribing it wrong.
+ */
+function resolveSwatch(ref: string): { hex: string; region: string; name: string } | { error: string } {
+  const slash = ref.indexOf('/');
+  if (slash < 0) return { error: `${ref} is not a swatch reference; write it as "Region/Name", like "Japan/Aizome indigo"` };
+  const region = ref.slice(0, slash).trim().toLowerCase();
+  const name = ref.slice(slash + 1).trim().toLowerCase();
+  const p = WALL_PALETTES.find((q) => q.region.toLowerCase() === region || q.key.toLowerCase() === region);
+  if (!p) return { error: `Unknown region ${ref.slice(0, slash).trim()}; one of ${WALL_PALETTES.map((q) => q.region).join(', ')}` };
+  const sw = p.swatches.find((q) => q.name.toLowerCase() === name);
+  if (!sw) return { error: `${p.region} has no paint called ${ref.slice(slash + 1).trim()}; one of ${p.swatches.map((q) => q.name).join(', ')}` };
+  return { hex: sw.hex, region: p.region, name: sw.name };
+}
 
 export function buildWallTools(ctx: ToolContext): ToolDef[] {
   const state = () => ctx.store.getState();
@@ -63,24 +93,64 @@ export function buildWallTools(ctx: ToolContext): ToolDef[] {
       }),
     },
     {
+      name: 'get_style',
+      description:
+        'Every finish in the room at once: the room default and any per-wall overrides, what each of the four walls actually resolves to and which named paint that is, the floor materials on offer, and the eleven regional palettes. Read it before repainting, so "make the other walls match" and "what colour is this" have an answer.',
+      inputSchema: { type: 'object', properties: {} },
+      annotations: { readOnlyHint: true },
+      execute: () => {
+        const r = room();
+        const wallsResolved = Object.fromEntries(WALLS.map((w) => {
+          const hex = wallColor(r, w);
+          const sw = swatchForHex(hex);
+          return [w, { hex, ...(sw ? { swatch: sw } : {}) }];
+        }));
+        return ok({
+          finish: { wall: r.finish.wall, floor: r.finish.floor, walls: r.finish.walls ?? {} },
+          wallsResolved,
+          floors: FLOOR_FINISHES.map((f) => ({ key: f, label: FLOOR_LABEL[f] })),
+          regions: WALL_PALETTES.map((p) => ({ key: p.key, region: p.region, swatches: p.swatches })),
+          note: 'A wall with no entry in finish.walls wears finish.wall. Pass a swatch to set_wall_color as "Region/Name", exactly as it reads here.',
+        });
+      },
+    },
+    {
       name: 'set_wall_color',
-      description: 'Paint the walls. With a wall named, only that wall changes and the other three keep whatever they had. Without one, every wall goes back to a single color and any per-wall overrides are cleared. Colors come from list_wall_palettes, or any hex you like.',
-      inputSchema: { type: 'object', properties: { wall: wallProp, color: hexColorProp('Wall paint') }, required: ['color'] },
+      description: 'Paint the walls. With a wall named, only that wall changes and the other three keep whatever they had. Without one, every wall goes back to a single color and any per-wall overrides are cleared. Name the paint with swatch, as "Region/Name" from list_wall_palettes — "Japan/Aizome indigo" — or pass any hex as color.',
+      inputSchema: { type: 'object', properties: { wall: wallProp, color: hexColorProp('Wall paint'), swatch: strProp('A named paint as "Region/Name", from list_wall_palettes or get_style. An alternative to color') } },
       execute: (input) => {
-        const color = input['color'] as string;
-        if (!HEX_COLOR.test(color)) return fail('invalid_input', `${color} is not a hex color like #aabbcc`);
+        const ref = input['swatch'] as string | undefined;
+        const raw = input['color'] as string | undefined;
+        if (ref === undefined && raw === undefined) return fail('invalid_input', 'Pass color as a hex, or swatch as "Region/Name" from list_wall_palettes');
+        let color: string;
+        let paintName: string | undefined;
+        if (ref !== undefined) {
+          const hit = resolveSwatch(ref);
+          if ('error' in hit) return fail('invalid_input', hit.error);
+          color = hit.hex;
+          paintName = `${hit.region} ${hit.name}`;
+        } else {
+          color = raw!;
+          if (!HEX_COLOR.test(color)) return fail('invalid_input', `${color} is not a hex color like #aabbcc`);
+        }
         const wall = input['wall'] as Wall | undefined;
         if (wall !== undefined && !WALLS.includes(wall)) return fail('invalid_input', `Unknown wall ${String(wall)}; one of ${WALLS.join(', ')}`);
         const r = room();
         const finish = wall ? withWallColor(r.finish, wall, color) : withAllWallsColor(r.finish, color);
         // Not proposable: paint is instantly visible and instantly undone, so making the user
         // accept a proposal to see a colour would hide the only thing worth judging.
-        return mutate(ctx, {
+        const painted = paintName ?? color;
+        const result = mutate(ctx, {
           tool: 'set_wall_color',
           proposable: false,
           ops: [{ type: 'setFinish', finish }],
-          summary: wall ? `Painted the ${wall} wall ${color}` : `Painted every wall ${color}`,
+          summary: wall ? `Painted the ${wall} wall ${painted}` : `Painted every wall ${painted}`,
         });
+        // The hex goes back either way, so an agent that asked for a name knows what it got
+        // and can hand the same value to anything that only speaks in colour.
+        const payload = JSON.parse(result.content[0]!.text) as Record<string, unknown>;
+        if (payload['ok'] !== true) return result;
+        return ok({ ...payload, color, ...(paintName ? { swatch: paintName } : {}) });
       },
     },
     {
