@@ -98,7 +98,7 @@ Three viewport toggles turn the drawing down to plain geometry when you want it:
 
 All coordinates are integer centimeters from the room's top-left corner, items are placed by their center, and rotation is 0, 90, 180 or 270 degrees clockwise.
 
-There are 44 static tools plus 4 that appear only while an item is selected. Between them they cover everything a person can do in the app, so the agent is never stuck asking the user to click something. `run_layout_script` needs a real Web Worker for its sandbox, so it is registered only in a browser; the test harness's fake model context sees the other 43.
+There are 48 static tools plus 4 that appear only while an item is selected. Between them they cover everything a person can do in the app, so the agent is never stuck asking the user to click something. `run_layout_script` needs a real Web Worker for its sandbox, so it is registered only in a browser; the test harness's fake model context sees the other 47.
 
 Read-only tools: `get_room`, `get_catalog`, `suggest_positions`, `suggest_furniture`, `evaluate_layout`, `get_daylight`, `list_templates`, `suggest_palette`, `get_ledger`, `list_rooms`, `get_guide`.
 
