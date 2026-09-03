@@ -264,3 +264,197 @@ describe('roomStore', () => {
     expect(store.getState().current().items).toHaveLength(0);
   });
 });
+
+describe('roomStore homes', () => {
+  const store = () => createRoomStore();
+
+  /** A store holding a home with two rooms side by side: A 300x400 at the origin, B 200x400 right of it. */
+  function pair() {
+    const s = createRoomStore();
+    const a = s.getState().createRoom({ name: 'A', width: 300, depth: 400, height: 250 });
+    const b = s.getState().createRoom({ name: 'B', width: 200, depth: 400, height: 250 });
+    const home = s.getState().createHome({ name: 'Flat 3' });
+    s.getState().addRoomToHome(home.id, a.id, 0, 0);
+    s.getState().addRoomToHome(home.id, b.id, 300, 0);
+    return { s, a, b, home };
+  }
+
+  it('creates a home and puts rooms on it, snapping an edge flush to its neighbour', () => {
+    const s = store();
+    const a = s.getState().createRoom({ name: 'A', width: 300, depth: 400, height: 250 });
+    const b = s.getState().createRoom({ name: 'B', width: 200, depth: 400, height: 250 });
+    const home = s.getState().createHome({ name: 'Flat 3' });
+    expect(s.getState().homes[home.id]).toMatchObject({ name: 'Flat 3', rooms: [], doorways: [] });
+    expect(s.getState().addRoomToHome(home.id, a.id, 0, 0)).toEqual({ ok: true, x: 0, y: 0, snapped: false });
+    expect(s.getState().addRoomToHome(home.id, b.id, 312, 14)).toEqual({ ok: true, x: 300, y: 0, snapped: true });
+    expect(s.getState().homes[home.id]!.rooms).toEqual([{ roomId: a.id, x: 0, y: 0 }, { roomId: b.id, x: 300, y: 0 }]);
+    // The current room is on the plan now, so the store knows which home it is looking at.
+    expect(s.getState().currentHomeId).toBe(home.id);
+  });
+
+  it('refuses a room that would sit inside one already on the plan', () => {
+    const { s, home, a } = pair();
+    const c = s.getState().createRoom({ name: 'C', width: 200, depth: 200, height: 250 });
+    const r = s.getState().addRoomToHome(home.id, c.id, 150, 100);
+    expect(r).toMatchObject({ ok: false });
+    if (r.ok) return;
+    expect(r.error).toContain('A');
+    expect(s.getState().homes[home.id]!.rooms).toHaveLength(2);
+    // A room already on another plan is not quietly stolen.
+    const other = s.getState().createHome({ name: 'Flat 4' });
+    expect(s.getState().addRoomToHome(other.id, a.id, 0, 0)).toMatchObject({ ok: false });
+  });
+
+  it('moves a room on the plan, snapping, and refuses a move that overlaps', () => {
+    const { s, home, b } = pair();
+    expect(s.getState().moveRoom(b.id, 306, 14)).toEqual({ ok: true, x: 300, y: 0, snapped: true });
+    expect(s.getState().moveRoom(b.id, 100, 0)).toMatchObject({ ok: false });
+    expect(s.getState().homes[home.id]!.rooms[1]).toEqual({ roomId: b.id, x: 300, y: 0 });
+  });
+
+  it('cuts a doorway, writing one ledger entry and one opening in each room', () => {
+    const { s, a, b, home } = pair();
+    const r = s.getState().cutDoorway({ roomId: a.id, wall: 'right', offset: 100, width: 80, actor: 'agent', tool: 'cut_doorway' });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const rooms = s.getState().rooms;
+    expect(rooms[a.id]!.openings).toHaveLength(1);
+    expect(rooms[a.id]!.openings[0]).toMatchObject({ wall: 'right', offset: 100, width: 80, swing: 'in', doorwayId: r.doorway.id });
+    expect(rooms[b.id]!.openings[0]).toMatchObject({ wall: 'left', offset: 100, width: 80, swing: 'out', doorwayId: r.doorway.id });
+    expect(rooms[a.id]!.ledger.map((e) => e.summary)).toEqual(['Cut doorway to B']);
+    expect(rooms[b.id]!.ledger.map((e) => e.summary)).toEqual(['Cut doorway to A']);
+    expect(rooms[b.id]!.ledger[0]).toMatchObject({ actor: 'agent', tool: 'cut_doorway' });
+    expect(s.getState().homes[home.id]!.doorways).toEqual([r.doorway]);
+    // A doorway that does not fit the shared wall is refused with something to act on.
+    const bad = s.getState().cutDoorway({ roomId: a.id, wall: 'top', offset: 10 });
+    expect(bad).toMatchObject({ ok: false });
+    if (bad.ok) return;
+    expect(bad.hint!.length).toBeGreaterThan(0);
+  });
+
+  it('removes a doorway from both rooms and from the home', () => {
+    const { s, a, b, home } = pair();
+    const r = s.getState().cutDoorway({ roomId: a.id, wall: 'right', offset: 100 });
+    if (!r.ok) throw new Error(r.error);
+    expect(s.getState().removeDoorway(r.doorway.id)).toBe(true);
+    expect(s.getState().rooms[a.id]!.openings).toEqual([]);
+    expect(s.getState().rooms[b.id]!.openings).toEqual([]);
+    expect(s.getState().rooms[a.id]!.ledger.map((e) => e.summary)).toEqual(['Cut doorway to B', 'Removed doorway to B']);
+    expect(s.getState().homes[home.id]!.doorways).toEqual([]);
+    expect(s.getState().removeDoorway(r.doorway.id)).toBe(false);
+  });
+
+  it('takes a room off the plan with its doorways, leaving it standalone', () => {
+    const { s, a, b, home } = pair();
+    const r = s.getState().cutDoorway({ roomId: a.id, wall: 'right', offset: 100 });
+    if (!r.ok) throw new Error(r.error);
+    expect(s.getState().removeRoomFromHome(b.id)).toBe(true);
+    expect(s.getState().homes[home.id]!.rooms.map((p) => p.roomId)).toEqual([a.id]);
+    expect(s.getState().homes[home.id]!.doorways).toEqual([]);
+    expect(s.getState().rooms[a.id]!.openings).toEqual([]);
+    expect(s.getState().rooms[b.id]!.openings).toEqual([]);
+    // The room itself survives, off the plan.
+    expect(s.getState().rooms[b.id]!.name).toBe('B');
+    expect(s.getState().removeRoomFromHome(b.id)).toBe(false);
+  });
+
+  it('deletes a room that is on a plan by taking it off the plan first', () => {
+    const { s, a, b, home } = pair();
+    const r = s.getState().cutDoorway({ roomId: a.id, wall: 'right', offset: 100 });
+    if (!r.ok) throw new Error(r.error);
+    s.getState().deleteRoom(b.id);
+    expect(s.getState().rooms[b.id]).toBeUndefined();
+    expect(s.getState().homes[home.id]!.rooms.map((p) => p.roomId)).toEqual([a.id]);
+    expect(s.getState().homes[home.id]!.doorways).toEqual([]);
+    expect(s.getState().rooms[a.id]!.openings).toEqual([]);
+  });
+
+  it('builds a ready-made home, opens it on the entrance and keeps every room reachable', () => {
+    const s = store();
+    const home = s.getState().createHomeFromTemplate('one-bedroom');
+    expect(home.rooms).toHaveLength(4);
+    expect(home.doorways).toHaveLength(3);
+    expect(s.getState().currentHomeId).toBe(home.id);
+    expect(s.getState().currentId).toBe(home.entranceRoomId);
+    expect(s.getState().current().name).toBe('Entrance hall');
+    expect(s.getState().ui.planView).toBe('home');
+    for (const p of home.rooms) expect(s.getState().rooms[p.roomId]).toBeDefined();
+    // The rooms arrive furnished and already joined, with no edits to undo.
+    expect(s.getState().current().ledger).toEqual([]);
+  });
+
+  it('follows the current room in and out of its home', () => {
+    const { s, a, b } = pair();
+    const solo = s.getState().createRoom({ name: 'Solo', width: 300, depth: 300, height: 250 });
+    expect(s.getState().currentHomeId).toBeNull();
+    expect(s.getState().ui.planView).toBe('room');
+    s.getState().switchRoom(a.id);
+    expect(s.getState().currentHomeId).not.toBeNull();
+    s.getState().setPlanView('home');
+    s.getState().switchRoom(b.id);
+    expect(s.getState().ui.planView).toBe('home');
+    s.getState().switchRoom(solo.id);
+    expect(s.getState().currentHomeId).toBeNull();
+    expect(s.getState().ui.planView).toBe('room');
+  });
+
+  it('names an entrance, renames the home, and deletes it leaving the rooms behind', () => {
+    const { s, a, b, home } = pair();
+    const r = s.getState().cutDoorway({ roomId: a.id, wall: 'right', offset: 100 });
+    if (!r.ok) throw new Error(r.error);
+    s.getState().setEntrance(b.id);
+    expect(s.getState().homes[home.id]!.entranceRoomId).toBe(b.id);
+    s.getState().switchRoom(a.id);
+    s.getState().renameHome('Flat 7');
+    expect(s.getState().homes[home.id]!.name).toBe('Flat 7');
+    s.getState().setDoorwayMode(true);
+    expect(s.getState().ui.doorwayMode).toBe(true);
+    s.getState().deleteHome(home.id);
+    expect(s.getState().homes[home.id]).toBeUndefined();
+    expect(s.getState().rooms[a.id]!.name).toBe('A');
+    expect(s.getState().rooms[a.id]!.openings).toEqual([]);
+    expect(s.getState().currentHomeId).toBeNull();
+    expect(s.getState().ui.planView).toBe('room');
+    expect(s.getState().ui.doorwayMode).toBe(false);
+  });
+
+  it('persists homes and the home being looked at across a reload', () => {
+    vi.useFakeTimers();
+    try {
+      const storage = memoryStorage();
+      const first = createRoomStore({ storage });
+      const home = first.getState().createHomeFromTemplate('studio-hall');
+      vi.advanceTimersByTime(300);
+      const second = createRoomStore({ storage });
+      const restored = second.getState().homes[home.id];
+      expect(restored).toBeDefined();
+      expect(restored!.rooms.map((p) => p.roomId)).toEqual(home.rooms.map((p) => p.roomId));
+      expect(restored!.doorways.map((d) => d.id)).toEqual(home.doorways.map((d) => d.id));
+      expect(second.getState().currentHomeId).toBe(home.id);
+      expect(second.getState().current().openings.some((o) => o.doorwayId)).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('gives a save made before homes existed an empty set of them', () => {
+    const storage = memoryStorage();
+    storage.setItem(STORAGE_KEY, JSON.stringify({
+      state: {
+        rooms: {
+          r1: {
+            id: 'r1', name: 'Old room', width: 300, depth: 400, height: 250, northWall: 'top',
+            openings: [], items: [], brief: { budget: 1000, currency: 'USD', needs: [], notes: '' },
+            daylightHour: 12, finish: { wall: '#efe9df', floor: 'oak' }, catalogExtras: [], proposals: [], ledger: [],
+          },
+        },
+        currentId: 'r1',
+      },
+      version: 0,
+    }));
+    const s = createRoomStore({ storage });
+    expect(s.getState().homes).toEqual({});
+    expect(s.getState().currentHomeId).toBeNull();
+    expect(s.getState().ui.planView).toBe('room');
+  });
+});

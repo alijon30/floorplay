@@ -56,7 +56,7 @@ const LIVING: RoomTemplate = {
   items: [
     { catalogId: 'rug-200x300', x: 225, y: 250, rotation: 0 },
     { catalogId: 'sofa-3', x: 45, y: 250, rotation: 270 },
-    { catalogId: 'tv-stand-160', x: 430, y: 250, rotation: 90 },
+    { catalogId: 'tv-stand-160', x: 430, y: 280, rotation: 90 },
     { catalogId: 'table-coffee-90', x: 225, y: 250, rotation: 0 },
     { catalogId: 'armchair-80', x: 405, y: 430, rotation: 90 },
     { catalogId: 'shelf-80', x: 60, y: 15, rotation: 0 },
@@ -120,13 +120,15 @@ const HALL: RoomTemplate = {
   brief: brief(800, ['hang coats', 'store shoes', 'drop keys'], 'Nothing may narrow the walk-through.'),
   finish: { wall: '#e4d7c2', floor: 'walnut' },
   items: [
-    { catalogId: 'shoe-cabinet-100', x: 185, y: 120, rotation: 90 },
-    { catalogId: 'coat-rack-60', x: 180, y: 250, rotation: 90 },
+    // Storage sits at the far end, past the stretch of the right-hand wall a home cuts its
+    // doorway through, so a hall inside a flat keeps its walk-through as clear as one alone.
+    { catalogId: 'shoe-cabinet-100', x: 15, y: 345, rotation: 270 },
+    { catalogId: 'coat-rack-60', x: 180, y: 340, rotation: 90 },
     { catalogId: 'table-console-100', x: 17.5, y: 100, rotation: 270 },
     { catalogId: 'bench-hall-90', x: 19, y: 250, rotation: 270 },
     { catalogId: 'plant-medium', x: 70, y: 40, rotation: 0 },
     { catalogId: 'rug-80x150', x: 100, y: 300, rotation: 0 },
-    { catalogId: 'mirror-round-60', x: 197.5, y: 350, rotation: 90 },
+    { catalogId: 'mirror-round-60', x: 197.5, y: 150, rotation: 90 },
     { catalogId: 'coat-hooks-60', x: 5, y: 350, rotation: 270 },
   ],
 };
@@ -215,7 +217,7 @@ const STUDIO: RoomTemplate = {
     { catalogId: 'bed-double-140', x: 70, y: 100, rotation: 0 },
     { catalogId: 'nightstand-45', x: 230, y: 20, rotation: 0 },
     { catalogId: 'desk-120', x: 330, y: 250, rotation: 90 },
-    { catalogId: 'loveseat-140', x: 40, y: 350, rotation: 270 },
+    { catalogId: 'loveseat-140', x: 40, y: 370, rotation: 270 },
     { catalogId: 'rug-120x180', x: 170, y: 350, rotation: 0 },
     { catalogId: 'lamp-floor', x: 330, y: 60, rotation: 0 },
     { catalogId: 'plant-medium', x: 320, y: 430, rotation: 0 },

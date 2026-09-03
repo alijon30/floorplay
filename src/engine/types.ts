@@ -16,6 +16,15 @@ export interface Opening {
   sill?: number;
   swing?: 'in' | 'out';
   hinge?: 'start' | 'end';
+  /**
+   * The doorway this opening is one half of, when it joins two rooms of a home.
+   *
+   * Its presence is what tells a door onto the landing apart from a door into the next room:
+   * a doorway owns a matching opening in each room, and the pair is cut and removed together.
+   * An opening without it is external, which is what `homeReachability` looks for when it has
+   * to guess which room somebody comes in through.
+   */
+  doorwayId?: string;
 }
 
 export type Category =
@@ -219,6 +228,35 @@ export interface Room extends RoomShell {
   proposals: Proposal[];
   ledger: LedgerEntry[];
 }
+
+/** Where one room's top-left corner sits on the shared floor plan of a home, in cm. */
+export interface HomeRoomPlacement { roomId: string; x: number; y: number }
+
+/**
+ * One end of a doorway: the room it opens into and where on that room's wall it sits.
+ *
+ * `offset` is in the room's own coordinates, measured the way every opening is — from the left
+ * end of a top or bottom wall, from the top end of a left or right wall — so the two sides of
+ * one doorway usually carry different numbers even though they name the same hole.
+ */
+export interface DoorwaySide { roomId: string; wall: Wall; offset: number }
+
+/**
+ * A hole joining two rooms of a home, owning a matching `Opening` in each of them.
+ *
+ * A door swings into room `a` and out of room `b`, so `a` is the room you arrive from; a
+ * passage swings out of both, which is to say it has no leaf at all.
+ */
+export interface Doorway { id: string; a: DoorwaySide; b: DoorwaySide; width: number; kind: 'door' | 'passage' }
+
+/**
+ * A set of rooms laid out edge to edge on one floor plan, joined by doorways.
+ *
+ * The rooms themselves stay standalone objects in the store; a home only references them by id
+ * and says where each one stands. A room belongs to at most one home, and a room in no home
+ * keeps working exactly as it did before homes existed.
+ */
+export interface Home { id: string; name: string; rooms: HomeRoomPlacement[]; doorways: Doorway[]; entranceRoomId?: string }
 
 export interface CameraPose { mode: 'orbit' | 'walk'; x: number; y: number; z: number; yaw: number; pitch: number }
 
