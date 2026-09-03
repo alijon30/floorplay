@@ -17,8 +17,11 @@ import { BTN_SM, BTN_SM_ON, CLOSE, INPUT, NUM, TITLE } from './styles';
  * you wanted was usually off the right edge, and a clipped chip gives no clue that it is
  * there at all. A select shows every option at once and says which one is on while closed.
  */
-function Filter({ label, value, onChange, options }: {
+function Filter({ label, aria, value, onChange, options }: {
   label: string;
+  /** What the control is called to a screen reader. The rail already has a button named
+      "Room", so the visible word alone would name two different things. */
+  aria: string;
   value: string;
   onChange: (v: string) => void;
   options: { value: string; label: string }[];
@@ -27,7 +30,7 @@ function Filter({ label, value, onChange, options }: {
     <label className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md border border-line bg-raised px-2 transition-colors focus-within:border-accent/70 hover:border-[var(--line-hi)]">
       <span className="shrink-0 text-[11px] text-muted">{label}</span>
       <select
-        aria-label={label}
+        aria-label={aria}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="h-7 min-w-0 flex-1 cursor-pointer bg-transparent text-[12px] capitalize text-fg outline-none"
@@ -133,18 +136,23 @@ export default function CatalogDrawer() {
             <input className={INPUT} placeholder="Search the catalog" aria-label="Search the catalog" value={query} onChange={(e) => setQuery(e.target.value)} />
             <div className="mt-1.5 flex gap-1.5">
               <Filter
-                label="Room:"
+                label="Room"
+                aria="Filter by room"
                 value={roomKind ?? ''}
                 onChange={(v) => setRoomKind(v === '' ? null : v as RoomKind)}
                 options={[{ value: '', label: 'All rooms' }, ...ROOM_KINDS.map((k) => ({ value: k, label: k }))]}
               />
               <Filter
-                label="Category:"
+                label="Category"
+                aria="Filter by category"
                 value={category ?? ''}
                 onChange={(v) => setCategory(v === '' ? null : v as Category)}
                 options={[{ value: '', label: 'All' }, ...CATEGORIES.map((c) => ({ value: c, label: c }))]}
               />
             </div>
+            {/* Every row here is draggable and the plan takes the drop, but nothing on screen
+                said so, so the feature may as well not have existed. */}
+            <p className="mt-1.5 text-[11px] leading-snug text-muted">Drag a piece onto the plan, or press Place to let the room find it a spot.</p>
           </div>
           <div className="min-h-0 flex-1 overflow-auto p-2 pt-0.5">
             {items.length === 0 && <p className="px-0.5 text-[11.5px] text-muted">Nothing matches that filter.</p>}

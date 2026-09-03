@@ -63,7 +63,7 @@ export default function RegionPalette({
                 }`}
                 style={{ background: s.hex }}
               />
-              <span className="line-clamp-2 w-full text-center text-[9.5px] leading-tight text-muted">{s.name}</span>
+              <span className="line-clamp-2 w-full text-center text-[10.5px] leading-tight text-muted">{s.name}</span>
             </button>
           );
         })}

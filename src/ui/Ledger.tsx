@@ -48,14 +48,20 @@ export default function Ledger() {
         <div className="min-h-0 flex-1 overflow-auto px-1.5 pb-1.5">
           {room.ledger.length === 0 && <p className="px-1.5 text-[11.5px] text-muted">No actions yet.</p>}
           {room.ledger.map((e, idx) => (
-            <div key={e.id} className="group flex items-center gap-2 rounded px-1.5 py-1 transition-colors hover:bg-raised">
+            <div key={e.id} className="group flex items-center gap-2 rounded px-1.5 py-1 transition-colors hover:bg-raised focus-within:bg-raised">
               <Icon name={e.actor === 'agent' ? 'bot' : 'user'} size={13} className={e.actor === 'agent' ? 'text-accent' : 'text-muted'} />
               <span className="min-w-0 flex-1 truncate text-[11.5px] text-fg/90">
                 {e.summary}
                 {e.tool && <span className={`ml-1.5 text-[10.5px] text-muted ${NUM}`}>{e.tool}</span>}
               </span>
               {idx < room.ledger.length - 1 && (
-                <button className={`invisible shrink-0 group-hover:visible ${BTN_SM}`} onClick={() => revertTo(e.id)}>Revert to here</button>
+                // Hidden until the row is hovered, but a keyboard user tabs onto it too, and
+                // focus has to be able to show what it has landed on.
+                <button
+                  className={`shrink-0 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 ${BTN_SM}`}
+                  title="Undo everything after this entry"
+                  onClick={() => revertTo(e.id)}
+                >Revert to here</button>
               )}
               <span className={`shrink-0 rounded px-1 text-[10.5px] ${NUM} ${e.violationsAfter ? 'bg-bad/15 text-bad' : 'text-muted/70'}`}>{e.violationsAfter} issues</span>
             </div>

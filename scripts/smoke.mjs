@@ -157,8 +157,8 @@ async function main() {
     await settle();
     await shot('catalog');
     // the two selects narrow the list together
-    await page.getByLabel('Room:').selectOption('bedroom');
-    await page.getByLabel('Category:').selectOption('bed');
+    await page.getByLabel('Filter by room').selectOption('bedroom');
+    await page.getByLabel('Filter by category').selectOption('bed');
     await park();
     await settle();
     await shot('catalog-filtered');

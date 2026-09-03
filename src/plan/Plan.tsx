@@ -67,18 +67,18 @@ function useSize(ref: React.RefObject<HTMLElement | null>) {
  * reason to make anyone learn four pictograms. Measured on the viewport rather than the
  * window, so opening the catalog puts the tools back to marks instead of over the label.
  */
-function Tool({ on, label, text, icon, onClick, disabled }: {
-  on?: boolean; label: string; text?: string; icon: Parameters<typeof Icon>[0]['name']; onClick: () => void; disabled?: boolean;
+function Tool({ on, label, hint, text, icon, onClick, disabled }: {
+  on?: boolean; label: string; hint?: string; text?: string; icon: Parameters<typeof Icon>[0]['name']; onClick: () => void; disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       aria-label={label}
       aria-pressed={on === undefined ? undefined : on}
-      title={label}
+      title={hint ?? label}
       disabled={disabled}
       onClick={onClick}
-      className={`inline-flex h-7 min-w-7 items-center justify-center gap-1.5 rounded-md border px-1.5 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent disabled:opacity-40 ${
+      className={`inline-flex h-7 min-w-7 items-center justify-center gap-1.5 rounded-md border px-1.5 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent disabled:opacity-40 disabled:pointer-events-none ${
         on ? 'border-accent/50 bg-[var(--accent-fill)] text-accent' : 'border-black/8 bg-white/70 text-[var(--plan-ink-soft)] hover:bg-white hover:text-[var(--plan-ink)]'
       }`}
     >
@@ -253,9 +253,9 @@ export default function Plan() {
         icon={ui.showDaylight ? 'sun' : 'sunOff'}
         onClick={() => setShowDaylight(!ui.showDaylight)}
       />
-      <Tool label="Zoom out" icon="minus" disabled={zoom <= MIN_ZOOM} onClick={() => zoomBy(1 / 1.25)} />
-      <Tool label="Fit to view" text="Fit" icon="fit" onClick={() => setZoom(1)} />
-      <Tool label="Zoom in" icon="plus" disabled={zoom >= MAX_ZOOM} onClick={() => zoomBy(1.25)} />
+      <Tool label="Zoom out" hint="Zoom out. The mouse wheel zooms too." icon="minus" disabled={zoom <= MIN_ZOOM} onClick={() => zoomBy(1 / 1.25)} />
+      <Tool label="Fit to view" hint="Put the whole room back on screen. The mouse wheel zooms." text="Fit" icon="fit" onClick={() => setZoom(1)} />
+      <Tool label="Zoom in" hint="Zoom in. The mouse wheel zooms too." icon="plus" disabled={zoom >= MAX_ZOOM} onClick={() => zoomBy(1.25)} />
     </>
   );
 

@@ -100,8 +100,11 @@ export default function Inspector() {
         <button className={`flex-1 ${BTN_QUIET}`} title="Show pieces that could take its place" onClick={() => setCatalogOpen(true, { category: cat.category, fitsItemId: item.id })}>
           <Icon name="swap" size={13} />Swap
         </button>
-        <button disabled={item.locked} className={BTN_DANGER} aria-label="Remove" title="Remove this piece" onClick={() => { dispatch({ actor: 'human', ops: [{ type: 'remove', id: item.id }] }); select(null); }}>
-          <Icon name="trash" size={13} />
+        {/* Lock and Swap carry their words, so the third button in the row carries its own
+            rather than resting on a tooltip. Undo takes it back, which is why it is a word
+            and not a confirm. */}
+        <button disabled={item.locked} className={`flex-1 ${BTN_DANGER}`} title="Take this piece out of the room. Cmd/Ctrl+Z puts it back." onClick={() => { dispatch({ actor: 'human', ops: [{ type: 'remove', id: item.id }] }); select(null); }}>
+          <Icon name="trash" size={13} />Remove
         </button>
       </div>
 

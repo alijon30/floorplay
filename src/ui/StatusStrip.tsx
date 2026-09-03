@@ -44,7 +44,7 @@ export default function StatusStrip() {
       <Stat label="Walkway" value={`${m.minWalkwayCm} cm`} tone={m.minWalkwayCm < 60 ? 'bad' : 'ok'} hint="Widest walkway that still reaches every item from the door. Under 60 cm is a squeeze." />
       <Stat label="Open area" value={`${(m.openAreaCm2 / 10000).toFixed(1)} m²`} hint="Largest single stretch of clear floor, in square metres." />
       <Stat label="Budget" value={`$${m.budgetUsed} / $${room.brief.budget}`} tone={budgetPct > 1 ? 'bad' : budgetPct > 0.9 ? 'warn' : 'ok'} hint="Total price of everything placed, against the budget in your brief." />
-      <Stat label={`Light at ${lightName}`} value={light === null ? '—' : `${light}%`} tone={light !== null && light < 30 ? 'warn' : 'ok'} hint="Daylight reaching the selected item at the hour on the status bar, where 100% is full sun." />
+      <Stat label={`Light at ${lightName}`} value={light === null ? '—' : `${light}%`} tone={light !== null && light < 30 ? 'warn' : 'ok'} hint="Daylight reaching the named piece at the hour on this bar, where 100% is full sun. Select something to read it there instead." />
       <Stat label="Issues" value={String(m.violationCount)} tone={m.violationCount > 0 ? 'warn' : 'ok'} hint="Rules the layout breaks right now: overlaps, blocked doors, clearances too tight." />
 
       <div className="ml-auto flex shrink-0 items-center gap-3">

@@ -11,10 +11,10 @@ import { BTN_PRIMARY, BTN_QUIET, CARD, NUM } from './styles';
 const LABELS: Record<string, string> = { freeFloorPct: 'Free floor', minWalkwayCm: 'Walkway', budgetUsed: 'Budget', openAreaCm2: 'Open area', violationCount: 'Issues', budgetRemaining: 'Remaining' };
 const UNITS: Record<string, (v: number) => string> = {
   freeFloorPct: (v) => `${v}%`,
-  minWalkwayCm: (v) => `${v}`,
+  minWalkwayCm: (v) => `${v} cm`,
   budgetUsed: (v) => `$${v}`,
   budgetRemaining: (v) => `$${v}`,
-  openAreaCm2: (v) => `${(v / 10000).toFixed(1)}`,
+  openAreaCm2: (v) => `${(v / 10000).toFixed(1)} m²`,
   violationCount: (v) => `${v}`,
 };
 
@@ -112,8 +112,8 @@ export default function ProposalStrip() {
                 </div>
               </div>
               <div className="flex gap-1.5 border-t border-line p-2">
-                <button className={`flex-1 ${BTN_PRIMARY}`} onClick={() => acceptProposal(p.id, 'human')}>Accept</button>
-                <button className={`flex-1 ${BTN_QUIET}`} onClick={() => rejectProposal(p.id)}>Reject</button>
+                <button className={`flex-1 ${BTN_PRIMARY}`} title="Apply this option to the room. Undo takes it back." onClick={() => acceptProposal(p.id, 'human')}>Accept</button>
+                <button className={`flex-1 ${BTN_QUIET}`} title="Discard this option. It is not kept, and undo will not bring it back." onClick={() => rejectProposal(p.id)}>Reject</button>
               </div>
             </article>
           );

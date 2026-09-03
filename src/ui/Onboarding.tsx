@@ -2,7 +2,8 @@
 import { useState } from 'react';
 import { useRoom } from '../store';
 import { WEBMCP_FLAG_URL } from '../config';
-import { BTN_PRIMARY, BTN_QUIET, BTN_SM, CARD, LABEL, LINK } from './styles';
+import { Icon } from './icons';
+import { BTN_PRIMARY, BTN_QUIET, BTN_SM, CARD, CLOSE, LABEL, LINK } from './styles';
 
 const PROMPTS = [
   'Furnish this studio for my brief. Give me three options.',
@@ -44,7 +45,11 @@ export default function Onboarding() {
   return (
     <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center p-4">
       <div className={`pointer-events-auto w-[26rem] max-w-full p-4 ${CARD}`}>
-        <h2 className="text-[15px] font-medium leading-snug text-fg">Design a room with ChatGPT on the same plan</h2>
+        {/* Three ways out of this card and none of them was the × people reach for first. */}
+        <div className="flex items-start gap-2">
+          <h2 className="min-w-0 flex-1 text-[15px] font-medium leading-snug text-fg">Design a room with ChatGPT on the same plan</h2>
+          <button className={CLOSE} aria-label="Close" title="Close this card" onClick={dismiss}><Icon name="close" size={13} /></button>
+        </div>
 
         <ol className="mt-3 space-y-1.5 text-[12px] leading-snug text-muted">
           <li><span className="mr-1.5 font-mono text-[11px] text-muted/60">01</span>Load a room — the demo studio, or an empty one you size yourself.</li>

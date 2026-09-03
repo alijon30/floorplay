@@ -10,7 +10,7 @@ const SHORTCUTS: [string, string][] = [
   ['R', 'Rotate the selected item by 90°.'],
   ['L', 'Lock or unlock the selected item so nothing can move it.'],
   ['Delete', 'Remove the selected item (Backspace works too).'],
-  ['Esc', 'Clear the selection.'],
+  ['Esc', 'Close whatever is open — a dialog, this sheet, a menu — or clear the selection.'],
   ['⌘/Ctrl Z', 'Undo the last change, yours or the agent’s.'],
   ['⌘/Ctrl ⇧ D', 'Show the developer panel with the raw tool log.'],
 ];
