@@ -8,6 +8,9 @@ import { isMounted, itemColor } from '../engine/catalog';
 import { finish, materialTypeOf, type MaterialType } from '../engine/materials';
 import { footprint } from '../engine/geometry';
 import { makeFabricTexture, makeWoodTexture } from './textures';
+import { GHOST_BLUE, ghostMaterial } from './ghost';
+import ModelBody from './ModelPiece';
+import { fitScale, modelFor, orientedSize } from './models';
 import { M } from './units';
 
 type Props = {
@@ -60,10 +63,6 @@ const CONCRETE = finish('concrete');
 const TERRACOTTA_POT = '#a9694c';
 const CUSHION_WHITE = '#faf7f2';
 
-/** Must match `--accent` and `--bad` in `index.css`: a ghost is the interface speaking, not a finish. */
-const GHOST_BLUE = '#7c9cff';
-const REMOVAL_RED = '#e5655d';
-
 /**
  * How each material behaves under the studio lights.
  *
@@ -104,20 +103,7 @@ const materials = new Map<string, THREE.MeshStandardMaterial>();
 
 function materialFor(spec: MatProps): THREE.MeshStandardMaterial {
   const side = spec.side ?? THREE.FrontSide;
-  if (spec.removal || spec.ghost) {
-    const key = `${spec.removal ? 'removal' : 'ghost'}|${side}`;
-    const hit = materials.get(key);
-    if (hit) return hit;
-    const m = new THREE.MeshStandardMaterial({
-      color: spec.removal ? REMOVAL_RED : GHOST_BLUE,
-      transparent: true,
-      opacity: spec.removal ? 0.32 : 0.38,
-      roughness: 0.5,
-      side,
-    });
-    materials.set(key, m);
-    return m;
-  }
+  if (spec.removal || spec.ghost) return ghostMaterial(!!spec.removal, side);
   const type = spec.mat ?? materialTypeOf(spec.color);
   const p = PROFILE[type];
   const roughness = spec.roughness ?? p.roughness;
@@ -723,6 +709,33 @@ export default function Furniture({ item, cat, ghost, removal, selected, onSelec
     }
   }
 
+  /*
+   * A photographed model stands in for the shape above wherever the catalog entry's proportions
+   * are close enough to the model's for the swap to be honest; `modelFor` is what decides that,
+   * and returns null for everything else. The procedural body is built either way and handed to
+   * `ModelBody` as its fallback, so a model still in flight — or one that never arrives — leaves
+   * a fully furnished room rather than a hole in it.
+   */
+  const model = modelFor(cat);
+  // How tall the piece actually stands. A label pinned to the catalog height would hang inside a
+  // four-poster bed, because a bed's 45 cm is the height of its mattress and not of its posts.
+  const standing = model
+    ? Math.max(h, orientedSize(model).h * fitScale(orientedSize(model), { w, d, h }, model.fit)[1])
+    : h;
+  const drawn = model
+    ? (
+      <ModelBody
+        spec={model}
+        cat={cat}
+        color={item.color}
+        ghost={ghost}
+        removal={removal}
+        outlined={selected && interactive}
+        procedural={body}
+      />
+    )
+    : body;
+
   return (
     <group
       ref={root}
@@ -730,9 +743,9 @@ export default function Furniture({ item, cat, ghost, removal, selected, onSelec
       rotation={[0, (-item.rotation * Math.PI) / 180, 0]}
       onClick={interactive ? (e) => { e.stopPropagation(); onSelect(item.id); } : undefined}
     >
-      <group position={[0, mountY, 0]}>{body}</group>
+      <group position={[0, mountY, 0]}>{drawn}</group>
       {selected && interactive && (
-        <Html center distanceFactor={6} position={[0, mountY + h + 0.3, 0]} pointerEvents="none" zIndexRange={[30, 0]}>
+        <Html center distanceFactor={6} position={[0, mountY + standing + 0.3, 0]} pointerEvents="none" zIndexRange={[30, 0]}>
           <div className="whitespace-nowrap rounded-full border border-accent/50 bg-panel/90 px-2 py-0.5 font-mono text-[10.5px] uppercase tracking-[0.06em] text-fg shadow-xl">
             {cat.name}
           </div>

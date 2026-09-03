@@ -89,6 +89,7 @@ npm run dev      # http://localhost:5173
 npm test         # engine, store and tool tests
 npm run build    # typecheck and production build
 npm run smoke    # headless Playwright screenshots into ./smoke-out (first run downloads Chromium)
+npm run models   # rebuild public/models from Poly Haven (the .glb files are committed; this is only for changing them)
 ```
 
 ## How it is built
@@ -97,5 +98,21 @@ npm run smoke    # headless Playwright screenshots into ./smoke-out (first run d
 - `src/store` is a Zustand store. UI and tools both dispatch operations to it; every change appends a ledger entry with its inverse.
 - `src/webmcp` registers tools with `document.modelContext`, re-registering selection- and proposal-scoped tools when the page state changes. A shim provides a fake model context so the dev panel works in any browser.
 - `src/plan` is the SVG plan. `src/three` is the three.js scene, with walls built as segments around real openings so sunlight comes through the window.
+
+## 3D models
+
+Beds, sofas, chairs, desks, tables, shelving, chests, stools, plants and a few more are drawn from
+photographed models rather than from boxes. They come from [Poly Haven](https://polyhaven.com/models),
+are published under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/), and are used here
+with thanks to the people who made them — Kirill Sannikov, James Ray Cock, Ulan Cabanilla, Kuutti
+Siitonen, Rico Cilliers, Amin, Vibrant Nordic, Patrik Pangerl, Serhii Khromov, Dairon Sanchez and
+Caspian Fortune. `public/models/LICENSES.md` credits each file individually.
+
+`npm run models` rebuilds them: it reads `scripts/models.manifest.json`, downloads the 1k glTF of
+each asset, and compresses it to 512 px WebP textures and meshopt-packed geometry, which brings
+nineteen models to about 2.5 MB in total. `src/three/models.ts` decides which catalog entries each
+one stands in for and how far it may be stretched onto a size it was not photographed at; anything
+outside that — rugs, lamps, kitchen units, a corner sofa three times deeper than the settee — keeps
+the procedural shape, which is built to the catalog's own dimensions and cannot be wrong about them.
 
 Built for the WebMCP Challenge, September 2026. MIT licensed.

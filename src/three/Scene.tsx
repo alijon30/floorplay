@@ -14,6 +14,7 @@ import { ICON_BTN, ICON_BTN_ON } from '../ui/styles';
 import Floor from './Floor';
 import Walls from './Walls';
 import Furniture from './Furniture';
+import { preloadModels } from './ModelPiece';
 import Sun from './Sun';
 import CameraRig from './CameraRig';
 import { makeGroundFadeTexture } from './textures';
@@ -97,6 +98,15 @@ export default function Scene() {
   const shadows = ui.showShadows;
   const walking = ui.camera.mode === 'walk';
   const ghosts = useMemo(() => ghostsFor(room, room.proposals, ui.hoveredProposalId), [room, ui.hoveredProposalId]);
+  /*
+   * Ask for every model this room can want, up front. The pieces already in it would fetch their
+   * own as they render, but a proposal's ghost appears the instant the agent answers, and a room
+   * that has to go to the network at that moment shows the procedural shape first and swaps it a
+   * beat later. One pass over the catalog on load spares the swap.
+   */
+  useEffect(() => {
+    preloadModels(room.items.map((i) => findCatalogItem(room, i.catalogId)).filter((c) => c !== undefined));
+  }, [room]);
   const onLook = useCallback((yaw: number, pitch: number) => setCamera({ yaw, pitch }), [setCamera]);
   const toggle = () => {
     if (walking) setCamera({ mode: 'orbit' });
