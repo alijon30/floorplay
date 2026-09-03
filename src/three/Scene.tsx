@@ -22,6 +22,7 @@ import CameraRig, { orbitPosition } from './CameraRig';
 import ViewToggle from '../elevation/ViewToggle';
 import { makeGroundFadeTexture } from './textures';
 import type { Cutaway } from './cutaway';
+import { partyIntervals, type PartyIntervals } from './party';
 import { M } from './units';
 
 /**
@@ -102,9 +103,10 @@ function GroundFade({ bounds }: { bounds: Rect }) {
  * lives on the group outside it, and `cutaway` is what tells the walls whose edge the camera
  * has to pass before one of them steps aside.
  */
-function RoomBody({ room, cutaway, highlight, selectedItemId, onSelect, children }: {
+function RoomBody({ room, cutaway, party, highlight, selectedItemId, onSelect, children }: {
   room: Room;
   cutaway?: Cutaway;
+  party?: PartyIntervals;
   highlight?: Wall | null;
   selectedItemId?: string | null;
   onSelect?: (id: string) => void;
@@ -113,7 +115,7 @@ function RoomBody({ room, cutaway, highlight, selectedItemId, onSelect, children
   return (
     <>
       <Floor width={room.width} depth={room.depth} finish={room.finish.floor} />
-      <Walls room={room} highlight={highlight ?? null} cutaway={cutaway} />
+      <Walls room={room} highlight={highlight ?? null} cutaway={cutaway} party={party} />
       {room.items.map((item) => {
         const cat = findCatalogItem(room, item.catalogId);
         return cat ? <Furniture key={item.id} item={item} cat={cat} selected={selectedItemId === item.id} onSelect={onSelect} roomW={room.width} roomD={room.depth} cutaway={cutaway} /> : null;
@@ -177,6 +179,12 @@ export default function Scene() {
     if (!homeView || !home) return {} as Record<string, Cutaway>;
     return Object.fromEntries(home.rooms.map((p) => [p.roomId, { rect: bounds, keep: interiorWalls(home, rooms, p.roomId) } satisfies Cutaway]));
   }, [homeView, home, rooms, bounds]);
+  // Along a shared edge each room draws half a wall on its own side of the line, so two rooms
+  // meeting edge to edge make one wall between them instead of two standing in each other's floor.
+  const parties = useMemo(() => {
+    if (!homeView || !home) return {} as Record<string, PartyIntervals>;
+    return Object.fromEntries(home.rooms.map((p) => [p.roomId, partyIntervals(home, rooms, p.roomId)]));
+  }, [homeView, home, rooms]);
   // Poses are stored in the current room's own coordinates; the plan they are drawn on may not
   // be the room's. `set_camera` and its presets never have to know which view is up.
   const placement = homeView && home ? placementOf(home, room.id) : null;
@@ -269,6 +277,7 @@ export default function Scene() {
                     <RoomBody
                       room={r}
                       cutaway={cutaways[p.roomId]}
+                      party={parties[p.roomId]}
                       highlight={current ? ui.highlightWall : null}
                       selectedItemId={current ? ui.selectedItemId : null}
                       onSelect={current ? select : undefined}

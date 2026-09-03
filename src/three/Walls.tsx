@@ -8,6 +8,7 @@ import { wallColor } from '../engine/wallColor';
 import { finish } from '../engine/materials';
 import { makePlasterTexture } from './textures';
 import { hiddenWalls, roomCutaway, type Cutaway } from './cutaway';
+import { cornerShared, onParty, splitByParty, TRIM_INSET, WALL_INSET, type PartyIntervals } from './party';
 import { M, WALL_T } from './units';
 
 export interface Box { x: number; y: number; z: number; w: number; h: number; d: number; kind: 'wall' | 'glass' }
@@ -140,11 +141,13 @@ function highlightBar(room: RoomShell, wall: Wall): { position: [number, number,
   }
 }
 
-export default function Walls({ room, highlight, cutaway }: {
+export default function Walls({ room, highlight, cutaway, party }: {
   room: RoomShell & { openings: Opening[]; finish?: RoomFinish };
   highlight?: Wall | null;
   /** What the dollhouse cutaway judges the camera against. Defaults to this room alone. */
   cutaway?: Cutaway;
+  /** The stretches of each wall another room stands against, on a shared plan. */
+  party?: PartyIntervals;
 }) {
   /*
    * One paint per wall, read through `wallColor` so a wall with no override of its own falls
@@ -201,12 +204,18 @@ export default function Walls({ room, highlight, cutaway }: {
 
   return (
     <group>
-      {corners.map(([x, z], i) => (
+      {corners.map(([x, z], i) => {
+        // Where a party wall runs right up to a corner the neighbour is standing there too, and
+        // the two half walls already meet on the line: a post would stand in its floor.
+        const [a, b] = CORNER_WALLS[i]!;
+        if (party && cornerShared(party, a, b, room.width, room.depth)) return null;
+        return (
         <mesh key={`corner${i}`} ref={(m) => { cornerRefs.current[i] = m; }} position={[x, H / 2, z]} castShadow receiveShadow>
           <boxGeometry args={[WALL_T, H, WALL_T]} />
           <meshStandardMaterial map={plaster} color={plaster ? '#ffffff' : paint} roughness={0.95} metalness={0} />
         </mesh>
-      ))}
+        );
+      })}
       {WALLS.map((w) => {
         const wallPaint = paints[w];
         const wallPlaster = plasters[w];
@@ -216,7 +225,7 @@ export default function Walls({ room, highlight, cutaway }: {
               opaque pass and the panes blend over it in the right order. A wall with another
               room behind it has no outside to show, so it gets no panel: that one would hang
               in the neighbour's floor as a lit rectangle. */}
-          {(cut.keep.includes(w) ? [] : wallSegments(room, w).filter((b) => b.kind === 'glass')).map((b, i) => {
+          {(cut.keep.includes(w) ? [] : wallSegments(room, w).filter((b) => b.kind === 'glass' && !onParty(b, w, party?.[w]))).map((b, i) => {
             const p = skyPanel(room, w, b);
             return (
               <mesh key={`sky${i}`} position={p.position} rotation={p.rotation}>
@@ -225,7 +234,7 @@ export default function Walls({ room, highlight, cutaway }: {
               </mesh>
             );
           })}
-          {wallSegments(room, w).map((b, i) => (
+          {splitByParty(wallSegments(room, w), w, party?.[w], WALL_INSET).map((b, i) => (
             <mesh key={`s${i}`} position={[b.x, b.y, b.z]} castShadow={b.kind === 'wall'} receiveShadow>
               <boxGeometry args={[b.w, b.h, b.d]} />
               {b.kind === 'wall'
@@ -233,7 +242,7 @@ export default function Walls({ room, highlight, cutaway }: {
                 : <meshPhysicalMaterial color="#dfe8f0" emissive="#cfdbe6" emissiveIntensity={0.7} transparent opacity={0.55} roughness={0.05} metalness={0} toneMapped={false} />}
             </mesh>
           ))}
-          {baseboardSegments(room, w).map((b, i) => (
+          {splitByParty(baseboardSegments(room, w), w, party?.[w], TRIM_INSET).map((b, i) => (
             <mesh key={`b${i}`} position={[b.x, b.y, b.z]} receiveShadow>
               <boxGeometry args={[b.w, b.h, b.d]} />
               <meshStandardMaterial color={BASEBOARD_COLOR} roughness={0.6} metalness={0} />
@@ -241,12 +250,13 @@ export default function Walls({ room, highlight, cutaway }: {
           ))}
           {highlight === w && (() => {
             const bar = highlightBar(room, w);
-            return (
-              <mesh position={bar.position}>
-                <boxGeometry args={bar.args} />
+            const [x, y, z] = bar.position, [bw, bh, bd] = bar.args;
+            return splitByParty([{ x, y, z, w: bw, h: bh, d: bd, kind: 'wall' }], w, party?.[w], TRIM_INSET).map((b, i) => (
+              <mesh key={`h${i}`} position={[b.x, b.y, b.z]}>
+                <boxGeometry args={[b.w, b.h, b.d]} />
                 <meshBasicMaterial color={HIGHLIGHT} toneMapped={false} />
               </mesh>
-            );
+            ));
           })()}
         </group>
         );
