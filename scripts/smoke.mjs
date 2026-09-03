@@ -60,6 +60,13 @@ async function main() {
     const r = await tool(name, input);
     return JSON.parse(r?.content?.[0]?.text ?? '{}');
   };
+  /** The same numbered shot cropped to one panel, for a view worth more than its share of the page. */
+  const shotOf = async (name, selector) => {
+    const clip = await page.locator(selector).boundingBox();
+    const file = resolve(outDir, `${String(++n).padStart(2, '0')}-${name}.png`);
+    await page.screenshot({ path: file, clip });
+    shots.push(file);
+  };
   const settle = (ms = 350) => page.waitForTimeout(ms);
   /** Park the cursor over empty 3D, so no control photographs in its hover style. */
   const park = () => page.mouse.move(1000, 700);
@@ -651,6 +658,38 @@ async function main() {
     if (findings.homeSection !== 'One-bedroom flat') {
       throw new Error(`the Home section named the home ${JSON.stringify(findings.homeSection)}`);
     }
+
+    // 38. the same flat in 3D: every room stood at its offset on one plan, walls, doors and
+    // furniture, framed on the whole home rather than on whichever room is current.
+    await park();
+    await settle(2500); // four rooms of models to fetch and draw
+    await shotOf('home-3d', 'section[aria-label="3D"]');
+
+    // 39. and walk through it. The pose is worked out in the living room's own coordinates,
+    // the way every camera tool works; Home view is what carries it onto the shared plan.
+    const homeRooms = (await homeNow()).rooms;
+    const living = homeRooms.find((r) => r.name === 'Living room');
+    if (!living) throw new Error(`no Living room on the plan: ${JSON.stringify(homeRooms.map((r) => r.name))}`);
+    await toolJson('switch_room', { id: living.id });
+    const fromDoor = await toolJson('set_camera', { preset: 'from_door' });
+    if (fromDoor.camera?.mode !== 'walk') throw new Error(`from_door did not put the camera on its feet: ${JSON.stringify(fromDoor)}`);
+    const toBedroom = (await homeNow()).doorways.find((d) => d.a.room === 'Living room' && d.b.room === 'Bedroom');
+    if (!toBedroom) throw new Error('no doorway from the living room to the bedroom');
+    // Square on to the doorway, far enough back that the whole opening is in frame.
+    const facing = await toolJson('set_camera', {
+      x: Math.round(toBedroom.a.offset + toBedroom.width / 2),
+      y: Math.max(60, living.depth - 430),
+      yaw: 180,
+    });
+    findings.homeWalk = {
+      fromDoor: fromDoor.camera ?? null,
+      facingDoorway: facing.camera ?? null,
+      sees: (facing.itemsInView ?? []).map((i) => i.name),
+    };
+    if (facing.status !== 'applied') throw new Error(`could not stand in front of the doorway: ${JSON.stringify(facing)}`);
+    await park();
+    await settle(1500);
+    await shotOf('home-walk', 'section[aria-label="3D"]');
 
     const toolNames = await page.evaluate(() => globalThis.__floorplayFakeMC.getTools().map((t) => t.name));
     const toolCount = toolNames.length;

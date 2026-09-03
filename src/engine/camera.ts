@@ -57,6 +57,18 @@ export function cameraPreset(room: Room, preset: CameraPreset): CameraPose | nul
   }
 }
 
+/**
+ * The same viewpoint read off the home's plan instead of the room's own.
+ *
+ * Every pose is stored in the current room's coordinates, because that is what `set_camera`
+ * takes, what the presets are worked out in and what `itemsInView` answers against. A home
+ * lays its rooms out side by side and never turns one, so carrying a pose onto the shared
+ * plan is the placement's offset and nothing else — the direction it looks is untouched.
+ */
+export function toHomePose(pose: CameraPose, placement: { x: number; y: number } | null | undefined): CameraPose {
+  return placement ? { ...pose, x: pose.x + placement.x, y: pose.y + placement.y } : pose;
+}
+
 export function itemsInView(room: Room, pose: CameraPose): { id: string; name: string; distanceCm: number; side: 'left' | 'center' | 'right' }[] {
   const dir = dirOf(pose.yaw);
   const out: { id: string; name: string; distanceCm: number; side: 'left' | 'center' | 'right' }[] = [];

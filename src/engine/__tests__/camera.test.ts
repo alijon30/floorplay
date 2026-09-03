@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { makeDemoRoom } from '../rooms';
 import { placeTest } from '../validate';
-import { cameraPreset, itemsInView, yawOf, dirOf } from '../camera';
+import { cameraPreset, itemsInView, toHomePose, yawOf, dirOf } from '../camera';
 
 describe('camera', () => {
   it('converts between yaw and direction', () => {
@@ -22,6 +22,13 @@ describe('camera', () => {
     expect(cameraPreset(room, 'at_window')).toEqual({ mode: 'walk', x: 300, y: 260, z: 160, yaw: 270, pitch: 0 });
     room.items = [];
     expect(cameraPreset(room, 'at_desk')).toBeNull();
+  });
+
+  it('carries a pose onto the home plan without turning it', () => {
+    const pose = { mode: 'walk' as const, x: 60, y: 465, z: 160, yaw: 90, pitch: -10 };
+    expect(toHomePose(pose, { x: 200, y: 550 })).toEqual({ mode: 'walk', x: 260, y: 1015, z: 160, yaw: 90, pitch: -10 });
+    // A standalone room stands on no plan, so its own coordinates are already the world's.
+    expect(toHomePose(pose, null)).toBe(pose);
   });
 
   it('lists items inside a 90 degree view cone', () => {

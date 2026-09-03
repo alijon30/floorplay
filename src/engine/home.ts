@@ -1,5 +1,6 @@
 // src/engine/home.ts
 import type { Doorway, DoorwaySide, Home, HomeRoomPlacement, Opening, Rect, Room, Wall } from './types';
+import { WALLS } from './types';
 import { intersects } from './geometry';
 import { newId } from './ids';
 import { budgetUsed } from './validate';
@@ -129,6 +130,32 @@ export function doorwayFits(home: Home, rooms: Rooms, doorway: Doorway): boolean
 
   const along = (side: DoorwaySide, rect: Rect): number => (isVertical(side.wall) ? rect.y : rect.x) + side.offset;
   return same(along(doorway.a, aRect), along(doorway.b, bRect));
+}
+
+/**
+ * The walls of one room that have another room behind them along their whole length.
+ *
+ * Asked by the 3D view, which takes a wall away once the camera steps outside it: dropping an
+ * outer wall is what opens a home up to be looked into, but dropping the wall between two rooms
+ * would spill one room into the next and leave the doorway through it meaning nothing. A wall
+ * counts as interior only when the rooms behind it cover it end to end, so a wall that is party
+ * for part of its run and outside wall for the rest is still treated as an outer one.
+ */
+export function interiorWalls(home: Home, rooms: Rooms, roomId: string): Wall[] {
+  const room = rooms[roomId];
+  if (!room) return [];
+  const segs = sharedSegments(home, rooms, roomId);
+  return WALLS.filter((wall) => {
+    const length = isVertical(wall) ? room.depth : room.width;
+    let covered = 0;
+    for (const s of segs.filter((x) => x.wall === wall).sort((a, b) => a.start - b.start)) {
+      // Sorted by where they start, so a segment beginning past the covered mark is a gap, and
+      // a gap anywhere means daylight: the wall has outside behind part of it.
+      if (s.start > covered + SAME) return false;
+      covered = Math.max(covered, s.end);
+    }
+    return covered >= length - SAME;
+  });
 }
 
 export interface SnapResult { x: number; y: number; snapped: boolean; overlaps: string[] }

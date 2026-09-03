@@ -7,6 +7,7 @@ import { DEFAULT_FINISH, WALLS } from '../engine/types';
 import { wallColor } from '../engine/wallColor';
 import { finish } from '../engine/materials';
 import { makePlasterTexture } from './textures';
+import { hiddenWalls, roomCutaway, type Cutaway } from './cutaway';
 import { M, WALL_T } from './units';
 
 export interface Box { x: number; y: number; z: number; w: number; h: number; d: number; kind: 'wall' | 'glass' }
@@ -139,7 +140,12 @@ function highlightBar(room: RoomShell, wall: Wall): { position: [number, number,
   }
 }
 
-export default function Walls({ room, highlight }: { room: RoomShell & { openings: Opening[]; finish?: RoomFinish }; highlight?: Wall | null }) {
+export default function Walls({ room, highlight, cutaway }: {
+  room: RoomShell & { openings: Opening[]; finish?: RoomFinish };
+  highlight?: Wall | null;
+  /** What the dollhouse cutaway judges the camera against. Defaults to this room alone. */
+  cutaway?: Cutaway;
+}) {
   /*
    * One paint per wall, read through `wallColor` so a wall with no override of its own falls
    * back to the room default and a room saved before per-wall colour existed still paints.
@@ -179,14 +185,9 @@ export default function Walls({ room, highlight }: { room: RoomShell & { opening
   // Dollhouse cutaway: a wall the camera has stepped outside of would otherwise fill the
   // frame with its blank outer face. Hiding it is what lets the orbit camera sit low
   // enough to read as a room instead of a floor plan. Walking inside hides nothing.
+  const cut = cutaway ?? roomCutaway(room.width, room.depth);
   useFrame(({ camera }) => {
-    const p = camera.position;
-    const hidden: Record<Wall, boolean> = {
-      top: p.z < -0.02,
-      bottom: p.z > D + 0.02,
-      left: p.x < -0.02,
-      right: p.x > W + 0.02,
-    };
+    const hidden = hiddenWalls(camera.position, cut);
     for (const w of WALLS) {
       const g = wallRefs.current[w];
       if (g) g.visible = !hidden[w];
@@ -212,8 +213,10 @@ export default function Walls({ room, highlight }: { room: RoomShell & { opening
         return (
         <group key={w} ref={(g) => { wallRefs.current[w] = g; }}>
           {/* The daylight behind the glass, drawn first: it is opaque, so it lands in the
-              opaque pass and the panes blend over it in the right order. */}
-          {wallSegments(room, w).filter((b) => b.kind === 'glass').map((b, i) => {
+              opaque pass and the panes blend over it in the right order. A wall with another
+              room behind it has no outside to show, so it gets no panel: that one would hang
+              in the neighbour's floor as a lit rectangle. */}
+          {(cut.keep.includes(w) ? [] : wallSegments(room, w).filter((b) => b.kind === 'glass')).map((b, i) => {
             const p = skyPanel(room, w, b);
             return (
               <mesh key={`sky${i}`} position={p.position} rotation={p.rotation}>

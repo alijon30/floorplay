@@ -3,7 +3,7 @@ import type { Home, Opening, Room } from '../types';
 import { makeEmptyRoom } from '../rooms';
 import {
   doorwayFits, doorwayOpenings, homeBounds, homeContaining, homeReachability, homeTotals,
-  roomRectInHome, sharedSegments, snapRoomPlacement,
+  interiorWalls, roomRectInHome, sharedSegments, snapRoomPlacement,
 } from '../home';
 
 function room(id: string, width: number, depth: number, openings: Opening[] = []): Room {
@@ -34,6 +34,31 @@ describe('home geometry', () => {
     expect(homeBounds(home, rooms)).toEqual({ x: 0, y: 0, w: 500, h: 600 });
     expect(() => roomRectInHome(home, rooms, 'nope')).toThrow(/not on this floor plan/);
     expect(homeBounds({ id: 'h', name: 'Empty', rooms: [], doorways: [] }, {})).toEqual({ x: 0, y: 0, w: 0, h: 0 });
+  });
+
+  it('calls a wall interior only when rooms cover it end to end', () => {
+    const { home, rooms } = grid();
+    // A is 300x400 with B (200x400) hard against its right wall and C (300x200) under its
+    // bottom one: both of those walls have a room behind them for their whole length.
+    expect(interiorWalls(home, rooms, 'a').sort()).toEqual(['bottom', 'right']);
+    // B and C each have exactly one wall against A, and none against each other: they meet
+    // at a bare corner, and a corner is not a wall.
+    expect(interiorWalls(home, rooms, 'b')).toEqual(['left']);
+    expect(interiorWalls(home, rooms, 'c')).toEqual(['top']);
+    expect(interiorWalls(home, rooms, 'nope')).toEqual([]);
+  });
+
+  it('treats a wall a neighbour covers only part of as an outer wall', () => {
+    const rooms = { a: room('a', 300, 400), b: room('b', 200, 200) };
+    const home: Home = {
+      id: 'h2', name: 'Half', doorways: [],
+      rooms: [{ roomId: 'a', x: 0, y: 0 }, { roomId: 'b', x: 300, y: 0 }],
+    };
+    // B covers the top half of A's right wall and no more, so that wall still has outside
+    // behind it and the 3D view is free to cut it away.
+    expect(sharedSegments(home, rooms, 'a')).toEqual([{ otherRoomId: 'b', wall: 'right', otherWall: 'left', start: 0, end: 200 }]);
+    expect(interiorWalls(home, rooms, 'a')).toEqual([]);
+    expect(interiorWalls(home, rooms, 'b')).toEqual(['left']);
   });
 
   it('reports shared segments for right-to-left and bottom-to-top pairs', () => {

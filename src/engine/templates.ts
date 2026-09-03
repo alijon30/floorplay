@@ -62,7 +62,9 @@ const LIVING: RoomTemplate = {
     { catalogId: 'shelf-80', x: 60, y: 15, rotation: 0 },
     { catalogId: 'plant-large', x: 400, y: 60, rotation: 0 },
     { catalogId: 'lamp-floor', x: 110, y: 400, rotation: 0 },
-    { catalogId: 'picture-90', x: 300, y: 547.5, rotation: 180 },
+    // Above the sofa rather than beside the door: on the bottom wall it hung across the
+    // stretch a home cuts its doorway to the bedroom through.
+    { catalogId: 'picture-90', x: 2.5, y: 250, rotation: 270 },
     { catalogId: 'curtain-200', x: 240, y: 5, rotation: 0 },
   ],
 };

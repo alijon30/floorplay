@@ -9,6 +9,7 @@ import { finish, materialTypeOf, type MaterialType } from '../engine/materials';
 import { footprint } from '../engine/geometry';
 import { makeFabricTexture, makeWoodTexture } from './textures';
 import { GHOST_BLUE, ghostMaterial } from './ghost';
+import { isWallHidden, roomCutaway, type Cutaway } from './cutaway';
 import ModelBody from './ModelPiece';
 import { modelFor } from './models';
 import { M } from './units';
@@ -23,6 +24,8 @@ type Props = {
   /** Room size in cm. Only needed to work out which wall a mounted item hangs on. */
   roomW?: number;
   roomD?: number;
+  /** What the dollhouse cutaway judges the camera against. Defaults to this room alone. */
+  cutaway?: Cutaway;
 };
 
 /** The wall a mounted item hangs on: whichever its footprint sits closest to. */
@@ -195,7 +198,7 @@ function pick<T>(list: T[], id: string): T {
   return list[n % list.length]!;
 }
 
-export default function Furniture({ item, cat, ghost, removal, selected, onSelect, roomW, roomD }: Props) {
+export default function Furniture({ item, cat, ghost, removal, selected, onSelect, roomW, roomD, cutaway }: Props) {
   const w = cat.width * M, d = cat.depth * M, h = cat.height * M;
   const c = itemColor(cat, item.color);
   // A wall-mounted piece is built from its own bottom up, exactly like a floor-standing one,
@@ -207,15 +210,11 @@ export default function Furniture({ item, cat, ghost, removal, selected, onSelec
   // mid-air, so it steps out with the wall it is fixed to. The test matches the one in Walls.
   const root = useRef<THREE.Group>(null);
   const wall = mounted && roomW !== undefined && roomD !== undefined ? hangingWall(item, cat, roomW, roomD) : null;
+  const cut = cutaway ?? roomCutaway(roomW ?? 0, roomD ?? 0);
   useFrame(({ camera }) => {
     const gRoot = root.current;
     if (!gRoot || !wall) return;
-    const p = camera.position;
-    const hidden = wall === 'top' ? p.z < -0.02
-      : wall === 'bottom' ? p.z > roomD! * M + 0.02
-        : wall === 'left' ? p.x < -0.02
-          : p.x > roomW! * M + 0.02;
-    gRoot.visible = !hidden;
+    gRoot.visible = !isWallHidden(camera.position, cut, wall);
   });
   const g: G = { ghost, removal };
   const interactive = !ghost && !removal && !!onSelect;
