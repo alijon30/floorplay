@@ -92,9 +92,9 @@ Three viewport toggles turn the drawing down to plain geometry when you want it:
 
 All coordinates are integer centimeters from the room's top-left corner, items are placed by their center, and rotation is 0, 90, 180 or 270 degrees clockwise.
 
-There are 31 static tools plus 4 that appear only while an item is selected. `run_layout_script` needs a real Web Worker for its sandbox, so it is registered only in a browser; the test harness's fake model context sees the other 30.
+There are 32 static tools plus 4 that appear only while an item is selected. `run_layout_script` needs a real Web Worker for its sandbox, so it is registered only in a browser; the test harness's fake model context sees the other 31.
 
-Read-only tools: `get_room`, `get_catalog`, `suggest_positions`, `evaluate_layout`, `get_daylight`, `list_templates`, `suggest_palette`, `get_ledger`.
+Read-only tools: `get_room`, `get_catalog`, `suggest_positions`, `suggest_furniture`, `evaluate_layout`, `get_daylight`, `list_templates`, `suggest_palette`, `get_ledger`.
 
 Mutating tools: `set_room_shell`, `add_opening`, `remove_opening`, `set_brief`, `place_item`, `move_item`, `rotate_item`, `fix_item`, `remove_item`, `swap_item`, `set_item_locked`, `add_catalog_item`, `load_template`, `set_item_color`, `set_finish`, `propose_layout`, `apply_proposal`, `withdraw_proposal`, `apply_all_proposals`, `set_daylight_hour`, `set_camera`, `undo_last_action`, `run_layout_script`.
 

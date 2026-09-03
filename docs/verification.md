@@ -41,11 +41,11 @@ Start on a fresh profile (a private window, or clear site data and reload), then
 
 ## C. Chrome with the flag
 - Enable `chrome://flags/#enable-webmcp-testing`, restart, open the deployed URL.
-- DevTools → Application → WebMCP panel lists 31 tools with nothing selected; selecting an item adds four and deselecting removes them.
+- DevTools → Application → WebMCP panel lists 32 tools with nothing selected; selecting an item adds four and deselecting removes them.
 - Invoke `get_room` from the panel and confirm the JSON.
 
 ## D. ChatGPT in-app browser
-- Open the deployed URL in ChatGPT's browser. The agent chip turns green with 31 tools.
+- Open the deployed URL in ChatGPT's browser. The agent chip turns green with 32 tools.
 - Run the video script prompts below and confirm the plan updates live.
 
 ## E. Video script (under 3 minutes, with audio)

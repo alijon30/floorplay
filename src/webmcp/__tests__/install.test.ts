@@ -7,12 +7,12 @@ import { placeTest } from '../../engine/validate';
 import { alternativesFor } from '../../engine/alternatives';
 
 describe('installWebMCP', () => {
-  it('registers 30 static tools and swaps dynamic groups with state', async () => {
+  it('registers 31 static tools and swaps dynamic groups with state', async () => {
     const store = createRoomStore();
     const mc = new FakeModelContext();
     const { registry, isNative } = installWebMCP(store, mc);
     expect(isNative).toBe(false);
-    expect(mc.getTools()).toHaveLength(30);
+    expect(mc.getTools()).toHaveLength(31);
 
     const room = store.getState().current();
     store.getState().dispatch({ ops: [{ type: 'place', item: placeTest(room, 'wardrobe-100', 300, 100, 90, 'w') }], actor: 'human' });
@@ -31,7 +31,7 @@ describe('installWebMCP', () => {
 
     store.getState().select(null);
     expect(names()).not.toContain('move_selected');
-    expect(mc.getTools()).toHaveLength(30);
+    expect(mc.getTools()).toHaveLength(31);
   });
 
   it('proposal tools are always registered and apply atomically', async () => {

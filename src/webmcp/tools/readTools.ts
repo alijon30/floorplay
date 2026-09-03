@@ -12,6 +12,7 @@ import { bestSpots, computeDaylight, sunAzimuth } from '../../engine/daylight';
 import { suggestPositions, type Near } from '../../engine/anchors';
 import { TEMPLATES } from '../../engine/templates';
 import { suggestPalettes } from '../../engine/palette';
+import { suggestFurniture } from '../../engine/furniture';
 import type { RoomKind } from '../../engine/types';
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -135,6 +136,17 @@ export function buildReadTools(ctx: ToolContext): ToolDef[] {
         const limit = (input['limit'] as number | undefined) ?? 20;
         const entries = room.ledger.slice(-limit).map((e) => ({ id: e.id, at: e.at, actor: e.actor, ...(e.tool ? { tool: e.tool } : {}), summary: e.summary, violationsAfter: e.violationsAfter }));
         return ok({ entries });
+      },
+    },
+    {
+      name: 'suggest_furniture',
+      description: 'Turn the brief into a priced shopping list that fits the room and the budget: which catalog items cover each need (sleep, work, host, storage, dine, read, kids, kitchen, hall), the total, what remains, needs that could not be met, and cheaper or pricier alternatives per pick. Call it before propose_layout so the budget shapes the layout. Defaults to the room brief; pass budget or needs to explore.',
+      inputSchema: { type: 'object', properties: { budget: numProp('Budget in USD; defaults to the brief', 0), needs: { type: 'array', description: 'Needs to cover; defaults to the brief', items: strProp('Need, e.g. "work from home"') } } },
+      annotations: { readOnlyHint: true },
+      execute: (input) => {
+        const room = state().current();
+        const plan = suggestFurniture(room, { ...(input['budget'] !== undefined ? { budget: input['budget'] as number } : {}), ...(input['needs'] !== undefined ? { needs: input['needs'] as string[] } : {}) });
+        return ok({ budget: (input['budget'] as number | undefined) ?? room.brief.budget, ...plan });
       },
     },
   ];
