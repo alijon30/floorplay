@@ -18,7 +18,11 @@ export interface UiState {
   proposeFirst: boolean;
   /** Set once the human closes the first-run card; persisted so it stays closed. */
   onboardingDismissed: boolean;
-  catalogOpen: boolean;
+  /**
+   * What the Catalog tab is narrowed to: a category, or the item a replacement is being found
+   * for. Cleared when the column moves off the Catalog tab, because "Alternatives for the
+   * sofa" is a question you have stopped asking once you look at something else.
+   */
   catalogFilter: { category?: Category; fitsItemId?: string } | null;
   /** The new-room dialog. Held here so the onboarding card can open it too. */
   wizardOpen: boolean;
@@ -57,13 +61,25 @@ export interface UiState {
   rightView: RightView;
   /** Which wall the elevation draws. */
   elevationWall: Wall;
+  /**
+   * The wall the user is working on right now — picked in the Style tab or shown in the Wall
+   * view — so the plan and the 3D view can point at the same wall the paint is landing on.
+   * Null while nothing in particular is being worked on, or while "All walls" is the target.
+   */
+  highlightWall: Wall | null;
 }
 
 /** The two things the right viewport can be. */
 export type RightView = '3d' | 'wall';
 
-/** The three tabs of the properties column. */
-export type PropsTab = 'room' | 'style' | 'selection' | 'issues';
+/**
+ * The tabs of the properties column, in the order they are drawn.
+ *
+ * The catalog is one of them rather than a column of its own: two panels either side of the
+ * plan pushed the drawing into a slot, and everything in the catalog is a property of the room
+ * you are about to change anyway.
+ */
+export type PropsTab = 'catalog' | 'room' | 'style' | 'selection' | 'issues';
 
 /** The panels both the top bar and the room panel can open. The brief lives in `RoomPanel`. */
 export type DialogName = 'shell';
@@ -99,6 +115,7 @@ export interface RoomState {
   setShowGrid(v: boolean): void;
   setRightView(v: RightView): void;
   setElevationWall(wall: Wall): void;
+  setHighlightWall(wall: Wall | null): void;
   dismissOnboarding(): void;
   setCatalogOpen(open: boolean, filter?: UiState['catalogFilter']): void;
   setWizardOpen(open: boolean): void;
@@ -146,7 +163,6 @@ const defaultUi = (): UiState => ({
   hoveredProposalId: null,
   proposeFirst: false,
   onboardingDismissed: false,
-  catalogOpen: false,
   catalogFilter: null,
   wizardOpen: false,
   dialog: null,
@@ -159,6 +175,7 @@ const defaultUi = (): UiState => ({
   showGrid: true,
   rightView: '3d',
   elevationWall: 'top',
+  highlightWall: null,
 });
 
 export function createRoomStore(opts: { storage?: StateStorage; debounceMs?: number } = {}): RoomStore {
@@ -273,14 +290,29 @@ export function createRoomStore(opts: { storage?: StateStorage; debounceMs?: num
       // Opening the room tab puts the room in the column's one slot, so the selection has to
       // give way — otherwise the button people press to see the room does nothing they can see.
       setRoomPanelOpen(open) { set((s) => ({ ui: { ...s.ui, roomPanelOpen: open, propsTab: open ? 'room' : s.ui.propsTab, selectedItemId: open ? null : s.ui.selectedItemId } })); },
-      setPropsTab(tab) { set((s) => ({ ui: { ...s.ui, propsTab: tab, roomPanelOpen: true } })); },
+      // Leaving the Catalog tab drops whatever narrowed it, so coming back shows the catalog
+      // rather than the last question somebody asked of it.
+      setPropsTab(tab) { set((s) => ({ ui: { ...s.ui, propsTab: tab, roomPanelOpen: true, catalogFilter: tab === 'catalog' ? s.ui.catalogFilter : null } })); },
       setLedgerOpen(open) { set((s) => ({ ui: { ...s.ui, ledgerOpen: open } })); },
       setShowGrid(v) { set((s) => ({ ui: { ...s.ui, showGrid: v } })); },
       setRightView(v) { set((s) => ({ ui: { ...s.ui, rightView: v } })); },
       // Picking a wall is also what the elevation is for, so it opens on the way through.
       setElevationWall(wall) { set((s) => ({ ui: { ...s.ui, elevationWall: wall, rightView: 'wall' } })); },
+      setHighlightWall(wall) { set((s) => (s.ui.highlightWall === wall ? s : { ui: { ...s.ui, highlightWall: wall } })); },
       dismissOnboarding() { set((s) => ({ ui: { ...s.ui, onboardingDismissed: true } })); },
-      setCatalogOpen(open, filter = null) { set((s) => ({ ui: { ...s.ui, catalogOpen: open, catalogFilter: filter } })); },
+      // The catalog is a tab now, so opening it is opening the column on that tab. Closing it
+      // hands the column back to whatever was being looked at rather than shutting it: the
+      // Replace button that calls this has just changed the selected piece.
+      setCatalogOpen(open, filter = null) {
+        set((s) => ({
+          ui: {
+            ...s.ui,
+            catalogFilter: open ? filter : null,
+            roomPanelOpen: open ? true : s.ui.roomPanelOpen,
+            propsTab: open ? 'catalog' : s.ui.propsTab === 'catalog' ? (s.ui.selectedItemId ? 'selection' : 'room') : s.ui.propsTab,
+          },
+        }));
+      },
       setWizardOpen(open) { set((s) => ({ ui: { ...s.ui, wizardOpen: open } })); },
       openDialog(name) { set((s) => ({ ui: { ...s.ui, dialog: name } })); },
       closeDialog() { set((s) => ({ ui: { ...s.ui, dialog: null } })); },

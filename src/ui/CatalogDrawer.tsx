@@ -7,8 +7,7 @@ import { nearestValid } from '../engine/nearest';
 import { suggestPositions } from '../engine/anchors';
 import { alternativesFor } from '../engine/alternatives';
 import { ItemGlyph } from '../plan/glyphs';
-import { Icon } from './icons';
-import { BTN_SM, BTN_SM_ON, CLOSE, INPUT, NUM, TITLE } from './styles';
+import { BTN_SM, BTN_SM_ON, INPUT, NUM, TITLE } from './styles';
 
 /**
  * One of the two filters under the search box.
@@ -41,6 +40,13 @@ function Filter({ label, aria, value, onChange, options }: {
   );
 }
 
+/**
+ * The Catalog tab of the properties column: everything that can go in the room, and — when a
+ * piece is selected and you ask for something else — what could take its place instead.
+ *
+ * It used to be a column of its own beside the tool rail, which meant the plan sat between two
+ * panels. As a tab it is the same list in the same place as everything else you change.
+ */
 export default function CatalogDrawer() {
   const room = useRoom((s) => s.rooms[s.currentId]!);
   const ui = useRoom((s) => s.ui);
@@ -79,8 +85,6 @@ export default function CatalogDrawer() {
     return out;
   }, [items, category]);
 
-  if (!ui.catalogOpen) return null;
-
   const place = (catalogId: string) => {
     // A suggestion knows about walls, light and the door, so it beats dropping the item in the
     // middle of the room and shuffling outward from there.
@@ -103,16 +107,15 @@ export default function CatalogDrawer() {
   };
 
   return (
-    <aside className="flex h-full w-72 shrink-0 flex-col border-r border-line bg-panel">
-      <div className="flex h-10 shrink-0 items-center justify-between border-b border-line px-2.5">
-        <div className="flex min-w-0 items-baseline gap-1.5">
-          <strong className={TITLE}>{fitsItem ? 'Alternatives' : 'Catalog'}</strong>
-          <span className={`text-[11px] text-muted ${NUM}`}>{fitsItem ? alternatives.length : items.length} items</span>
-        </div>
-        <button className={CLOSE} aria-label="Close the catalog" onClick={() => setCatalogOpen(false)}><Icon name="close" size={13} /></button>
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* The tab strip above already says "Catalog", so this line only has to say how many —
+          and, when a replacement is being hunted, that the list has narrowed to one question. */}
+      <div className="flex shrink-0 items-baseline gap-1.5 px-2.5 pt-2">
+        <strong className={TITLE}>{fitsItem ? 'Alternatives' : 'Everything'}</strong>
+        <span className={`text-[11px] text-muted ${NUM}`}>{fitsItem ? alternatives.length : items.length} items</span>
       </div>
       {fitsItem ? (
-        <div className="flex-1 space-y-1 overflow-auto p-2">
+        <div className="min-h-0 flex-1 space-y-1 overflow-auto p-2">
           {alternatives.length === 0 && <p className="px-0.5 text-[11.5px] text-muted">Nothing else in this category.</p>}
           {alternatives.map((a) => {
             const cat = byId.get(a.catalogId);
@@ -132,7 +135,7 @@ export default function CatalogDrawer() {
         </div>
       ) : (
         <>
-          <div className="p-2.5 pb-1.5">
+          <div className="p-2.5 pt-1.5 pb-1.5">
             <input className={INPUT} placeholder="Search the catalog" aria-label="Search the catalog" value={query} onChange={(e) => setQuery(e.target.value)} />
             <div className="mt-1.5 flex gap-1.5">
               <Filter
@@ -197,6 +200,6 @@ export default function CatalogDrawer() {
           </div>
         </>
       )}
-    </aside>
+    </div>
   );
 }

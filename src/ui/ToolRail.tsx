@@ -36,8 +36,8 @@ function RailButton({
 /**
  * The forty-pixel column of tools down the left edge.
  *
- * Everything here toggles a surface rather than changing the room: the catalog panel beside
- * it, the properties column on the far side, and the two popovers that fly out of the rail.
+ * Everything here toggles a surface rather than changing the room: three tabs of the one
+ * properties column beside it, and the two popovers that fly out of the rail.
  * Style opens the properties column on its own tab rather than a fly-out, because paint needs
  * a picture of the room beside it; Help is still a popover, because a page of text is not.
  */
@@ -48,6 +48,7 @@ export default function ToolRail() {
   const setPropsTab = useRoom((s) => s.setPropsTab);
   const [help, setHelp] = useState(false);
   const helpAnchor = useRef<HTMLDivElement>(null);
+  const catalogShown = ui.roomPanelOpen && ui.propsTab === 'catalog';
   const roomShown = ui.roomPanelOpen && ui.propsTab === 'room';
   const styleShown = ui.roomPanelOpen && ui.propsTab === 'style';
 
@@ -57,8 +58,8 @@ export default function ToolRail() {
         icon="catalog"
         label="Catalog"
         hint="Catalog"
-        on={ui.catalogOpen}
-        onClick={() => setCatalogOpen(!ui.catalogOpen)}
+        on={catalogShown}
+        onClick={() => (catalogShown ? setRoomPanelOpen(false) : setCatalogOpen(true))}
       />
       <RailButton
         icon="room"

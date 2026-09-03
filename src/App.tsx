@@ -6,7 +6,6 @@ import SplitPane from './ui/SplitPane';
 import DevPanel from './ui/DevPanel';
 import Plan from './plan/Plan';
 import RightViewport from './elevation/RightViewport';
-import CatalogDrawer from './ui/CatalogDrawer';
 import PropertiesPanel from './ui/PropertiesPanel';
 import ProposalStrip from './ui/ProposalStrip';
 import Ledger from './ui/Ledger';
@@ -17,8 +16,11 @@ import { useRoom } from './store';
 import './webmcp';
 
 /**
- * The workspace: a title bar, a rail of tools, two viewports, a properties column, and a
+ * The workspace: a title bar, a rail of tools, a properties column, two viewports, and a
  * rule of numbers along the bottom.
+ *
+ * Everything you press is down the left edge and everything you look at is to the right of
+ * it, so the drawing never sits boxed in between two panels.
  *
  * Nothing floats over the drawing except the things that are about the drawing — the agent's
  * proposals and the first-run card. Every panel takes its width from the viewports instead of
@@ -40,7 +42,7 @@ export default function App() {
       <TopBar />
       <div className="flex min-h-0 flex-1">
         <ToolRail />
-        <CatalogDrawer />
+        {propertiesOpen && <PropertiesPanel />}
         <div className="min-w-0 flex-1">
           <SplitPane
             left={(
@@ -53,7 +55,6 @@ export default function App() {
             right={<RightViewport />}
           />
         </div>
-        {propertiesOpen && <PropertiesPanel />}
       </div>
       <Ledger />
       <StatusStrip />
