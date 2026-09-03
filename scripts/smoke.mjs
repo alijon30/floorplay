@@ -62,7 +62,8 @@ async function main() {
   };
   /** The same numbered shot cropped to one panel, for a view worth more than its share of the page. */
   const shotOf = async (name, selector) => {
-    const clip = await page.locator(selector).boundingBox();
+    const clip = await page.locator(selector).first().boundingBox();
+    if (!clip) throw new Error(`Nothing matching ${selector} on screen to photograph as ${name}`);
     const file = resolve(outDir, `${String(++n).padStart(2, '0')}-${name}.png`);
     await page.screenshot({ path: file, clip });
     shots.push(file);
@@ -237,10 +238,7 @@ async function main() {
     await page.locator('[aria-label="Ready-made rooms"]').getByRole('button', { name: /^Bedroom/ }).click();
     await settle(1200);
     await shot('template-bedroom');
-    const canvasBox = await page.locator('canvas').first().boundingBox();
-    if (!canvasBox) throw new Error('Could not find the 3D canvas after loading a template');
-    await page.screenshot({ path: resolve(outDir, `${String(++n).padStart(2, '0')}-template-bedroom-3d.png`), clip: canvasBox });
-    shots.push(resolve(outDir, `${String(n).padStart(2, '0')}-template-bedroom-3d.png`));
+    await shotOf('template-bedroom-3d', 'canvas');
     findings.bedroomTemplate = await page.evaluate((key) => {
       const r = JSON.parse(localStorage.getItem(key) ?? '{}');
       const s = r?.state;
