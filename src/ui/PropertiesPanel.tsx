@@ -40,10 +40,11 @@ export default function PropertiesPanel() {
 
   return (
     <aside className="flex h-full w-[320px] shrink-0 flex-col border-r border-line bg-panel">
-      <div className="flex h-10 shrink-0 items-center gap-1 border-b border-line pl-1.5 pr-2">
-        {/* Six tabs do not fit 320 px at every font size, so the strip scrolls rather than
-            wrapping to a second row and stealing height from the panel below it. */}
-        <div role="tablist" aria-label="Properties" className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
+      <div className="flex h-10 shrink-0 items-center border-b border-line pl-1 pr-1.5">
+        {/* Six tabs are a tight fit in 320 px, so they are drawn a size down and close
+            together. Should a font still overrun it, the strip scrolls rather than wrapping to
+            a second row and stealing height from the panel below it. */}
+        <div role="tablist" aria-label="Properties" className="flex min-w-0 flex-1 items-center overflow-x-auto">
           {TABS.map((t) => {
             const on = tab === t.key;
             return (
@@ -52,7 +53,7 @@ export default function PropertiesPanel() {
                 role="tab"
                 aria-selected={on}
                 onClick={() => setPropsTab(t.key)}
-                className={`inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md px-1.5 text-[12px] transition-colors ${FOCUS} ${
+                className={`inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-1 text-[11.5px] transition-colors ${FOCUS} ${
                   on ? 'bg-raised font-medium text-fg' : 'text-muted hover:text-fg'
                 }`}
               >

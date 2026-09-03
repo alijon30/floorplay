@@ -473,6 +473,23 @@ async function main() {
     await settle(400);
     await shot('ledger-expanded');
 
+    // 30b. the Buy tab: the room read back as a shopping list, and the two tools behind it
+    const shopping = await toolJson('get_shopping_list', {});
+    if (!Array.isArray(shopping.lines) || shopping.lines.length === 0) {
+      throw new Error(`get_shopping_list returned no lines: ${JSON.stringify(shopping)}`);
+    }
+    const firstLine = shopping.lines[0];
+    if (typeof firstLine.searchQuery !== 'string' || firstLine.searchQuery.length === 0) {
+      throw new Error(`a shopping line carried no searchQuery: ${JSON.stringify(firstLine)}`);
+    }
+    const marked = await toolJson('set_purchase_status', { catalogId: firstLine.catalogId, status: 'ordered', source: 'IKEA' });
+    if (marked.status !== 'applied') throw new Error(`set_purchase_status did not apply: ${JSON.stringify(marked)}`);
+    findings.shoppingList = { lines: shopping.lines.length, toBuy: shopping.toBuy, budget: shopping.budget, searchQuery: firstLine.searchQuery };
+    await page.getByRole('tab', { name: /^Buy/ }).click();
+    await park();
+    await settle(400);
+    await shot('properties-buy');
+
     // 31. the contact sheet: one of everything that has a photographed model, in one room.
     //
     // A room only reads as one catalog if the models in it belong to the same one, and that is
