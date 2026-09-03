@@ -58,23 +58,37 @@ function useSize(ref: React.RefObject<HTMLElement | null>) {
   return size;
 }
 
-/** One of the plan's own tools. */
-function Tool({ on, label, icon, onClick }: { on?: boolean; label: string; icon: Parameters<typeof Icon>[0]['name']; onClick: () => void }) {
+/**
+ * One of the plan's own tools.
+ *
+ * `text` is the word beside the mark. It appears only past 1280 px, because below that the
+ * toolbar and the drawing are competing for the same width and the drawing wins — but on a
+ * wide screen there is no reason to make anyone learn four pictograms.
+ */
+function Tool({ on, label, text, icon, onClick, disabled }: {
+  on?: boolean; label: string; text?: string; icon: Parameters<typeof Icon>[0]['name']; onClick: () => void; disabled?: boolean;
+}) {
   return (
     <button
       type="button"
       aria-label={label}
       aria-pressed={on === undefined ? undefined : on}
       title={label}
+      disabled={disabled}
       onClick={onClick}
-      className={`inline-flex h-7 w-7 items-center justify-center rounded-md border transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
+      className={`inline-flex h-7 min-w-7 items-center justify-center gap-1.5 rounded-md border px-1.5 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent disabled:opacity-40 ${
         on ? 'border-accent/50 bg-[var(--accent-fill)] text-accent' : 'border-black/8 bg-white/70 text-[var(--plan-ink-soft)] hover:bg-white hover:text-[var(--plan-ink)]'
       }`}
     >
       <Icon name={icon} />
+      {text && <span className="hidden pr-0.5 text-[11.5px] xl:inline">{text}</span>}
     </button>
   );
 }
+
+/** How the north selector names each wall. The letter is the plan's own shorthand for it. */
+const NORTH_LABEL: Record<Wall, string> = { top: 'Top', right: 'Right', bottom: 'Bottom', left: 'Left' };
+const NORTH_HINT = 'Which wall faces north; drives daylight';
 
 export default function Plan() {
   const room = useRoom((s) => s.rooms[s.currentId]!);
@@ -210,32 +224,36 @@ export default function Plan() {
 
   const guide = snapWall ? wallLine(snapWall, room.width, room.depth) : null;
 
+  const zoomBy = (factor: number) =>
+    setZoom((z) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round(z * factor * 100) / 100)));
+
   const toolbar = (
     <>
-      <div role="group" aria-label="North wall" className="inline-flex h-7 items-center gap-px rounded-md border border-black/8 bg-white/70 p-px">
-        <span className="px-1.5 text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--plan-dim)]">N</span>
-        {WALLS.map((w) => (
-          <button
-            key={w}
-            type="button"
-            aria-label={`North is the ${w} wall`}
-            aria-pressed={room.northWall === w}
-            title={`North is the ${w} wall`}
-            onClick={() => setNorthWall(w)}
-            className={`inline-flex h-[22px] w-[22px] items-center justify-center rounded-[4px] font-mono text-[10px] uppercase transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
-              room.northWall === w ? 'bg-[var(--accent-fill)] font-medium text-accent' : 'text-[var(--plan-dim)] hover:text-[var(--plan-ink)]'
-            }`}
-          >{w[0]}</button>
-        ))}
-      </div>
-      <Tool on={ui.showGrid} label="Grid" icon="grid" onClick={() => setShowGrid(!ui.showGrid)} />
+      <label className="inline-flex h-7 items-center gap-1.5 rounded-md border border-black/8 bg-white/70 pl-2 pr-1" title={NORTH_HINT}>
+        <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--plan-dim)]">North</span>
+        <select
+          aria-label="North wall"
+          title={NORTH_HINT}
+          value={room.northWall}
+          onChange={(e) => setNorthWall(e.target.value as Wall)}
+          className="h-[22px] cursor-pointer rounded-[4px] bg-transparent pr-0.5 text-[11px] text-[var(--plan-ink)] outline-none focus-visible:ring-1 focus-visible:ring-accent"
+        >
+          {WALLS.map((w) => (
+            <option key={w} value={w}>{`${w[0]!.toUpperCase()} · ${NORTH_LABEL[w]}`}</option>
+          ))}
+        </select>
+      </label>
+      <Tool on={ui.showGrid} label="Grid" text="Grid" icon="grid" onClick={() => setShowGrid(!ui.showGrid)} />
       <Tool
         on={ui.showDaylight}
         label="Show daylight overlay on the plan"
+        text="Daylight"
         icon={ui.showDaylight ? 'sun' : 'sunOff'}
         onClick={() => setShowDaylight(!ui.showDaylight)}
       />
-      <Tool label="Fit to view" icon="fit" onClick={() => setZoom(1)} />
+      <Tool label="Zoom out" icon="minus" disabled={zoom <= MIN_ZOOM} onClick={() => zoomBy(1 / 1.25)} />
+      <Tool label="Fit to view" text="Fit" icon="fit" onClick={() => setZoom(1)} />
+      <Tool label="Zoom in" icon="plus" disabled={zoom >= MAX_ZOOM} onClick={() => zoomBy(1.25)} />
     </>
   );
 

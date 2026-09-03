@@ -156,9 +156,9 @@ async function main() {
     await page.getByRole('button', { name: 'Catalog', exact: true }).click();
     await settle();
     await shot('catalog');
-    // the room filter and the category chips narrow the list together
-    await page.getByRole('button', { name: 'bedroom', exact: true }).click();
-    await page.getByRole('button', { name: 'bed', exact: true }).click();
+    // the two selects narrow the list together
+    await page.getByLabel('Room:').selectOption('bedroom');
+    await page.getByLabel('Category:').selectOption('bed');
     await park();
     await settle();
     await shot('catalog-filtered');
@@ -242,7 +242,7 @@ async function main() {
     }, STORAGE_KEY);
 
     // 19. three schemes read off the furniture that is already in the room. Read-only, and the
-    // Style popover derives its list the same way, so the first card below has to match this.
+    // Style tab derives its list the same way, so the first card below has to match this.
     const palettes = await toolJson('suggest_palette', {});
     findings.suggestedPalettes = (palettes.palettes ?? []).map((p) => ({
       name: p.name, wall: p.wall, floor: p.floor, accents: p.accents, recolors: p.recolor?.length ?? 0,
@@ -251,18 +251,20 @@ async function main() {
       throw new Error(`suggest_palette returned ${findings.suggestedPalettes.length} schemes, expected 3: ${JSON.stringify(palettes)}`);
     }
 
-    // 20. the style popover: wall swatches, floor finishes and those three palettes
+    // 20. the Style tab of the properties column: the wall picker, the regional palettes,
+    // the floor tiles and those three schemes, all in one column beside the plan.
     await page.getByRole('button', { name: 'Style', exact: true }).click();
-    await page.getByRole('dialog', { name: 'Style' }).waitFor({ timeout: 10_000 });
+    await page.getByRole('tab', { name: 'Style' }).waitFor({ timeout: 10_000 });
+    await page.getByLabel('Room plan, click a wall to paint it').waitFor({ timeout: 10_000 });
     await settle(400);
-    await shot('style-popover');
+    await shot('style-tab');
 
-    // 21. apply the first suggested palette: one ledger entry repaints the room
-    // `exact` matters: the Walls-by-region section also carries an "Apply to all walls".
-    await page.getByRole('dialog', { name: 'Style' }).getByRole('button', { name: 'Apply', exact: true }).first().click();
+    // 21. apply the first suggested scheme: one ledger entry repaints the room
+    await page.getByRole('button', { name: 'Apply', exact: true }).first().click();
     await settle(900);
-    await page.keyboard.press('Escape');
-    await settle(600);
+    // The column has said what it had to say; close it so the plan is whole for the shot.
+    await page.getByRole('button', { name: 'Style', exact: true }).click();
+    await settle(500);
     await shot('palette-applied');
     findings.palette = await page.evaluate((key) => {
       const r = JSON.parse(localStorage.getItem(key) ?? '{}');
@@ -275,7 +277,7 @@ async function main() {
       throw new Error(`Applying a palette did not write one palette ledger entry: ${JSON.stringify(findings.palette)}`);
     }
     // The button carried out the first scheme `suggest_palette` handed back, so the agent and
-    // the popover really are reading the same list.
+    // the Style tab really are reading the same list.
     const first = findings.suggestedPalettes[0];
     if (findings.palette.finish?.wall !== first.wall || findings.palette.finish?.floor !== first.floor) {
       throw new Error(`Applied finish ${JSON.stringify(findings.palette.finish)} is not the first suggested scheme ${JSON.stringify(first)}`);
@@ -417,7 +419,7 @@ async function main() {
     await settle(400);
     await shot('room-brief');
 
-    // 28. the panel's two link buttons open the dialogs the top bar owns, through `ui.dialog`
+    // 28. the panel's two links: one opens the shell dialog, the other turns the column to Style
     await page.getByRole('button', { name: 'Doors & windows…' }).click();
     await page.getByRole('heading', { name: 'Room shell' }).waitFor({ timeout: 10_000 });
     await settle(300);
@@ -426,10 +428,10 @@ async function main() {
     await page.getByRole('button', { name: 'Close', exact: true }).first().click();
     await settle(300);
     await page.getByRole('button', { name: 'Style…' }).click();
-    await page.getByRole('dialog', { name: 'Style' }).waitFor({ timeout: 10_000 });
+    await page.getByRole('tab', { name: 'Style', selected: true }).waitFor({ timeout: 10_000 });
     await settle(300);
     await shot('room-panel-style');
-    await page.keyboard.press('Escape');
+    await page.getByRole('tab', { name: 'Room' }).click();
     await settle(300);
 
     // 29. the card closes, leaving a pill, and comes back from either the pill or the top bar

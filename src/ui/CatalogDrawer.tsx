@@ -8,21 +8,33 @@ import { suggestPositions } from '../engine/anchors';
 import { alternativesFor } from '../engine/alternatives';
 import { ItemGlyph } from '../plan/glyphs';
 import { Icon } from './icons';
-import { BTN_SM, BTN_SM_ON, CLOSE, INPUT, LABEL, NUM, TITLE } from './styles';
+import { BTN_SM, BTN_SM_ON, CLOSE, INPUT, NUM, TITLE } from './styles';
 
 /**
- * One horizontally scrolling line of filter chips. Twenty categories should cost one row, not
- * five, so the list they filter starts near the top of the panel. The fade on the right edge
- * is the only thing saying there is more to scroll to.
+ * One of the two filters under the search box.
+ *
+ * A select rather than a row of chips: twenty categories in a scrolling strip meant the one
+ * you wanted was usually off the right edge, and a clipped chip gives no clue that it is
+ * there at all. A select shows every option at once and says which one is on while closed.
  */
-function ChipRow({ label, children }: { label: string; children: React.ReactNode }) {
+function Filter({ label, value, onChange, options }: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
   return (
-    <div className="relative shrink-0">
-      <div role="group" aria-label={label} className="flex gap-1 overflow-x-auto px-2.5 pb-1.5 whitespace-nowrap">
-        {children}
-      </div>
-      <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-panel to-transparent" />
-    </div>
+    <label className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md border border-line bg-raised px-2 transition-colors focus-within:border-accent/70 hover:border-[var(--line-hi)]">
+      <span className="shrink-0 text-[11px] text-muted">{label}</span>
+      <select
+        aria-label={label}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-7 min-w-0 flex-1 cursor-pointer bg-transparent text-[12px] capitalize text-fg outline-none"
+      >
+        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    </label>
   );
 }
 
@@ -48,6 +60,21 @@ export default function CatalogDrawer() {
       .filter((c) => !q || c.name.toLowerCase().includes(q) || c.category.includes(q))
       .sort((a, b) => a.category.localeCompare(b.category) || a.price - b.price);
   }, [room, query, category, roomKind]);
+
+  /**
+   * The list as it is drawn: one unnamed group when a category is chosen, otherwise one group
+   * per category in the order the sort already put them in.
+   */
+  const grouped = useMemo(() => {
+    if (category) return [['', items]] as [string, typeof items][];
+    const out: [string, typeof items][] = [];
+    for (const c of items) {
+      const last = out[out.length - 1];
+      if (last && last[0] === c.category) last[1].push(c);
+      else out.push([c.category, [c]]);
+    }
+    return out;
+  }, [items, category]);
 
   if (!ui.catalogOpen) return null;
 
@@ -75,7 +102,10 @@ export default function CatalogDrawer() {
   return (
     <aside className="flex h-full w-72 shrink-0 flex-col border-r border-line bg-panel">
       <div className="flex h-10 shrink-0 items-center justify-between border-b border-line px-2.5">
-        <strong className={TITLE}>{fitsItem ? 'Alternatives' : 'Catalog'}</strong>
+        <div className="flex min-w-0 items-baseline gap-1.5">
+          <strong className={TITLE}>{fitsItem ? 'Alternatives' : 'Catalog'}</strong>
+          <span className={`text-[11px] text-muted ${NUM}`}>{fitsItem ? alternatives.length : items.length} items</span>
+        </div>
         <button className={CLOSE} aria-label="Close the catalog" onClick={() => setCatalogOpen(false)}><Icon name="close" size={13} /></button>
       </div>
       {fitsItem ? (
@@ -85,7 +115,7 @@ export default function CatalogDrawer() {
             const cat = byId.get(a.catalogId);
             return (
               <div key={a.catalogId} className="flex items-center gap-2.5 rounded-md border border-line bg-raised p-2">
-                {cat && <ItemGlyph shape={cat.shape} color={cat.color} w={cat.width} h={cat.depth} />}
+                {cat && <ItemGlyph shape={cat.shape} color={cat.color} w={cat.width} h={cat.depth} size={40} />}
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[12px] text-fg">{a.name}</div>
                   <div className={`text-[11px] text-muted ${NUM}`}>
@@ -99,46 +129,61 @@ export default function CatalogDrawer() {
         </div>
       ) : (
         <>
-          <div className="p-2.5 pb-2">
+          <div className="p-2.5 pb-1.5">
             <input className={INPUT} placeholder="Search the catalog" aria-label="Search the catalog" value={query} onChange={(e) => setQuery(e.target.value)} />
+            <div className="mt-1.5 flex gap-1.5">
+              <Filter
+                label="Room:"
+                value={roomKind ?? ''}
+                onChange={(v) => setRoomKind(v === '' ? null : v as RoomKind)}
+                options={[{ value: '', label: 'All rooms' }, ...ROOM_KINDS.map((k) => ({ value: k, label: k }))]}
+              />
+              <Filter
+                label="Category:"
+                value={category ?? ''}
+                onChange={(v) => setCategory(v === '' ? null : v as Category)}
+                options={[{ value: '', label: 'All' }, ...CATEGORIES.map((c) => ({ value: c, label: c }))]}
+              />
+            </div>
           </div>
-          <div className={`px-2.5 pb-1 ${LABEL}`}>Room</div>
-          <ChipRow label="Room kinds">
-            <button className={roomKind === null ? BTN_SM_ON : BTN_SM} onClick={() => setRoomKind(null)}>All rooms</button>
-            {ROOM_KINDS.map((k) => (
-              <button key={k} className={`capitalize ${roomKind === k ? BTN_SM_ON : BTN_SM}`} onClick={() => setRoomKind(k)}>{k}</button>
-            ))}
-          </ChipRow>
-          <div className={`px-2.5 pb-1 pt-1 ${LABEL}`}>Category</div>
-          <ChipRow label="Categories">
-            <button className={category === null ? BTN_SM_ON : BTN_SM} onClick={() => setCategory(null)}>all</button>
-            {CATEGORIES.map((c) => <button key={c} className={category === c ? BTN_SM_ON : BTN_SM} onClick={() => setCategory(c)}>{c}</button>)}
-          </ChipRow>
-          <div className="min-h-0 flex-1 space-y-1 overflow-auto p-2 pt-1.5">
+          <div className="min-h-0 flex-1 overflow-auto p-2 pt-0.5">
             {items.length === 0 && <p className="px-0.5 text-[11.5px] text-muted">Nothing matches that filter.</p>}
-            {items.map((c) => (
-              <div
-                key={c.id}
-                draggable
-                onDragStart={(e) => e.dataTransfer.setData('text/floorplay-catalog', c.id)}
-                className="group flex cursor-grab items-center gap-2.5 rounded-md border border-line bg-raised p-2 transition-colors hover:border-accent/40"
-              >
-                {/* The mark the plan will draw, in the colour it will draw it. */}
-                <ItemGlyph shape={c.shape} color={c.color} w={c.width} h={c.depth} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="truncate text-[12px] text-fg">{c.name}</span>
-                    {c.source === 'agent' && <span className="shrink-0 rounded bg-accent/15 px-1 text-[10px] text-accent">agent</span>}
+            {grouped.map(([group, rows]) => (
+              <div key={group}>
+                {/* With no category chosen the list runs twenty categories deep, so each one
+                    keeps its name pinned to the top of the scroll while its rows go past. */}
+                {group !== '' && (
+                  <div className="sticky top-0 z-10 -mx-2 bg-panel px-2.5 py-1 text-[10.5px] font-medium uppercase tracking-[0.08em] text-muted">
+                    {group} <span className={`ml-0.5 text-muted/70 ${NUM}`}>{rows.length}</span>
                   </div>
-                  <div className={`text-[11px] text-muted ${NUM}`}>{c.width}×{c.depth}×{c.height} · ${c.price}</div>
-                  {/* A few dots are enough to say "this one comes in other finishes". */}
-                  {c.colors && c.colors.length > 0 && (
-                    <div className="mt-1 flex gap-1">
-                      {c.colors.slice(0, 5).map((col) => <span key={col} className="inline-block h-2 w-2 rounded-full ring-1 ring-line" style={{ background: col }} />)}
+                )}
+                <div className="space-y-1 pb-1">
+                  {rows.map((c) => (
+                    <div
+                      key={c.id}
+                      draggable
+                      onDragStart={(e) => e.dataTransfer.setData('text/floorplay-catalog', c.id)}
+                      className="group flex cursor-grab items-center gap-2.5 rounded-md border border-line bg-raised p-2 transition-colors hover:border-accent/40"
+                    >
+                      {/* The mark the plan will draw, in the colour it will draw it. */}
+                      <ItemGlyph shape={c.shape} color={c.color} w={c.width} h={c.depth} size={40} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="truncate text-[12px] text-fg">{c.name}</span>
+                          {c.source === 'agent' && <span className="shrink-0 rounded bg-accent/15 px-1 text-[10px] text-accent">agent</span>}
+                        </div>
+                        <div className={`text-[11px] text-muted ${NUM}`}>{c.width}×{c.depth}×{c.height} · ${c.price}</div>
+                        {/* A few dots are enough to say "this one comes in other finishes". */}
+                        {c.colors && c.colors.length > 0 && (
+                          <div className="mt-1 flex gap-1">
+                            {c.colors.slice(0, 5).map((col) => <span key={col} className="inline-block h-2 w-2 rounded-full ring-1 ring-line" style={{ background: col }} />)}
+                          </div>
+                        )}
+                      </div>
+                      <button className={BTN_SM} onClick={() => place(c.id)}>Place</button>
                     </div>
-                  )}
+                  ))}
                 </div>
-                <button className={BTN_SM} onClick={() => place(c.id)}>Place</button>
               </div>
             ))}
           </div>

@@ -11,7 +11,7 @@ import type { ReactElement, SVGProps } from 'react';
 
 export type IconName =
   | 'undo' | 'palette' | 'help' | 'catalog' | 'room' | 'sun' | 'sunOff' | 'cube' | 'walk'
-  | 'orbit' | 'shadows' | 'plus' | 'close' | 'chevron' | 'chevronRight' | 'user' | 'bot'
+  | 'orbit' | 'shadows' | 'plus' | 'minus' | 'close' | 'chevron' | 'chevronRight' | 'user' | 'bot'
   | 'lock' | 'unlock' | 'trash' | 'swap' | 'wand' | 'fit' | 'grid' | 'warning' | 'rooms' | 'dev';
 
 const PATHS: Record<IconName, ReactElement> = {
@@ -95,6 +95,7 @@ const PATHS: Record<IconName, ReactElement> = {
     </>
   ),
   plus: <path d="M8 3.2v9.6M3.2 8h9.6" />,
+  minus: <path d="M3.2 8h9.6" />,
   close: <path d="M4 4l8 8M12 4l-8 8" />,
   chevron: <path d="M4 6.2 8 10l4-3.8" />,
   chevronRight: <path d="M6.2 4 10 8l-3.8 4" />,
