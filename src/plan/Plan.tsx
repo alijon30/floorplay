@@ -61,9 +61,11 @@ function useSize(ref: React.RefObject<HTMLElement | null>) {
 /**
  * One of the plan's own tools.
  *
- * `text` is the word beside the mark. It appears only past 1280 px, because below that the
- * toolbar and the drawing are competing for the same width and the drawing wins — but on a
- * wide screen there is no reason to make anyone learn four pictograms.
+ * `text` is the word beside the mark. It appears once the viewport itself is 600 px wide —
+ * a window past about 1280 px with the side panels shut — because below that the toolbar and
+ * the drawing compete for the same width and the drawing wins. On a wide screen there is no
+ * reason to make anyone learn four pictograms. Measured on the viewport rather than the
+ * window, so opening the catalog puts the tools back to marks instead of over the label.
  */
 function Tool({ on, label, text, icon, onClick, disabled }: {
   on?: boolean; label: string; text?: string; icon: Parameters<typeof Icon>[0]['name']; onClick: () => void; disabled?: boolean;
@@ -81,7 +83,7 @@ function Tool({ on, label, text, icon, onClick, disabled }: {
       }`}
     >
       <Icon name={icon} />
-      {text && <span className="hidden pr-0.5 text-[11.5px] xl:inline">{text}</span>}
+      {text && <span className="hidden pr-0.5 text-[11.5px] @[600px]:inline">{text}</span>}
     </button>
   );
 }

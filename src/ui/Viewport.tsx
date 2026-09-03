@@ -15,7 +15,7 @@ export default function Viewport({
 }) {
   const text = tone === 'light' ? 'text-[var(--plan-dim)]' : 'text-muted';
   return (
-    <section aria-label={label} className="relative h-full w-full overflow-hidden">
+    <section aria-label={label} className="@container relative h-full w-full overflow-hidden">
       {children}
       <span
         className={`pointer-events-none absolute left-3 top-2.5 select-none text-[10.5px] font-medium uppercase tracking-[0.12em] ${text}`}

@@ -1,5 +1,6 @@
 // src/ui/style/WallPicker.tsx
 import { wallColor } from '../../engine/wallColor';
+import { FLOOR_PLAN_FILL } from '../../finishes';
 import { wallFacing } from '../../engine/geometry';
 import { WALLS, type Room, type Wall } from '../../engine/types';
 import { BTN_SM, BTN_SM_ON } from '../styles';
@@ -74,32 +75,38 @@ export default function WallPicker({
           className="shrink-0 rounded-md border border-line bg-raised"
           aria-label="Room plan, click a wall to paint it"
         >
-          <rect x={l.x0} y={l.y0} width={l.w} height={l.h} fill="var(--raised-hi)" />
+          {/* The floor in the same tint the plan draws it, so the two read as one room. */}
+          <rect x={l.x0} y={l.y0} width={l.w} height={l.h} fill={FLOOR_PLAN_FILL[room.finish.floor]} />
+          {/* One wall gets a band behind it; all four get a ring around the room, because four
+              bands would swallow the colours the picker exists to show. */}
+          {target !== 'all' && (() => {
+            const e = wallEnds(target, l);
+            return <line x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2} stroke="var(--accent)" strokeWidth={STROKE + 6} strokeLinecap="square" />;
+          })()}
           {WALLS.map((w) => {
             const e = wallEnds(w, l);
-            const on = target === w || target === 'all';
             return (
-              <g key={w}>
-                {on && (
-                  <line
-                    x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2}
-                    stroke="var(--accent)" strokeWidth={STROKE + 5} strokeLinecap="square" opacity={0.9}
-                  />
-                )}
-                <line
-                  x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2}
-                  stroke={wallColor(room, w)} strokeWidth={STROKE} strokeLinecap="square"
-                />
-              </g>
+              <line
+                key={w}
+                x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2}
+                stroke={wallColor(room, w)} strokeWidth={STROKE} strokeLinecap="square"
+              />
             );
           })}
+          {target === 'all' && (
+            <rect
+              x={l.x0 - STROKE / 2 - 3} y={l.y0 - STROKE / 2 - 3}
+              width={l.w + STROKE + 6} height={l.h + STROKE + 6}
+              rx={3} fill="none" stroke="var(--accent)" strokeWidth={2}
+            />
+          )}
           {room.openings.map((o) => {
             const s = openingSegment(o.wall, o.offset, o.width, l);
             return (
               <line
                 key={o.id}
                 x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2}
-                stroke={o.kind === 'door' ? '#ffffff' : '#8fc6dd'}
+                stroke={o.kind === 'door' ? '#9aa2a8' : '#6fb0d6'}
                 strokeWidth={STROKE - 3}
                 strokeLinecap="butt"
               />

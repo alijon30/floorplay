@@ -262,8 +262,8 @@ async function main() {
     // 21. apply the first suggested scheme: one ledger entry repaints the room
     await page.getByRole('button', { name: 'Apply', exact: true }).first().click();
     await settle(900);
-    // The column has said what it had to say; close it so the plan is whole for the shot.
-    await page.getByRole('button', { name: 'Style', exact: true }).click();
+    // Back to the Room tab, so the column reads the way the rest of the run expects it to.
+    await page.getByRole('tab', { name: 'Room' }).click();
     await settle(500);
     await shot('palette-applied');
     findings.palette = await page.evaluate((key) => {
