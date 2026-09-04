@@ -58,7 +58,7 @@ export default function HelpPopover({ onClose, anchorRef, position = 'right-0 mt
 
       <strong className={`mt-3 block ${LABEL}`}>Connecting an agent</strong>
       <p className="mt-1 text-[11.5px] leading-snug text-muted">
-        Open this page in ChatGPT&apos;s browser, or in Chrome with WebMCP turned on at{' '}
+        Open this page in your agent&apos;s browser (ChatGPT&apos;s today), or in Chrome with WebMCP turned on at{' '}
         <code className="rounded bg-raised px-1 font-mono text-[10.5px] text-accent">{WEBMCP_FLAG_URL}</code>, then reload.
       </p>
     </div>

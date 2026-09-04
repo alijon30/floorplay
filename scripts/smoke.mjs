@@ -84,7 +84,7 @@ async function main() {
 
     // 1. initial paint, with the onboarding card
     await page.getByText('Floorplay', { exact: true }).first().waitFor({ timeout: 20_000 });
-    await page.getByRole('heading', { name: 'Design a room with ChatGPT on the same plan' }).waitFor({ timeout: 20_000 });
+    await page.getByRole('heading', { name: 'Design a room with an AI agent on the same plan' }).waitFor({ timeout: 20_000 });
     await settle(1200); // let the WebGL canvas draw its first frames
     await shot('initial');
 

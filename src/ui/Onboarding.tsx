@@ -47,13 +47,13 @@ export default function Onboarding() {
       <div className={`pointer-events-auto w-[26rem] max-w-full p-4 ${CARD}`}>
         {/* Three ways out of this card and none of them was the × people reach for first. */}
         <div className="flex items-start gap-2">
-          <h2 className="min-w-0 flex-1 text-[15px] font-medium leading-snug text-fg">Design a room with ChatGPT on the same plan</h2>
+          <h2 className="min-w-0 flex-1 text-[15px] font-medium leading-snug text-fg">Design a room with an AI agent on the same plan</h2>
           <button className={CLOSE} aria-label="Close" title="Close this card" onClick={dismiss}><Icon name="close" size={13} /></button>
         </div>
 
         <ol className="mt-3 space-y-1.5 text-[12px] leading-snug text-muted">
           <li><span className="mr-1.5 font-mono text-[11px] text-muted/60">01</span>Load a room — the demo studio, or an empty one you size yourself.</li>
-          <li><span className="mr-1.5 font-mono text-[11px] text-muted/60">02</span>Open this page in ChatGPT&apos;s browser, or in Chrome with <code className="rounded bg-raised px-1 font-mono text-[10.5px] text-accent">{WEBMCP_FLAG_URL}</code> enabled.</li>
+          <li><span className="mr-1.5 font-mono text-[11px] text-muted/60">02</span>Open this page in your agent&apos;s browser (ChatGPT&apos;s today), or in Chrome with <code className="rounded bg-raised px-1 font-mono text-[10.5px] text-accent">{WEBMCP_FLAG_URL}</code> enabled.</li>
           <li><span className="mr-1.5 font-mono text-[11px] text-muted/60">03</span>Ask for options — layouts land on the plan for you to accept or reject.</li>
         </ol>
 

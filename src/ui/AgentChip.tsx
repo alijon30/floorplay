@@ -15,7 +15,7 @@ export default function AgentChip() {
   const connected = webmcp.isNative;
   const state = connected
     ? 'WebMCP detected'
-    : 'No WebMCP agent connected. Open this page in ChatGPT or Chrome with WebMCP enabled.';
+    : 'No WebMCP agent connected. Open this page in your agent's browser, or in Chrome with WebMCP enabled.';
   const title = last ? `${state}\nLast call: ${last.name}${last.ok ? '' : ' (failed)'}` : state;
   return (
     <div className="flex h-7 shrink-0 items-center gap-2 px-1 text-[11.5px]" title={title}>
