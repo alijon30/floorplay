@@ -76,12 +76,12 @@ Start on a fresh profile (a private window, or clear site data and reload), then
 50. `switch_room` to a room on no plan, then `add_room_to_home` `{"templateKey":"kitchen","x":400,"y":0}` → a plan named "<room> home" is started, the current room is stood at the origin, a furnished kitchen is built and placed, and `createdHome` names the new plan. Call it for a room already on a plan → `error: "conflict"` naming the home it is on. `remove_room_from_home` → the room leaves the plan with its furniture intact, and `doorwaysRemoved` names what went with it.
 
 ## C. Chrome with the flag
-- Enable `chrome://flags/#enable-webmcp-testing`, restart, open the deployed URL.
+- Enable `chrome://flags/#enable-webmcp-testing`, restart, open https://floorplay-zeta.vercel.app.
 - DevTools → Application → WebMCP panel lists 60 tools with nothing selected; selecting an item adds four and deselecting removes them.
 - Invoke `get_room` from the panel and confirm the JSON.
 
 ## D. ChatGPT in-app browser
-- Open the deployed URL in ChatGPT's browser. The agent chip turns green with 60 tools.
+- Open https://floorplay-zeta.vercel.app in ChatGPT's browser. The agent chip turns green with 60 tools.
 - Run the video script prompts below and confirm the plan updates live.
 
 ## E. Video script (under 3 minutes, with audio)

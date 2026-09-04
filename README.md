@@ -4,7 +4,7 @@ Design a room with ChatGPT on the same floor plan.
 
 Floorplay is a furniture planner where a human and an AI agent edit the same live plan. You drag furniture, lock what you love, and approve proposals. Rooms stand edge to edge on a shared floor plan, so a hall, a living room and a bedroom become one flat you can walk through. ChatGPT works those same rooms through [WebMCP](https://github.com/webmachinelearning/webmcp) tools and iterates against a geometry engine that checks door swings, walkways, clearances, daylight and budget, so it reasons over facts it cannot fake.
 
-**Live demo:** coming soon (Vercel URL added after deploy).
+**Live demo:** https://floorplay-zeta.vercel.app — open it in ChatGPT's browser, or in Chrome with `chrome://flags/#enable-webmcp-testing` on.
 
 ## What you can do
 
