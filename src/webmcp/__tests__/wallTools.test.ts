@@ -97,16 +97,6 @@ describe('set_wall_color', () => {
     expect(s().current().finish.walls).toBeUndefined();
   });
 
-  it('waits as a card in propose-first mode, since paint has no ghost to draw', async () => {
-    const { call, s } = boot();
-    s().setProposeFirst(true);
-    const r = await call('set_wall_color', { color: '#c37a5b' });
-    expect(r).toMatchObject({ ok: true, status: 'proposed' });
-    expect(s().current().proposals).toHaveLength(0);
-    expect(s().pending).toHaveLength(1);
-    expect((await s().acceptAction(r['proposalId'] as string)).ok).toBe(true);
-    expect(s().current().finish.wall).toBe('#c37a5b');
-  });
 
   it('is undoable in one press', async () => {
     const { call, s } = boot();
@@ -165,17 +155,6 @@ describe('place_on_wall', () => {
     expect(s().current().items).toHaveLength(0);
   });
 
-  it('goes through the proposal queue when propose-first is on', async () => {
-    const { call, s } = boot();
-    s().setProposeFirst(true);
-    const r = await call('place_on_wall', { catalogId: 'mirror-round-60', wall: 'bottom', offset: 200 });
-    expect(r).toMatchObject({ ok: true, status: 'proposed' });
-    expect(s().current().proposals).toHaveLength(1);
-    expect(s().current().items).toHaveLength(0);
-    // The placement rides along on a proposal too: it says where the mirror *would* hang,
-    // which is the whole thing the user is being asked to accept or reject.
-    expect(r['placement']).toMatchObject({ wall: 'bottom', offset: 200, mountHeight: 110, rotation: 180 });
-  });
 
   it('a hung item shows up on its wall and nowhere else', async () => {
     const { call } = boot();

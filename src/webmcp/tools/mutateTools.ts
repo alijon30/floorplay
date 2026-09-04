@@ -23,28 +23,17 @@ type PaletteName = Palette['name'];
 const PALETTE_NAMES: PaletteName[] = ['warm', 'cool', 'neutral'];
 
 /**
- * The single write path for every mutating tool, and the one place that decides between
- * applying and proposing.
+ * The single write path for every mutating tool.
  *
  * Result shape, uniform across all mutating tools so an agent learns one set of key names:
- * every result carries `status`, `violations` and `metrics`. Applied results also carry
- * `items` and `ledgerId`; proposed results also carry `proposalId` and `delta`. On a
- * proposed result `violations` and `metrics` describe the room as it *would* be if the
- * user accepted, not the room as it stands. Individual tools may add keys on top of that
- * (`place_item` and `move_item` add `snapped`, and `wall` when it is true).
+ * every result carries `status`, `violations` and `metrics`, and applied results also carry
+ * `items` and `ledgerId`. `propose_layout` is the one tool that answers `proposed` instead,
+ * with `proposalId` and `delta`, and its ghosts wait on the plan for the user. Individual
+ * tools may add keys on top of that (`place_item` and `move_item` add `snapped`, and `wall`
+ * when it is true).
  */
-export function mutate(ctx: ToolContext, args: { tool: string; ops: Op[]; summary?: string; label?: string; proposable: boolean }): ToolResult {
+export function mutate(ctx: ToolContext, args: { tool: string; ops: Op[]; summary?: string }): ToolResult {
   const s = ctx.store.getState();
-  const room = s.current();
-  if (args.proposable && s.ui.proposeFirst) {
-    const p = s.propose({ label: args.label ?? args.summary ?? describeOps(room, args.ops), ops: args.ops });
-    if (!p.ok) return fail(p.error, p.message);
-    return ok({
-      status: 'proposed', proposalId: p.proposal.id, delta: metricsDelta(p.proposal.metricsBefore, p.proposal.metricsAfter),
-      violations: shortViolations(p.proposal.violationsAfter), metrics: shortMetrics(p.proposal.metricsAfter),
-      note: 'Propose-first mode is on. The user must accept this proposal on screen, or explicitly ask you to apply it.',
-    });
-  }
   const r = s.dispatch({ ops: args.ops, actor: 'agent', tool: args.tool, ...(args.summary ? { summary: args.summary } : {}) });
   if (!r.ok) {
     const hint = r.error === 'locked' ? 'Ask the user to unlock it, or work around it' : r.error === 'not_found' ? 'Call get_room for current ids' : r.message;
@@ -129,7 +118,7 @@ export function buildMutateTools(ctx: ToolContext): ToolDef[] {
       name: 'set_room_shell',
       description: 'Set the room dimensions in cm and optionally which wall faces north. Existing items are kept and re-validated.',
       inputSchema: { type: 'object', properties: { width: cm('Room width (x)'), depth: cm('Room depth (y)'), height: cm('Ceiling height'), northWall: wallProp }, required: ['width', 'depth', 'height'] },
-      execute: (i) => mutate(ctx, { tool: 'set_room_shell', proposable: false, ops: [{ type: 'setShell', width: num(i, 'width'), depth: num(i, 'depth'), height: num(i, 'height'), northWall: (i['northWall'] as Wall | undefined) ?? room().northWall }] }),
+      execute: (i) => mutate(ctx, { tool: 'set_room_shell', ops: [{ type: 'setShell', width: num(i, 'width'), depth: num(i, 'depth'), height: num(i, 'height'), northWall: (i['northWall'] as Wall | undefined) ?? room().northWall }] }),
     },
     {
       name: 'add_opening',
@@ -144,14 +133,14 @@ export function buildMutateTools(ctx: ToolContext): ToolDef[] {
         const opening = kind === 'door'
           ? { id: newId('door'), kind, wall: i['wall'] as Wall, offset: num(i, 'offset'), width: num(i, 'width'), height: (i['height'] as number | undefined) ?? 200, swing: (i['swing'] as 'in' | 'out' | undefined) ?? 'in', hinge: (i['hinge'] as 'start' | 'end' | undefined) ?? 'start' }
           : { id: newId('window'), kind, wall: i['wall'] as Wall, offset: num(i, 'offset'), width: num(i, 'width'), height: (i['height'] as number | undefined) ?? 120, sill: (i['sill'] as number | undefined) ?? 90 };
-        return mutate(ctx, { tool: 'add_opening', proposable: true, ops: [{ type: 'addOpening', opening }] });
+        return mutate(ctx, { tool: 'add_opening', ops: [{ type: 'addOpening', opening }] });
       },
     },
     {
       name: 'remove_opening',
       description: 'Remove a door or window by id (ids come from get_room).',
       inputSchema: { type: 'object', properties: { id: idProp('Opening id') }, required: ['id'] },
-      execute: (i) => mutate(ctx, { tool: 'remove_opening', proposable: true, ops: [{ type: 'removeOpening', id: i['id'] as string }] }),
+      execute: (i) => mutate(ctx, { tool: 'remove_opening', ops: [{ type: 'removeOpening', id: i['id'] as string }] }),
     },
     {
       name: 'move_opening',
@@ -160,7 +149,7 @@ export function buildMutateTools(ctx: ToolContext): ToolDef[] {
       execute: (i) => {
         const o = room().openings.find((x) => x.id === i['id']);
         if (!o) return fail('not_found', 'Call get_room for opening ids');
-        return mutate(ctx, { tool: 'move_opening', proposable: true, ops: [{ type: 'moveOpening', id: o.id, wall: (i['wall'] as Wall | undefined) ?? o.wall, offset: num(i, 'offset') }] });
+        return mutate(ctx, { tool: 'move_opening', ops: [{ type: 'moveOpening', id: o.id, wall: (i['wall'] as Wall | undefined) ?? o.wall, offset: num(i, 'offset') }] });
       },
     },
     {
@@ -169,19 +158,19 @@ export function buildMutateTools(ctx: ToolContext): ToolDef[] {
       inputSchema: { type: 'object', properties: { budget: numProp('Budget in USD', 0), needs: { type: 'array', description: 'What the room must support', items: strProp('Need') }, notes: strProp('Free text') } },
       execute: (i) => {
         const b = room().brief;
-        return mutate(ctx, { tool: 'set_brief', proposable: false, ops: [{ type: 'setBrief', brief: { budget: (i['budget'] as number | undefined) ?? b.budget, currency: 'USD', needs: (i['needs'] as string[] | undefined) ?? b.needs, notes: (i['notes'] as string | undefined) ?? b.notes } }] });
+        return mutate(ctx, { tool: 'set_brief', ops: [{ type: 'setBrief', brief: { budget: (i['budget'] as number | undefined) ?? b.budget, currency: 'USD', needs: (i['needs'] as string[] | undefined) ?? b.needs, notes: (i['notes'] as string | undefined) ?? b.notes } }] });
       },
     },
     {
       name: 'place_item',
-      description: `Place one catalog item by its center. Applies immediately (unless propose-first mode is on) and reports any violations plus the nearest clear position. Prefer suggest_positions for beds, desks, sofas, wardrobes and shelves. Positions within 15 cm of a wall are snapped flush and wall furniture is turned to face the room; the result reports snapped: true. ${COORDS_NOTE}`,
+      description: `Place one catalog item by its center. Applies immediately; undo_last_action takes it back. and reports any violations plus the nearest clear position. Prefer suggest_positions for beds, desks, sofas, wardrobes and shelves. Positions within 15 cm of a wall are snapped flush and wall furniture is turned to face the room; the result reports snapped: true. ${COORDS_NOTE}`,
       inputSchema: { type: 'object', properties: { catalogId: idProp('Catalog id from get_catalog'), x: cm('Center x'), y: cm('Center y'), rotation: rotationProp }, required: ['catalogId', 'x', 'y'] },
       execute: (i) => {
         const catalogId = i['catalogId'] as string;
         if (!findCatalogItem(room(), catalogId)) return fail('invalid_input', `Unknown catalogId ${catalogId}; call get_catalog`);
         const snap = snapPlacement(room(), catalogId, num(i, 'x'), num(i, 'y'), (i['rotation'] as Rotation | undefined) ?? 0);
         const item = { id: newId('item'), catalogId, x: snap.x, y: snap.y, rotation: snap.rotation, locked: false };
-        const r = withSuggestion(mutate(ctx, { tool: 'place_item', proposable: true, ops: [{ type: 'place', item }] }), ctx, item.id);
+        const r = withSuggestion(mutate(ctx, { tool: 'place_item', ops: [{ type: 'place', item }] }), ctx, item.id);
         return withExtras(r, { snapped: snap.snapped, ...(snap.wall ? { wall: snap.wall } : {}) });
       },
     },
@@ -194,7 +183,7 @@ export function buildMutateTools(ctx: ToolContext): ToolDef[] {
         const cur = room().items.find((x) => x.id === id);
         if (!cur) return fail('not_found', 'Call get_room for current ids');
         const snap = snapPlacement(room(), cur.catalogId, num(i, 'x'), num(i, 'y'), (i['rotation'] as Rotation | undefined) ?? cur.rotation);
-        const r = withSuggestion(mutate(ctx, { tool: 'move_item', proposable: true, ops: [{ type: 'move', id, x: snap.x, y: snap.y, rotation: snap.rotation }] }), ctx, id);
+        const r = withSuggestion(mutate(ctx, { tool: 'move_item', ops: [{ type: 'move', id, x: snap.x, y: snap.y, rotation: snap.rotation }] }), ctx, id);
         return withExtras(r, { snapped: snap.snapped, ...(snap.wall ? { wall: snap.wall } : {}) });
       },
     },
@@ -206,7 +195,7 @@ export function buildMutateTools(ctx: ToolContext): ToolDef[] {
         const id = i['id'] as string;
         const cur = room().items.find((x) => x.id === id);
         if (!cur) return fail('not_found', 'Call get_room for current ids');
-        return withSuggestion(mutate(ctx, { tool: 'rotate_item', proposable: true, ops: [{ type: 'move', id, x: cur.x, y: cur.y, rotation: i['rotation'] as Rotation }] }), ctx, id);
+        return withSuggestion(mutate(ctx, { tool: 'rotate_item', ops: [{ type: 'move', id, x: cur.x, y: cur.y, rotation: i['rotation'] as Rotation }] }), ctx, id);
       },
     },
     {
@@ -223,7 +212,7 @@ export function buildMutateTools(ctx: ToolContext): ToolDef[] {
         if (near.x === cur.x && near.y === cur.y) return fail('already_clear', 'Item has no blocking violations');
         const name = findCatalogItem(r, cur.catalogId)?.name ?? cur.catalogId;
         return mutate(ctx, {
-          tool: 'fix_item', proposable: true, summary: `Moved ${name} to the nearest clear spot`,
+          tool: 'fix_item', summary: `Moved ${name} to the nearest clear spot`,
           ops: [{ type: 'move', id, x: near.x, y: near.y, rotation: cur.rotation }],
         });
       },
@@ -232,7 +221,7 @@ export function buildMutateTools(ctx: ToolContext): ToolDef[] {
       name: 'remove_item',
       description: 'Remove an item from the room. Locked items cannot be removed.',
       inputSchema: { type: 'object', properties: { id: idProp('Item id') }, required: ['id'] },
-      execute: (i) => mutate(ctx, { tool: 'remove_item', proposable: true, ops: [{ type: 'remove', id: i['id'] as string }] }),
+      execute: (i) => mutate(ctx, { tool: 'remove_item', ops: [{ type: 'remove', id: i['id'] as string }] }),
     },
     {
       name: 'clear_items',
@@ -243,8 +232,7 @@ export function buildMutateTools(ctx: ToolContext): ToolDef[] {
         const loose = all.filter((x) => !x.locked);
         if (loose.length === 0) return fail('nothing_to_clear', all.length ? 'Every item is locked; unlock one with set_item_locked first' : 'The room is already empty');
         return mutate(ctx, {
-          tool: 'clear_items', proposable: true,
-          summary: `Cleared ${loose.length} item${loose.length === 1 ? '' : 's'}`,
+          tool: 'clear_items', summary: `Cleared ${loose.length} item${loose.length === 1 ? '' : 's'}`,
           ops: loose.map((x) => ({ type: 'remove', id: x.id })),
         });
       },
@@ -253,13 +241,13 @@ export function buildMutateTools(ctx: ToolContext): ToolDef[] {
       name: 'swap_item',
       description: 'Replace an item with a different catalog item, keeping its position and rotation. Useful for cheaper or smaller alternatives.',
       inputSchema: { type: 'object', properties: { id: idProp('Item id'), catalogId: idProp('Replacement catalog id') }, required: ['id', 'catalogId'] },
-      execute: (i) => withSuggestion(mutate(ctx, { tool: 'swap_item', proposable: true, ops: [{ type: 'swap', id: i['id'] as string, catalogId: i['catalogId'] as string }] }), ctx, i['id'] as string),
+      execute: (i) => withSuggestion(mutate(ctx, { tool: 'swap_item', ops: [{ type: 'swap', id: i['id'] as string, catalogId: i['catalogId'] as string }] }), ctx, i['id'] as string),
     },
     {
       name: 'set_item_locked',
       description: 'Lock an item so nobody can move, swap or remove it (for example when the user says "keep the sofa"), or unlock it.',
       inputSchema: { type: 'object', properties: { id: idProp('Item id'), locked: boolProp('true to lock') }, required: ['id', 'locked'] },
-      execute: (i) => mutate(ctx, { tool: 'set_item_locked', proposable: false, ops: [{ type: 'setLocked', id: i['id'] as string, locked: i['locked'] as boolean }] }),
+      execute: (i) => mutate(ctx, { tool: 'set_item_locked', ops: [{ type: 'setLocked', id: i['id'] as string, locked: i['locked'] as boolean }] }),
     },
     {
       name: 'add_catalog_item',
@@ -281,7 +269,7 @@ export function buildMutateTools(ctx: ToolContext): ToolDef[] {
           rooms: [...ROOM_KINDS],
           ...(i['url'] ? { url: i['url'] as string } : {}),
         };
-        const r = mutate(ctx, { tool: 'add_catalog_item', proposable: false, ops: [{ type: 'addCatalogItem', item }] });
+        const r = mutate(ctx, { tool: 'add_catalog_item', ops: [{ type: 'addCatalogItem', item }] });
         const payload = JSON.parse(r.content[0]!.text) as Record<string, unknown>;
         return payload['ok'] ? ok({ ...payload, catalogId: id }) : r;
       },
@@ -317,7 +305,7 @@ export function buildMutateTools(ctx: ToolContext): ToolDef[] {
         // The new room always faces north from the top wall, so a different northWall is a
         // change to a room that now exists — a setShell op, and the one ledger entry this makes.
         if (i['northWall'] !== undefined) {
-          const r = mutate(ctx, { tool: 'create_room', proposable: false, ops: [{ type: 'setShell', ...dims, northWall: i['northWall'] as Wall }] });
+          const r = mutate(ctx, { tool: 'create_room', ops: [{ type: 'setShell', ...dims, northWall: i['northWall'] as Wall }] });
           const payload = parseResult(r);
           if (payload['ok'] !== true) return r;
           return appliedRoom({ ledgerId: payload['ledgerId'] });
@@ -377,7 +365,7 @@ export function buildMutateTools(ctx: ToolContext): ToolDef[] {
         const color = raw === undefined || raw === null ? null : raw;
         if (color !== null && !HEX_COLOR.test(color)) return fail('invalid_input', `${color} is not a hex color like #aabbcc`);
         if (!room().items.some((x) => x.id === id)) return fail('not_found', 'Call get_room for current ids');
-        return mutate(ctx, { tool: 'set_item_color', proposable: true, ops: [{ type: 'recolor', id, color }] });
+        return mutate(ctx, { tool: 'set_item_color', ops: [{ type: 'recolor', id, color }] });
       },
     },
     {
@@ -390,7 +378,7 @@ export function buildMutateTools(ctx: ToolContext): ToolDef[] {
         const floor = (i['floor'] as FloorFinish | undefined) ?? cur.floor;
         if (i['wall'] === undefined && i['floor'] === undefined) return fail('invalid_input', 'Give wall, floor or both');
         if (!HEX_COLOR.test(wall)) return fail('invalid_input', `${wall} is not a hex color like #aabbcc`);
-        const r = mutate(ctx, { tool: 'set_finish', proposable: false, ops: [{ type: 'setFinish', finish: { wall, floor } }] });
+        const r = mutate(ctx, { tool: 'set_finish', ops: [{ type: 'setFinish', finish: { wall, floor } }] });
         return withExtras(r, { finish: { wall, floor } });
       },
     },
@@ -407,7 +395,7 @@ export function buildMutateTools(ctx: ToolContext): ToolDef[] {
           { type: 'setFinish', finish: { wall: scheme.wall, floor: scheme.floor } },
           ...scheme.recolor.map((r) => ({ type: 'recolor' as const, id: r.id, color: r.color })),
         ];
-        const r = mutate(ctx, { tool: 'apply_palette', proposable: false, summary: `Applied ${name} palette`, ops });
+        const r = mutate(ctx, { tool: 'apply_palette', summary: `Applied ${name} palette`, ops });
         return withExtras(r, { palette: { name, wall: scheme.wall, floor: scheme.floor, accents: scheme.accents, recolored: scheme.recolor.length } });
       },
     },
@@ -431,7 +419,7 @@ export function buildMutateTools(ctx: ToolContext): ToolDef[] {
         const mapped = placementsToOps(room(), i['placements'] as Placement[]);
         if (!mapped.ok) return fail(mapped.error, mapped.hint);
         if (mapped.ops.length === 0) return fail('invalid_input', 'placements: give at least one change');
-        return mutate(ctx, { tool: 'apply_layout', proposable: true, summary: `Applied layout (${mapped.ops.length} changes)`, ops: mapped.ops });
+        return mutate(ctx, { tool: 'apply_layout', summary: `Applied layout (${mapped.ops.length} changes)`, ops: mapped.ops });
       },
     },
     {

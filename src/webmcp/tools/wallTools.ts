@@ -141,12 +141,9 @@ export function buildWallTools(ctx: ToolContext): ToolDef[] {
         if (wall !== undefined && !WALLS.includes(wall)) return fail('invalid_input', `Unknown wall ${String(wall)}; one of ${WALLS.join(', ')}`);
         const r = room();
         const finish = wall ? withWallColor(r.finish, wall, color) : withAllWallsColor(r.finish, color);
-        // Not proposable: paint is instantly visible and instantly undone, so making the user
-        // accept a proposal to see a colour would hide the only thing worth judging.
         const painted = paintName ?? color;
         const result = mutate(ctx, {
           tool: 'set_wall_color',
-          proposable: false,
           ops: [{ type: 'setFinish', finish }],
           summary: wall ? `Painted the ${wall} wall ${painted}` : `Painted every wall ${painted}`,
         });
@@ -195,8 +192,6 @@ export function buildWallTools(ctx: ToolContext): ToolDef[] {
         const bottom = mountHeight ?? cat.mountHeight;
         const result = mutate(ctx, {
           tool: 'place_on_wall',
-          proposable: true,
-          label: `Hang ${cat.name} on the ${wall} wall`,
           summary: `Hung ${cat.name} on the ${wall} wall at ${offset} cm, ${bottom} cm up`,
           ops: [{
             type: 'place',

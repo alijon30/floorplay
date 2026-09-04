@@ -3,18 +3,18 @@
 ## A. Automated
 - `npm test` passes: 305 tests across the engine, store, webmcp, plan and three suites.
 - `npm run build` passes with no type errors.
-- `npm run smoke -- <outDir>` boots Vite, drives the app with Playwright and writes 45 numbered
+- `npm run smoke -- <outDir>` boots Vite, drives the app with Playwright and writes 44 numbered
   screenshots plus `contact-sheet.png`. It exits non-zero on a page error or a failed assertion and
   prints a JSON summary; check that summary for `consoleErrors: []`, `pageErrors: []` and a static
   tool count of 60.
-  - Steps 1–31, screenshots `01`–`38` and the contact sheet, cover one room: the onboarding card,
+  - Steps 1–31, screenshots `01`–`37` and the contact sheet, cover one room: the onboarding card,
     two proposals and accepting one, the wall snap, the Issues tab and `fix_item`, the daylight
     sweep, the catalog filters, 3D click-to-select, the camera presets, the dev panel, the eight
     room templates and the wizard, the three suggested palettes and the Style tab, per-wall paint
-    and a hung print read back through `get_elevation`, a paint card under Propose first, the shadow and daylight toggles, the room
+    and a hung print read back through `get_elevation`, the shadow and daylight toggles, the room
     panel, the ledger, the Buy tab, and one of every glTF model in a single room.
-  - Steps 32–39, screenshots `39-home-plan`, `40-home-doorway-cut`, `41-home-doorway-removed`,
-    `42-room-tab-home`, `43-homes-menu`, `44-home-3d` and `45-home-walk`, cover the home: build the
+  - Steps 32–39, screenshots `38-home-plan`, `39-home-doorway-cut`, `40-home-doorway-removed`,
+    `41-room-tab-home`, `42-homes-menu`, `43-home-3d` and `44-home-walk`, cover the home: build the
     one-bedroom flat from the wizard and assert `get_home` reads four rooms and three doorways;
     nudge the kitchen 12 cm and assert the 20 cm snap puts it back at `x: 650` with all three
     doorways still standing; cut a fourth hall → living door at offset 250 by clicking the shared
@@ -42,7 +42,7 @@ Start on a fresh profile (a private window, or clear site data and reload), then
 16. `set_brief` `{"budget":600}` → over_budget violation, and the budget reading on the status strip turns red. The Issues tab row for it offers **Select** only, since no move can fix a budget.
 17. `set_camera` `{"preset":"from_door"}` → 3D camera moves; result lists items in view.
 18. `undo_last_action` → ledger gains an "Undid" entry.
-19. Toggle Propose first; `place_item` → `status: "proposed"`; Reject the card.
+19. `move_opening` on the window → it slides along its wall on the plan and in 3D; `undo_last_action` puts it back.
 20. `add_catalog_item` for a lamp, then `place_item` with the returned id → appears with a "from agent" badge in the catalog.
 21. `list_templates` → eight entries in the order living, kitchen, bedroom, hall, office, dining, kids, studio, each with a `key`, `name`, `blurb`, dimensions, item count and budget. The room is unchanged.
 22. `load_template` `{"key":"bedroom"}` → a new room called "Bedroom", 340×420, nine items, switched to. The plan and the 3D view both rebuild; the old room is still in **My homes**. `evaluate_layout` on it → no blocking violations and under its 1900 budget.

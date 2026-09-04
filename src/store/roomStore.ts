@@ -11,14 +11,12 @@ import { buildTemplateRoom } from '../engine/templates';
 import { doorwayFits, doorwayOpenings, homeContaining, snapRoomPlacement } from '../engine/home';
 import { buildHomeFromTemplate, type HomeTemplateKey } from '../engine/homeTemplates';
 import { newId } from '../engine/ids';
-import { parseResult, type ToolResult } from '../webmcp/results';
 import { STORAGE_KEY } from '../config';
 import { createDebouncedStorage } from './persistence';
 
 export interface UiState {
   selectedItemId: string | null;
   hoveredProposalId: string | null;
-  proposeFirst: boolean;
   /** Set once the human closes the first-run card; persisted so it stays closed. */
   onboardingDismissed: boolean;
   /**
@@ -118,17 +116,6 @@ export type PlaceRoomResult =
   | { ok: false; error: string };
 export type CutDoorwayResult = { ok: true; doorway: Doorway } | { ok: false; error: string; hint?: string };
 
-/** One agent call waiting for the user's yes: the words on its card, and the call itself. */
-export interface PendingAction {
-  id: string;
-  tool: string;
-  label: string;
-  createdAt: number;
-  run: () => Promise<ToolResult> | ToolResult;
-  /** Why the last attempt to run it failed, when it did. */
-  error?: string;
-}
-
 export interface RoomState {
   rooms: Record<string, Room>;
   currentId: string;
@@ -140,12 +127,6 @@ export interface RoomState {
   ui: UiState;
   /** Last persistence failure, surfaced as a small warning. Never persisted. */
   persistError: string | null;
-  /**
-   * Agent changes waiting for the user from the tools that do not work in ops: paint, room
-   * size, a template, a home and its doorways. With Propose first on they land here instead of
-   * applying, as cards beside the ghost proposals. Not persisted: a card holds the call itself.
-   */
-  pending: PendingAction[];
   current(): Room;
   /** The home named by `currentHomeId`, or null. */
   currentHome(): Home | null;
@@ -153,16 +134,11 @@ export interface RoomState {
   propose(input: { label: string; ops: Op[] }): { ok: true; proposal: Proposal } | { ok: false; error: string; message: string };
   acceptProposal(id: string, actor?: 'human' | 'agent'): DispatchResult;
   rejectProposal(id: string): boolean;
-  queueAction(input: { tool: string; label: string; run: PendingAction['run'] }): PendingAction;
-  /** Runs one waiting call and drops its card. A call that fails keeps its card, with the reason on it. */
-  acceptAction(id: string): Promise<{ ok: true; result: ToolResult } | { ok: false; message: string }>;
-  rejectAction(id: string): boolean;
   updateProposalOp(proposalId: string, index: number, op: Op): void;
   undo(actor?: 'human' | 'agent'): DispatchResult | null;
   revertTo(entryId: string, actor?: 'human' | 'agent'): DispatchResult | null;
   select(id: string | null): void;
   hoverProposal(id: string | null): void;
-  setProposeFirst(v: boolean): void;
   setShowDaylight(v: boolean): void;
   setShowShadows(v: boolean): void;
   setRoomPanelOpen(open: boolean): void;
@@ -253,7 +229,6 @@ function upgradeHome(home: Home, rooms: Record<string, Room>): Home {
 const defaultUi = (): UiState => ({
   selectedItemId: null,
   hoveredProposalId: null,
-  proposeFirst: false,
   onboardingDismissed: false,
   catalogFilter: null,
   wizardOpen: false,
@@ -370,7 +345,6 @@ export function createRoomStore(opts: { storage?: StateStorage; debounceMs?: num
       analysis: analyze(initialRoom),
       ui: defaultUi(),
       persistError: null,
-      pending: [],
 
       current() {
         const s = get();
@@ -417,31 +391,6 @@ export function createRoomStore(opts: { storage?: StateStorage; debounceMs?: num
         return true;
       },
 
-      queueAction({ tool, label, run }) {
-        const action: PendingAction = { id: newId('act'), tool, label, createdAt: Date.now(), run };
-        set((s) => ({ pending: [...s.pending, action] }));
-        return action;
-      },
-
-      async acceptAction(id) {
-        const action = get().pending.find((a) => a.id === id);
-        if (!action) return { ok: false, message: 'That proposal is no longer open' };
-        const result = await action.run();
-        const payload = parseResult(result);
-        if (payload['ok'] === false) {
-          const message = String(payload['hint'] ?? payload['error'] ?? 'The change could not be applied');
-          set((s) => ({ pending: s.pending.map((a) => (a.id === id ? { ...a, error: message } : a)) }));
-          return { ok: false, message };
-        }
-        set((s) => ({ pending: s.pending.filter((a) => a.id !== id) }));
-        return { ok: true, result };
-      },
-
-      rejectAction(id) {
-        if (!get().pending.some((a) => a.id === id)) return false;
-        set((s) => ({ pending: s.pending.filter((a) => a.id !== id) }));
-        return true;
-      },
 
       updateProposalOp(proposalId, index, op) {
         const room = get().current();
@@ -485,7 +434,6 @@ export function createRoomStore(opts: { storage?: StateStorage; debounceMs?: num
         }));
       },
       hoverProposal(id) { set((s) => ({ ui: { ...s.ui, hoveredProposalId: id } })); },
-      setProposeFirst(v) { set((s) => ({ ui: { ...s.ui, proposeFirst: v } })); },
       setShowDaylight(v) { set((s) => ({ ui: { ...s.ui, showDaylight: v } })); },
       setShowShadows(v) { set((s) => ({ ui: { ...s.ui, showShadows: v } })); },
       // Opening the room tab puts the room in the column's one slot, so the selection has to
@@ -719,7 +667,7 @@ export function createRoomStore(opts: { storage?: StateStorage; debounceMs?: num
     persist(initializer, {
       name: STORAGE_KEY,
       storage: storage as unknown as PersistStorage<RoomState>,
-      partialize: (s) => ({ rooms: s.rooms, currentId: s.currentId, homes: s.homes, currentHomeId: s.currentHomeId, ui: { proposeFirst: s.ui.proposeFirst, onboardingDismissed: s.ui.onboardingDismissed, showDaylight: s.ui.showDaylight, showShadows: s.ui.showShadows, showGrid: s.ui.showGrid, roomPanelOpen: s.ui.roomPanelOpen, ledgerOpen: s.ui.ledgerOpen } }) as unknown as RoomState,
+      partialize: (s) => ({ rooms: s.rooms, currentId: s.currentId, homes: s.homes, currentHomeId: s.currentHomeId, ui: { onboardingDismissed: s.ui.onboardingDismissed, showDaylight: s.ui.showDaylight, showShadows: s.ui.showShadows, showGrid: s.ui.showGrid, roomPanelOpen: s.ui.roomPanelOpen, ledgerOpen: s.ui.ledgerOpen } }) as unknown as RoomState,
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<RoomState> & { ui?: Partial<UiState> };
         const stored = p.rooms && Object.keys(p.rooms).length ? p.rooms : current.rooms;

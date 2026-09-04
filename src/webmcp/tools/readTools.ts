@@ -180,7 +180,7 @@ export function buildReadTools(ctx: ToolContext): ToolDef[] {
         ],
         conventions: COORDS_NOTE,
         tips: [
-          'Propose-first mode: when it is on, every editing tool returns status "proposed" instead of "applied" and the change waits for the user. Read `proposeFirst` in get_room and say so rather than trying to force the change through.',
+          'Proposals: propose_layout puts options on the plan as ghosts for the user to accept or reject; every other editing tool applies at once and undo_last_action takes it back. When the user is choosing rather than instructing, propose rather than apply.',
           'Wall snapping: place_item and move_item pull a position within 15 cm of a wall flush against it and turn wall furniture to face the room. The result reports `snapped` and the wall, so trust that over your own arithmetic.',
           'Selection-scoped tools: when the user selects an item, move_selected, replace_selected, remove_selected and find_alternatives_for_selected appear and act on it with no id. Use select_item to point the user at what you are discussing.',
           'Every editing result carries `violations` and `metrics`. Read them and act: call fix_item on a blocking violation rather than reporting it and moving on.',

@@ -31,17 +31,6 @@ describe('mutating tools', () => {
     expect(await run('place_item', { catalogId: 'nope', x: 0, y: 0 })).toMatchObject({ ok: false, error: 'invalid_input' });
   });
 
-  it('respects propose-first mode', async () => {
-    const { store, run } = setup();
-    store.getState().setProposeFirst(true);
-    const r = await run('place_item', { catalogId: 'desk-120', x: 60, y: 30 });
-    expect(r).toMatchObject({ ok: true, status: 'proposed' });
-    expect(store.getState().current().items).toHaveLength(0);
-    expect(store.getState().current().proposals).toHaveLength(1);
-    const cam = await run('set_daylight_hour', { hour: 16 });
-    expect(cam['ok']).toBe(true);
-    expect(store.getState().current().daylightHour).toBe(16);
-  });
 
   it('move, rotate, swap, lock and remove', async () => {
     const { store, run } = setup();
@@ -103,15 +92,6 @@ describe('mutating tools', () => {
     expect(store.getState().current().items[0]).toMatchObject({ x: 180, y: 260 });
   });
 
-  it('reports snapping in propose-first mode as well', async () => {
-    const { store, run } = setup();
-    store.getState().setProposeFirst(true);
-    const r = await run('place_item', { catalogId: 'desk-120', x: 100, y: 42, rotation: 90 });
-    expect(r).toMatchObject({ ok: true, status: 'proposed', snapped: true, wall: 'top' });
-    expect(typeof r['proposalId']).toBe('string');
-    const op = store.getState().current().proposals[0]!.ops[0]!;
-    expect(op).toMatchObject({ type: 'place', item: { x: 100, y: 30, rotation: 0 } });
-  });
 
   it('keeps the caller position when the snapped one would leave the room', async () => {
     const { store, run } = setup();
@@ -157,15 +137,6 @@ describe('mutating tools', () => {
     expect(await run('undo_last_action')).toHaveProperty('items');
   });
 
-  it('proposed results use the same violations and metrics keys as applied ones', async () => {
-    const { store, run } = setup();
-    store.getState().setProposeFirst(true);
-    const r = await run('place_item', { catalogId: 'desk-120', x: 60, y: 30 });
-    expect(r).toMatchObject({ ok: true, status: 'proposed' });
-    expect(Array.isArray(r['violations'])).toBe(true);
-    expect(typeof (r['metrics'] as { budgetUsed: unknown }).budgetUsed).toBe('number');
-    expect(r).not.toHaveProperty('violationsAfter');
-  });
 
   it('propose_layout, set_camera and undo', async () => {
     const { store, run } = setup();
@@ -185,7 +156,7 @@ describe('mutating tools', () => {
 });
 
 describe('move_opening', () => {
-  it('moves a window by id, proposes under propose-first, and explains a bad offset', async () => {
+  it('moves a window by id and explains a bad offset', async () => {
     const { store, run } = setup();
     const win = store.getState().current().openings.find((o) => o.kind === 'window')!;
     expect(await run('move_opening', { id: win.id, offset: win.offset + 30 })).toMatchObject({ ok: true, status: 'applied' });
@@ -195,10 +166,5 @@ describe('move_opening', () => {
     expect(bad['ok']).toBe(false);
     expect(String(bad['hint'] ?? bad['error'])).toMatch(/past the end/);
     expect(await run('move_opening', { id: 'nope', offset: 10 })).toMatchObject({ ok: false, error: 'not_found' });
-
-    store.getState().setProposeFirst(true);
-    const proposed = await run('move_opening', { id: win.id, offset: win.offset });
-    expect(proposed['status']).toBe('proposed');
-    expect(store.getState().current().proposals).toHaveLength(1);
   });
 });

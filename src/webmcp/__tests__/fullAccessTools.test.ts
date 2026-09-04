@@ -62,7 +62,7 @@ describe('list_rooms and get_guide', () => {
     expect(workflow.join(' ')).toContain('propose_layout');
     expect(g['conventions']).toContain('centimeters');
     expect((g['tips'] as string[]).length).toBeGreaterThanOrEqual(4);
-    expect((g['tips'] as string[]).join(' ')).toContain('Propose-first');
+    expect((g['tips'] as string[]).join(' ')).toContain('Proposals:');
   });
 });
 
@@ -171,14 +171,6 @@ describe('apply_layout', () => {
     expect(room.ledger[room.ledger.length - 1]!.summary).toBe('Applied layout (3 changes)');
   });
 
-  it('becomes a proposal under propose-first mode', async () => {
-    const { store, run } = setup();
-    furnish(store);
-    store.getState().setProposeFirst(true);
-    const r = await run('apply_layout', { placements: [{ action: 'move', id: 'd', x: 200, y: 40 }] });
-    expect(r).toMatchObject({ ok: true, status: 'proposed' });
-    expect(store.getState().current().items.find((x) => x.id === 'd')).toMatchObject({ x: 100 });
-  });
 
   it('rejects an empty batch and an unknown id', async () => {
     const { run } = setup();
@@ -203,12 +195,6 @@ describe('apply_palette', () => {
     expect(room.ledger[room.ledger.length - 1]!.summary).toBe('Applied cool palette');
   });
 
-  it('applies even under propose-first mode, because color is easy to change back', async () => {
-    const { store, run } = setup();
-    store.getState().setProposeFirst(true);
-    expect(await run('apply_palette', { name: 'warm' })).toMatchObject({ ok: true, status: 'applied' });
-    expect(store.getState().current().proposals).toHaveLength(0);
-  });
 
   it('rejects a scheme it does not offer', async () => {
     const { store, run } = setup();

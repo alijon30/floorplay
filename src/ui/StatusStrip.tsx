@@ -34,7 +34,6 @@ export default function StatusStrip() {
   const selected = ui.selectedItemId;
   const home = useRoom((s) => s.currentHome());
   const setDaylightHour = useRoom((s) => s.setDaylightHour);
-  const setProposeFirst = useRoom((s) => s.setProposeFirst);
 
   const lightTarget = (selected && room.items.find((i) => i.id === selected)) ?? room.items.find((i) => findCatalogItem(room, i.catalogId)?.category === 'desk');
   const lightName = lightTarget ? findCatalogItem(room, lightTarget.catalogId)?.name ?? 'item' : 'desk';
@@ -92,19 +91,6 @@ export default function StatusStrip() {
             aria-label="Daylight hour"
           />
         </label>
-        <span aria-hidden="true" className="h-4 w-px bg-line" />
-        <button
-          role="switch"
-          aria-checked={ui.proposeFirst}
-          title="When on, every agent change becomes a proposal you accept on screen"
-          onClick={() => setProposeFirst(!ui.proposeFirst)}
-          className="flex items-center gap-1.5 rounded text-[11.5px] text-muted transition-colors hover:text-fg focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
-        >
-          <span className={`relative h-3.5 w-6 shrink-0 rounded-full transition-colors ${ui.proposeFirst ? 'bg-accent' : 'bg-line'}`}>
-            <span className={`absolute top-0.5 h-2.5 w-2.5 rounded-full transition-all ${ui.proposeFirst ? 'left-3 bg-[var(--accent-ink)]' : 'left-0.5 bg-muted'}`} />
-          </span>
-          Propose first
-        </button>
       </div>
     </footer>
   );

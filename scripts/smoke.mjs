@@ -355,22 +355,6 @@ async function main() {
       throw new Error(`get_elevation does not see the hung print at 120 cm: ${JSON.stringify(findings.elevation)}`);
     }
 
-    // 22c'. with Propose first on, paint waits as a card until the user accepts it
-    const proposeFirst = page.getByRole('switch', { name: 'Propose first' });
-    await proposeFirst.click();
-    const ochre = japan.swatches.find((sw) => !/indigo/i.test(sw.name)) ?? japan.swatches[0];
-    const waited = await toolJson('set_wall_color', { wall: 'left', color: ochre.hex });
-    findings.proposeFirstCard = { status: waited.status ?? null, label: waited.label ?? null };
-    if (waited.status !== 'proposed') throw new Error(`set_wall_color applied under Propose first: ${JSON.stringify(waited)}`);
-    const paintCard = page.getByRole('group', { name: waited.label });
-    await paintCard.waitFor({ timeout: 10_000 });
-    await settle(400);
-    await shot('propose-first-card');
-    await paintCard.getByRole('button', { name: 'Accept' }).click();
-    await settle(400);
-    const leftWall = await toolJson('get_elevation', { wall: 'left' });
-    if (leftWall.color !== ochre.hex) throw new Error(`Accepting the card did not paint the wall: ${JSON.stringify(leftWall)}`);
-    await proposeFirst.click();
 
     // 22d. and the same wall in 3D: only that one is indigo
     await park();

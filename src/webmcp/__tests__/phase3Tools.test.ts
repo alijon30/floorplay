@@ -49,13 +49,11 @@ describe('load_template', () => {
     expect(s.current().finish.floor).toBe('tile');
   });
 
-  it('honours a name and applies even in propose-first mode', async () => {
+  it('honours a name', async () => {
     const { store, run } = setup();
-    store.getState().setProposeFirst(true);
     const r = await run('load_template', { key: 'hall', name: 'Front hall' });
     expect(r).toMatchObject({ ok: true, status: 'applied' });
     expect(store.getState().current().name).toBe('Front hall');
-    expect(store.getState().current().proposals).toEqual([]);
   });
 
   it('rejects an unknown key', async () => {
@@ -108,7 +106,7 @@ describe('set_item_color', () => {
     expect(store.getState().current().items[0]).not.toHaveProperty('color');
   });
 
-  it('is proposable, and refuses a bad hex or an unknown id', async () => {
+  it('refuses a bad hex or an unknown id', async () => {
     const { store, run } = setup();
     const room = store.getState().current();
     store.getState().dispatch({ ops: [{ type: 'place', item: placeTest(room, 'sofa-2', 180, 300, 0, 's') }], actor: 'human' });
@@ -116,16 +114,11 @@ describe('set_item_color', () => {
     expect(await run('set_item_color', { id: 's', color: 'olive' })).toMatchObject({ ok: false, error: 'invalid_input' });
     expect(await run('set_item_color', { id: 'nope', color: '#8c9a7a' })).toMatchObject({ ok: false, error: 'not_found' });
     expect(store.getState().current().items[0]).not.toHaveProperty('color');
-
-    store.getState().setProposeFirst(true);
-    expect(await run('set_item_color', { id: 's', color: '#8c9a7a' })).toMatchObject({ ok: true, status: 'proposed' });
-    expect(store.getState().current().items[0]).not.toHaveProperty('color');
-    expect(store.getState().current().proposals).toHaveLength(1);
   });
 });
 
 describe('set_finish', () => {
-  it('sets wall and floor, keeps what it is not given, and applies in propose-first mode', async () => {
+  it('sets wall and floor and keeps what it is not given', async () => {
     const { store, run } = setup();
     const r = await run('set_finish', { wall: '#c3cdb9', floor: 'walnut' });
     expect(r).toMatchObject({ ok: true, status: 'applied', finish: { wall: '#c3cdb9', floor: 'walnut' } });
@@ -134,7 +127,6 @@ describe('set_finish', () => {
     expect(await run('set_finish', { floor: 'tile' })).toMatchObject({ ok: true });
     expect(store.getState().current().finish).toEqual({ wall: '#c3cdb9', floor: 'tile' });
 
-    store.getState().setProposeFirst(true);
     expect(await run('set_finish', { wall: '#efe9df' })).toMatchObject({ ok: true, status: 'applied' });
     expect(store.getState().current().finish.wall).toBe('#efe9df');
   });

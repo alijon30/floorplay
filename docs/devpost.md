@@ -22,7 +22,6 @@ The hardest moment in a planner is the empty rectangle, so the wizard opens on e
 - Say "keep the sofa" and have the lock respected by every later tool call.
 - Take a whole palette derived from what is already placed, walls, floor and recolors, in one undoable step.
 - Ask what the room looks like from the door and get an answer from the real camera view.
-- Turn on Propose first so the agent can only suggest — furniture as ghosts on the plan, paint and rooms as cards — and accept each change yourself.
 - Paint the east wall aizome indigo from the Japan palette and hang a print on it at the height you actually want — by hand, or by asking the agent to read the wall first with `get_elevation`.
 - Open a one-bedroom flat, ask for a doorway between the living room and the bedroom, and walk through it in 3D.
 - Say "put a kitchen to the right of this room" and have the plan start itself around the room you are already in.

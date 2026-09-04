@@ -35,7 +35,7 @@ Floorplay is laid out like a drafting tool rather than a chat window.
 - **Plan viewport** — a drafting sheet: paper ground, a 10 cm fine grid over a 100 cm major grid, solid wall bands with doors and windows cut out of them, swing arcs, dimension lines with witness ticks, and outlined furniture with its own glyph. Its toolbar carries a **Plan** / **Home** toggle, the north-wall control, the grid toggle, the daylight-overlay toggle and fit-to-view. The wheel zooms from 0.5x to 4x.
 - **3D viewport** — the same room in three.js, with its own orbit/walk, shadows and fit buttons. Clicking a piece here selects it everywhere. In Home view it draws the whole flat instead, as one dollhouse.
 - **Ledger drawer** — one line showing the last action and the entry count, expanding to the full list with a **Revert** on every entry.
-- **Status strip** — six readings across the bottom (free floor, walkway, open area, budget, light at the selected item, issues), then the daylight hour slider and the **Propose first** switch. With it on, every change the agent makes to the design waits for you: furniture and openings as ghosts on the plan, and paint, room size, templates, homes and doorways as cards you accept or reject. Looking, selecting, undoing and switching rooms never wait. In Home view the six become home, rooms, area, items, budget against the summed budgets, and which rooms you can reach from the front door.
+- **Status strip** — six readings across the bottom (free floor, walkway, open area, budget, light at the selected item, issues), then the daylight hour slider. In Home view the six become home, rooms, area, items, budget against the summed budgets, and which rooms you can reach from the front door.
 
 Proposals do not take a panel of their own. They float over the plan as cards, each with a thumbnail drawing the room's current footprints in grey and the proposal's ghosts as dashed outlines, its label, its three biggest deltas and **Accept** / **Reject**. Hovering one previews it on the drawing and in 3D underneath.
 
@@ -142,7 +142,7 @@ Tools that appear only while the page is in a matching state:
 
 - When you select an item: `move_selected`, `replace_selected`, `remove_selected`, `find_alternatives_for_selected`. Their descriptions name the selected item, and they disappear when you deselect.
 
-Every mutating tool returns the violations it caused, the new metrics, and, when a placement has problems, the nearest clear position. `evaluate_layout` lets the agent score a layout privately before showing anything. The **Propose first** switch turns every agent change into a proposal you accept on screen.
+Every mutating tool returns the violations it caused, the new metrics, and, when a placement has problems, the nearest clear position. `evaluate_layout` lets the agent score a layout privately before showing anything. `propose_layout` puts an option on the plan as ghosts for you to accept or reject; everything else applies at once and one undo takes it back.
 
 ## Run locally
 
@@ -151,7 +151,7 @@ npm install
 npm run dev      # http://localhost:5173
 npm test         # engine, store and tool tests
 npm run build    # typecheck and production build
-npm run smoke    # 45 screenshots plus a model contact sheet into ./smoke-out (first run downloads Chromium)
+npm run smoke    # 44 screenshots plus a model contact sheet into ./smoke-out (first run downloads Chromium)
 npm run models   # rebuild public/models from Poly Haven (the .glb files are committed; this is only for changing them)
 ```
 

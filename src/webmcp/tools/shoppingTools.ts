@@ -102,11 +102,8 @@ export function buildShoppingTools(ctx: ToolContext): ToolDef[] {
         });
 
         const where = source ? ` from ${source}` : '';
-        // Not proposable: this changes no geometry and nothing on the plan moves, so making
-        // someone accept a proposal to record where a chair came from would be theatre.
         return mutate(ctx, {
           tool: 'set_purchase_status',
-          proposable: false,
           ops,
           summary: `Marked ${targets.length > 1 ? `${targets.length} × ` : ''}${name} ${status}${where}`,
         });

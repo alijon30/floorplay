@@ -15,19 +15,19 @@ export function buildSelectionTools(ctx: ToolContext, item: PlacedItem, cat: Cat
       name: 'move_selected',
       description: `${who} Move it to a new center, optionally rotating. ${COORDS_NOTE}`,
       inputSchema: { type: 'object', properties: { x: cm('Center x'), y: cm('Center y'), rotation: rotationProp }, required: ['x', 'y'] },
-      execute: (i) => mutate(ctx, { tool: 'move_selected', proposable: true, ops: [{ type: 'move', id: item.id, x: i['x'] as number, y: i['y'] as number, rotation: (i['rotation'] as Rotation | undefined) ?? item.rotation }] }),
+      execute: (i) => mutate(ctx, { tool: 'move_selected', ops: [{ type: 'move', id: item.id, x: i['x'] as number, y: i['y'] as number, rotation: (i['rotation'] as Rotation | undefined) ?? item.rotation }] }),
     },
     {
       name: 'replace_selected',
       description: `${who} Replace it with another catalog item in the same spot.`,
       inputSchema: { type: 'object', properties: { catalogId: idProp('Replacement catalog id') }, required: ['catalogId'] },
-      execute: (i) => mutate(ctx, { tool: 'replace_selected', proposable: true, ops: [{ type: 'swap', id: item.id, catalogId: i['catalogId'] as string }] }),
+      execute: (i) => mutate(ctx, { tool: 'replace_selected', ops: [{ type: 'swap', id: item.id, catalogId: i['catalogId'] as string }] }),
     },
     {
       name: 'remove_selected',
       description: `${who} Remove it from the room.`,
       inputSchema: { type: 'object', properties: {} },
-      execute: () => mutate(ctx, { tool: 'remove_selected', proposable: true, ops: [{ type: 'remove', id: item.id }] }),
+      execute: () => mutate(ctx, { tool: 'remove_selected', ops: [{ type: 'remove', id: item.id }] }),
     },
     {
       name: 'find_alternatives_for_selected',
@@ -54,16 +54,9 @@ export function buildProposalTools(ctx: ToolContext): ToolDef[] {
       name: 'apply_proposal',
       description: 'Apply one open proposal by id, applying its ghosted changes to the room. Only call this when the user has explicitly chosen that option. Open proposals and their ids are listed by get_room.',
       inputSchema: { type: 'object', properties: { proposalId: idProp('Proposal id') }, required: ['proposalId'] },
-      execute: async (i) => {
-        const id = i['proposalId'] as string;
-        const s = ctx.store.getState();
-        // A card from a gated tool applies through the tool itself, and answers as that tool would.
-        if (s.pending.some((a) => a.id === id)) {
-          const r = await s.acceptAction(id);
-          return r.ok ? r.result : fail('rejected', r.message);
-        }
+      execute: (i) => {
         if (proposals().length === 0) return NO_PROPOSALS();
-        const r = s.acceptProposal(id, 'agent');
+        const r = ctx.store.getState().acceptProposal(i['proposalId'] as string, 'agent');
         if (!r.ok) return r.error === 'not_found' ? UNKNOWN_ID() : fail(r.error, r.message);
         return applied(ctx, r.entry.id, r.analysis);
       },
@@ -73,10 +66,8 @@ export function buildProposalTools(ctx: ToolContext): ToolDef[] {
       description: 'Withdraw one of your open proposals by id.',
       inputSchema: { type: 'object', properties: { proposalId: idProp('Proposal id') }, required: ['proposalId'] },
       execute: (i) => {
-        const id = i['proposalId'] as string;
-        if (ctx.store.getState().rejectAction(id)) return ok({ status: 'withdrawn' });
         if (proposals().length === 0) return NO_PROPOSALS();
-        return ctx.store.getState().rejectProposal(id) ? ok({ status: 'withdrawn' }) : UNKNOWN_ID();
+        return ctx.store.getState().rejectProposal(i['proposalId'] as string) ? ok({ status: 'withdrawn' }) : UNKNOWN_ID();
       },
     },
     {

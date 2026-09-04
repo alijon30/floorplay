@@ -94,9 +94,8 @@ describe('roomStore', () => {
     store.getState().deleteRoom(demo.id);
     expect(Object.keys(store.getState().rooms)).toHaveLength(1);
     store.getState().select('x');
-    store.getState().setProposeFirst(true);
     store.getState().setDaylightHour(16);
-    expect(store.getState().ui).toMatchObject({ selectedItemId: 'x', proposeFirst: true });
+    expect(store.getState().ui).toMatchObject({ selectedItemId: 'x' });
     expect(store.getState().current().daylightHour).toBe(16);
     const created = store.getState().createRoom({ name: 'Office', width: 300, depth: 300, height: 250 });
     expect(store.getState().current().id).toBe(created.id);
@@ -241,7 +240,7 @@ describe('roomStore', () => {
           },
         },
         currentId: 'r1',
-        ui: { proposeFirst: false, onboardingDismissed: true },
+        ui: { onboardingDismissed: true },
       },
       version: 0,
     };
