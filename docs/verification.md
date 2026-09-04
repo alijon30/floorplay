@@ -80,18 +80,18 @@ Start on a fresh profile (a private window, or clear site data and reload), then
 - DevTools → Application → WebMCP panel lists 60 tools with nothing selected; selecting an item adds four and deselecting removes them.
 - Invoke `get_room` from the panel and confirm the JSON.
 
-## D. ChatGPT in-app browser
+## D. Agent browser (ChatGPT's in-app browser today)
 - Open https://floorplay-zeta.vercel.app in ChatGPT's browser. The agent chip turns green with 60 tools.
 - Run the video script prompts below and confirm the plan updates live.
 
 ## E. Video script (under 3 minutes, with audio)
 
 Record at 1440x900 or wider so the tool rail, both viewports and the properties column all fit.
-Have ChatGPT's browser on the left and nothing else on screen. Prompts below are verbatim.
+Have the agent's browser on the left and nothing else on screen. Prompts below are verbatim.
 
 **0:00 — Open cold.** A fresh incognito window on the live URL. The onboarding card sits over the
 plan: three numbered steps, three example prompts, **Load the demo studio** / **Start empty**.
-Say: "Floorplay. A room you design with ChatGPT on the same plan."
+Say: "Floorplay. A room you design with an AI agent on the same plan."
 
 **0:08 — Start from a real room.** Click **Ready-made rooms...** on the card. The wizard opens on
 eight furnished templates, each with a thumbnail drawn from its own footprints. Click **Bedroom**.
@@ -104,7 +104,7 @@ an empty rectangle."
 **Load the demo studio** on the card that returns. This is the Studio flat shell with the same
 brief, $1200 and "sleep, work from home, host two friends", and no furniture yet.
 
-**0:25 — Three options.** In ChatGPT, with the properties column on **Room** so the brief is
+**0:25 — Three options.** In the agent chat, with the properties column on **Room** so the brief is
 visible:
 
 > Furnish this studio for my brief using suggest_positions. Give me three options.
@@ -117,7 +117,7 @@ both views and the ledger line at the foot reads the accepted proposal.
 **1:05 — Drag it somewhere the agent did not expect.** Drag the bed toward the window wall. The
 snap guide highlights the wall while you drag, the bed lands flush, and a dashed marker with a
 count appears where it now blocks something. Click the **Issues** tab so the row is on screen, then
-in ChatGPT:
+in the agent chat:
 
 > I moved the bed. Make it work and keep the desk in morning light.
 
@@ -142,7 +142,7 @@ not from a guess.
 sheet — hall, living room, bedroom and kitchen — with their doorways already cut, and the status
 strip reads the home rather than the room: rooms, area, items, budget and that every room is
 reachable. In the **Room** tab's **HOME** section, press the × beside the Living room → Bedroom
-doorway: the opening closes in both rooms at once. Then in ChatGPT:
+doorway: the opening closes in both rooms at once. Then in the agent chat:
 
 > Cut a doorway between the living room and the bedroom and walk me through it.
 
